@@ -57,7 +57,7 @@ function touchStatusColor(status: string) {
   switch (status) {
     case "responded": return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
     case "sent": return "bg-blue-500/10 text-blue-700 dark:text-blue-400"
-    case "planned": return "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+    case "planned": return "bg-sky-500/10 text-sky-700 dark:text-sky-400"
     case "no_response": return "bg-muted text-muted-foreground"
     default: return "bg-muted text-muted-foreground"
   }

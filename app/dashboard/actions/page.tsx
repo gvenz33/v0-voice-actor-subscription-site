@@ -50,7 +50,7 @@ const ITEM_STATUSES = [
 function priorityColor(p: string) {
   switch (p) {
     case "urgent": return "bg-red-500/10 text-red-700 dark:text-red-400"
-    case "high": return "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+    case "high": return "bg-orange-500/10 text-orange-700 dark:text-orange-400"
     case "medium": return "bg-blue-500/10 text-blue-700 dark:text-blue-400"
     case "low": return "bg-muted text-muted-foreground"
     default: return "bg-muted text-muted-foreground"

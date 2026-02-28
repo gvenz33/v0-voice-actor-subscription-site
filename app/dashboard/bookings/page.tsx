@@ -56,7 +56,7 @@ function bookingStatusColor(status: string) {
   switch (status) {
     case "completed": return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
     case "delivered": return "bg-blue-500/10 text-blue-700 dark:text-blue-400"
-    case "in_progress": case "recorded": return "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+    case "in_progress": case "recorded": return "bg-sky-500/10 text-sky-700 dark:text-sky-400"
     case "confirmed": return "bg-sky-500/10 text-sky-700 dark:text-sky-400"
     case "cancelled": return "bg-red-500/10 text-red-700 dark:text-red-400"
     default: return "bg-muted text-muted-foreground"

@@ -137,9 +137,9 @@ export default function BillingDesk() {
             <div><p className="text-xs text-muted-foreground uppercase tracking-wider">Total Earned</p><p className="text-xl font-bold text-foreground">${totalPaid.toLocaleString("en-US", { minimumFractionDigits: 2 })}</p></div>
           </CardContent>
         </Card>
-        <Card className="border-amber-500/20">
+        <Card className="border-emerald-500/20">
           <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex size-10 items-center justify-center rounded-full bg-amber-500/10"><Receipt className="size-5 text-amber-600" /></div>
+            <div className="flex size-10 items-center justify-center rounded-full bg-emerald-500/10"><Receipt className="size-5 text-emerald-400" /></div>
             <div><p className="text-xs text-muted-foreground uppercase tracking-wider">Pending</p><p className="text-xl font-bold text-foreground">${totalPending.toLocaleString("en-US", { minimumFractionDigits: 2 })}</p></div>
           </CardContent>
         </Card>

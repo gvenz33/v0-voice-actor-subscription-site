@@ -80,7 +80,7 @@ function statusColor(status: string) {
   switch (status) {
     case "active": return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
     case "pitched": return "bg-blue-500/10 text-blue-700 dark:text-blue-400"
-    case "prospect": return "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+    case "prospect": return "bg-sky-500/10 text-sky-700 dark:text-sky-400"
     case "past_client": return "bg-muted text-muted-foreground"
     case "cold": return "bg-red-500/10 text-red-700 dark:text-red-400"
     default: return "bg-muted text-muted-foreground"
