@@ -44,7 +44,7 @@ const INV_STATUSES = [
 
 function invStatusColor(status: string) {
   switch (status) {
-    case "paid": return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+    case "paid": return "bg-violet-500/10 text-violet-700 dark:text-violet-400"
     case "sent": return "bg-blue-500/10 text-blue-700 dark:text-blue-400"
     case "draft": return "bg-muted text-muted-foreground"
     case "overdue": return "bg-red-500/10 text-red-700 dark:text-red-400"
@@ -131,15 +131,15 @@ export default function BillingDesk() {
       </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-        <Card className="border-emerald-500/20">
+        <Card className="border-violet-500/20">
           <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex size-10 items-center justify-center rounded-full bg-emerald-500/10"><DollarSign className="size-5 text-emerald-600" /></div>
+            <div className="flex size-10 items-center justify-center rounded-full bg-violet-500/10"><DollarSign className="size-5 text-violet-600" /></div>
             <div><p className="text-xs text-muted-foreground uppercase tracking-wider">Total Earned</p><p className="text-xl font-bold text-foreground">${totalPaid.toLocaleString("en-US", { minimumFractionDigits: 2 })}</p></div>
           </CardContent>
         </Card>
-        <Card className="border-emerald-500/20">
+        <Card className="border-violet-500/20">
           <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex size-10 items-center justify-center rounded-full bg-emerald-500/10"><Receipt className="size-5 text-emerald-400" /></div>
+            <div className="flex size-10 items-center justify-center rounded-full bg-violet-500/10"><Receipt className="size-5 text-violet-400" /></div>
             <div><p className="text-xs text-muted-foreground uppercase tracking-wider">Pending</p><p className="text-xl font-bold text-foreground">${totalPending.toLocaleString("en-US", { minimumFractionDigits: 2 })}</p></div>
           </CardContent>
         </Card>

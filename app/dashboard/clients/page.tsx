@@ -78,7 +78,7 @@ const STATUSES = [
 
 function statusColor(status: string) {
   switch (status) {
-    case "active": return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+    case "active": return "bg-violet-500/10 text-violet-700 dark:text-violet-400"
     case "pitched": return "bg-blue-500/10 text-blue-700 dark:text-blue-400"
     case "prospect": return "bg-sky-500/10 text-sky-700 dark:text-sky-400"
     case "past_client": return "bg-muted text-muted-foreground"

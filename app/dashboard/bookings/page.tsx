@@ -54,7 +54,7 @@ const GENRES = [
 
 function bookingStatusColor(status: string) {
   switch (status) {
-    case "completed": return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+    case "completed": return "bg-violet-500/10 text-violet-700 dark:text-violet-400"
     case "delivered": return "bg-blue-500/10 text-blue-700 dark:text-blue-400"
     case "in_progress": case "recorded": return "bg-sky-500/10 text-sky-700 dark:text-sky-400"
     case "confirmed": return "bg-sky-500/10 text-sky-700 dark:text-sky-400"

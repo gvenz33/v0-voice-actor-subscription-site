@@ -123,7 +123,7 @@ export default function SettingsPage() {
                 </SelectContent>
               </Select>
             </div>
-            {message && <p className="text-sm text-emerald-600">{message}</p>}
+            {message && <p className="text-sm text-violet-400">{message}</p>}
             <Button type="submit" size="lg" className="min-h-[44px]" disabled={saving}>
               {saving ? "Saving..." : "Save Profile"}
             </Button>

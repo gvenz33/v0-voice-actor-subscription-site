@@ -69,7 +69,7 @@ const SUB_STATUSES = [
 
 function subStatusColor(status: string) {
   switch (status) {
-    case "booked": return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+    case "booked": return "bg-violet-500/10 text-violet-700 dark:text-violet-400"
     case "callback": return "bg-blue-500/10 text-blue-700 dark:text-blue-400"
     case "submitted": return "bg-sky-500/10 text-sky-700 dark:text-sky-400"
     case "declined": return "bg-red-500/10 text-red-700 dark:text-red-400"
