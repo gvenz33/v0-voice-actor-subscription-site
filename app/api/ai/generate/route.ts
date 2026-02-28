@@ -1,9 +1,45 @@
 import { generateText } from 'ai'
+import { getUserAIAccess, incrementUsage } from '@/lib/ai-limits'
 
 export const maxDuration = 30
 
 export async function POST(req: Request) {
+  // Check user's tier and usage
+  const access = await getUserAIAccess()
+
+  if (!access) {
+    return Response.json({ error: 'Not authenticated' }, { status: 401 })
+  }
+
   const { type, context } = await req.json()
+
+  // Check feature access based on tier
+  if (type === 'follow_up' && !access.limits.hasFollowUpWriter) {
+    return Response.json(
+      { error: 'upgrade_required', feature: 'Follow-Up Writer', requiredTier: 'Momentum' },
+      { status: 403 }
+    )
+  }
+
+  if (type === 'pitch_generator' && !access.limits.hasPitchGenerator) {
+    return Response.json(
+      { error: 'upgrade_required', feature: 'Pitch Generator', requiredTier: 'Momentum' },
+      { status: 403 }
+    )
+  }
+
+  // Check generation limit
+  if (!access.canGenerate) {
+    return Response.json(
+      {
+        error: 'limit_reached',
+        tier: access.tier,
+        used: access.generationCount,
+        limit: access.limits.monthlyGenerations,
+      },
+      { status: 429 }
+    )
+  }
 
   let prompt = ''
 
@@ -65,5 +101,15 @@ Guidelines:
     maxOutputTokens: 1000,
   })
 
-  return Response.json({ text })
+  // Track usage after successful generation
+  await incrementUsage(access.userId)
+
+  return Response.json({
+    text,
+    usage: {
+      used: access.generationCount + 1,
+      limit: access.limits.monthlyGenerations,
+      isUnlimited: access.isUnlimited,
+    },
+  })
 }

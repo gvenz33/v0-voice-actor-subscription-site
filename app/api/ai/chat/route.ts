@@ -4,11 +4,29 @@ import {
   streamText,
   UIMessage,
 } from 'ai'
+import { getUserAIAccess, incrementUsage } from '@/lib/ai-limits'
 
 export const maxDuration = 30
 
 export async function POST(req: Request) {
+  // Check user's tier - chat is Command tier only
+  const access = await getUserAIAccess()
+
+  if (!access) {
+    return Response.json({ error: 'Not authenticated' }, { status: 401 })
+  }
+
+  if (!access.limits.hasChatAssistant) {
+    return Response.json(
+      { error: 'upgrade_required', feature: 'VO Business Assistant', requiredTier: 'Command' },
+      { status: 403 }
+    )
+  }
+
   const { messages }: { messages: UIMessage[] } = await req.json()
+
+  // Track each chat message as a generation
+  await incrementUsage(access.userId)
 
   const result = streamText({
     model: 'openai/gpt-5-mini',
