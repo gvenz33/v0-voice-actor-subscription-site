@@ -1,10 +1,17 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter, Space_Grotesk } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
-const _inter = Inter({ subsets: ["latin"] });
-const _spaceGrotesk = Space_Grotesk({ subsets: ["latin"] });
+const _inter = Inter({ subsets: ["latin"] })
+const _spaceGrotesk = Space_Grotesk({ subsets: ["latin"] })
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: "#1a2040",
+}
 
 export const metadata: Metadata = {
   title: 'VO Biz Suite | Build Your Voiceover Career Like a Business',
@@ -17,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="bg-background">
       <body className="font-sans antialiased">
         {children}
         <Analytics />
