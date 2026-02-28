@@ -124,3 +124,58 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Gradient section transitions for landing page */
+.section-hero {
+  background: linear-gradient(
+    180deg,
+    oklch(0.10 0.04 285) 0%,
+    oklch(0.14 0.05 280) 40%,
+    oklch(0.16 0.06 275) 70%,
+    oklch(0.17 0.04 285) 100%
+  );
+}
+
+.section-features {
+  background: linear-gradient(
+    180deg,
+    oklch(0.17 0.04 285) 0%,
+    oklch(0.14 0.035 280) 50%,
+    oklch(0.18 0.05 290) 100%
+  );
+}
+
+.section-how {
+  background: linear-gradient(
+    180deg,
+    oklch(0.18 0.05 290) 0%,
+    oklch(0.15 0.04 285) 50%,
+    oklch(0.12 0.04 280) 100%
+  );
+}
+
+.section-pricing {
+  background: linear-gradient(
+    180deg,
+    oklch(0.12 0.04 280) 0%,
+    oklch(0.16 0.055 290) 40%,
+    oklch(0.14 0.045 285) 100%
+  );
+}
+
+.section-cta {
+  background: linear-gradient(
+    180deg,
+    oklch(0.14 0.045 285) 0%,
+    oklch(0.10 0.04 295) 50%,
+    oklch(0.08 0.035 290) 100%
+  );
+}
+
+.glow-purple {
+  box-shadow: 0 0 80px 20px oklch(0.45 0.22 295 / 0.15);
+}
+
+.glow-blue {
+  box-shadow: 0 0 80px 20px oklch(0.45 0.18 265 / 0.15);
+}

@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 
 export function Pricing() {
   return (
-    <section id="pricing" className="bg-secondary px-6 py-24 md:py-32">
+    <section id="pricing" className="section-pricing px-6 py-24 md:py-32">
       <div className="mx-auto max-w-7xl">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-balance text-3xl font-bold tracking-tight text-foreground md:text-4xl">
@@ -28,7 +28,7 @@ export function Pricing() {
               )}
             >
               {product.highlighted && (
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-accent px-4 py-1 text-xs font-semibold text-accent-foreground">
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] px-4 py-1 text-xs font-semibold text-foreground">
                   Most Popular
                 </div>
               )}
@@ -54,7 +54,7 @@ export function Pricing() {
                 className={cn(
                   'w-full',
                   product.highlighted
-                    ? 'bg-accent text-accent-foreground hover:bg-accent/90'
+                    ? 'bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90 border-0'
                     : '',
                 )}
                 variant={product.highlighted ? 'default' : 'outline'}

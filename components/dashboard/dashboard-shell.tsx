@@ -14,6 +14,7 @@ import {
   Settings,
   LogOut,
   Mic2,
+  Sparkles,
 } from "lucide-react"
 import {
   SidebarProvider,
@@ -78,6 +79,11 @@ const NAV_ITEMS = [
     title: "Action Items",
     href: "/dashboard/actions",
     icon: CheckSquare,
+  },
+  {
+    title: "AI Tools",
+    href: "/dashboard/ai-tools",
+    icon: Sparkles,
   },
 ]
 

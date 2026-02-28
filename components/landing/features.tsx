@@ -5,11 +5,16 @@ import {
   Receipt,
   MessageSquare,
   CheckSquare,
-  Mail,
+  Sparkles,
   BarChart3,
 } from 'lucide-react'
 
 const features = [
+  {
+    icon: Sparkles,
+    title: 'AI Outreach Writer',
+    description: 'Generate compelling cold emails, follow-ups, and elevator pitches with AI trained on voice over industry best practices.',
+  },
   {
     icon: Users,
     title: 'Client Hub',
@@ -41,11 +46,6 @@ const features = [
     description: 'Your VO-specific task list with priorities and due dates. Stay on top of your business to-dos.',
   },
   {
-    icon: Mail,
-    title: 'Email Campaigns',
-    description: 'Craft and schedule outreach emails to prospects. Build templates for pitches and follow-ups.',
-  },
-  {
     icon: BarChart3,
     title: 'Command Center',
     description: 'Your business dashboard at a glance. See submissions, revenue, bookings, and follow-ups in real time.',
@@ -54,7 +54,7 @@ const features = [
 
 export function Features() {
   return (
-    <section id="features" className="px-6 py-24 md:py-32">
+    <section id="features" className="section-features px-6 py-24 md:py-32">
       <div className="mx-auto max-w-7xl">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-balance text-3xl font-bold tracking-tight text-foreground md:text-4xl">
