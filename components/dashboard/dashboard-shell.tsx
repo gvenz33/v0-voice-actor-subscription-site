@@ -15,6 +15,7 @@ import {
   LogOut,
   Mic2,
   Sparkles,
+  ScanSearch,
 } from "lucide-react"
 import {
   SidebarProvider,
@@ -79,6 +80,11 @@ const NAV_ITEMS = [
     title: "Action Items",
     href: "/dashboard/actions",
     icon: CheckSquare,
+  },
+  {
+    title: "Prospect Finder",
+    href: "/dashboard/prospect-finder",
+    icon: ScanSearch,
   },
   {
     title: "AI Tools",

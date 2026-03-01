@@ -6,10 +6,16 @@ import {
   MessageSquare,
   CheckSquare,
   Sparkles,
+  ScanSearch,
   BarChart3,
 } from 'lucide-react'
 
 const features = [
+  {
+    icon: ScanSearch,
+    title: 'Prospect Finder',
+    description: 'Search for production companies, studios, and agencies. AI scans their websites and extracts emails, names, and roles so you can start pitching.',
+  },
   {
     icon: Sparkles,
     title: 'AI Outreach Writer',
