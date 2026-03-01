@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
 
     // Priority 3: AI-powered company directory
     // Uses GPT to return real, verifiable companies with their actual websites
+    console.log("[v0] Starting AI search for query:", query)
     const result = await generateText({
       model: "openai/gpt-4o-mini",
       system: `You are a research assistant that helps voice actors find production companies and studios to pitch their services to.
@@ -95,6 +96,9 @@ Pixar Animation Studios|https://www.pixar.com|Award-winning animation studio kno
 Do NOT include any other text, headers, numbering, or markdown. Just the pipe-delimited lines.`,
       prompt: `Find real production companies, studios, and agencies matching this search: "${query}"`,
     })
+
+    console.log("[v0] AI response received, text length:", result.text?.length)
+    console.log("[v0] AI response first 500 chars:", result.text?.substring(0, 500))
 
     // Parse pipe-delimited response - extremely robust
     const lines = result.text
@@ -139,9 +143,12 @@ Do NOT include any other text, headers, numbering, or markdown. Just the pipe-de
 
     return NextResponse.json({ results })
   } catch (error) {
-    console.error("[v0] Search error:", error)
+    const errMsg = error instanceof Error ? error.message : String(error)
+    const errStack = error instanceof Error ? error.stack : ""
+    console.error("[v0] Search error message:", errMsg)
+    console.error("[v0] Search error stack:", errStack)
     return NextResponse.json(
-      { error: "Search failed. Please try again." },
+      { error: `Search failed: ${errMsg}` },
       { status: 500 }
     )
   }
