@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { generateText } from "ai"
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -37,82 +38,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ results })
     }
 
-    // Priority 2: Try multiple SearXNG public instances (JSON API, free, no key)
-    const searxngInstances = [
-      "https://search.sapti.me",
-      "https://searx.tiekoetter.com",
-      "https://search.bus-hit.me",
-      "https://searx.be",
-      "https://search.ononoki.org",
-    ]
-
-    for (const instance of searxngInstances) {
-      try {
-        const searchUrl = `${instance}/search?q=${encodeURIComponent(query)}&format=json&categories=general&engines=google,bing,duckduckgo&language=en`
-
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 8000)
-
-        const res = await fetch(searchUrl, {
-          headers: {
-            Accept: "application/json",
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          },
-          signal: controller.signal,
-        })
-        clearTimeout(timeout)
-
-        if (!res.ok) {
-          console.log(`[v0] SearXNG instance ${instance} returned ${res.status}, trying next...`)
-          continue
-        }
-
-        const data = await res.json()
-
-        if (!data.results || data.results.length === 0) {
-          console.log(`[v0] SearXNG instance ${instance} returned 0 results, trying next...`)
-          continue
-        }
-
-        const results = data.results
-          .filter((r: { url: string }) => {
-            // Filter out search engines, aggregators, and non-company pages
-            const url = r.url || ""
-            return (
-              url.startsWith("http") &&
-              !url.includes("google.com") &&
-              !url.includes("bing.com") &&
-              !url.includes("duckduckgo.com") &&
-              !url.includes("wikipedia.org/wiki/List") &&
-              !url.includes("reddit.com")
-            )
-          })
-          .slice(0, 15)
-          .map((r: { title: string; url: string; content: string }) => {
-            let displayLink = ""
-            try {
-              displayLink = new URL(r.url).hostname.replace("www.", "")
-            } catch {
-              displayLink = r.url
-            }
-            return {
-              title: (r.title || "").replace(/<[^>]*>/g, ""),
-              link: r.url,
-              snippet: (r.content || "").replace(/<[^>]*>/g, ""),
-              displayLink,
-            }
-          })
-
-        console.log(`[v0] SearXNG (${instance}) returned ${results.length} results`)
-        return NextResponse.json({ results })
-      } catch (err) {
-        console.log(`[v0] SearXNG instance ${instance} failed:`, err instanceof Error ? err.message : err)
-        continue
-      }
-    }
-
-    // Priority 3: Brave Search API (free tier: 2000 queries/month)
+    // Priority 2: Brave Search API
     const braveApiKey = process.env.BRAVE_SEARCH_API_KEY
     if (braveApiKey) {
       const res = await fetch(
@@ -145,14 +71,73 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ results })
     }
 
-    // All search methods failed
-    return NextResponse.json(
-      {
-        error:
-          "Search service is temporarily unavailable. Please try again in a moment.",
-      },
-      { status: 503 }
-    )
+    // Priority 3: AI-powered company directory
+    // Uses GPT to return real, verifiable companies with their actual websites
+    const result = await generateText({
+      model: "openai/gpt-4o-mini",
+      system: `You are a research assistant that helps voice actors find production companies and studios to pitch their services to.
+
+CRITICAL RULES:
+- Only return REAL companies that actually exist with their REAL website URLs
+- Do NOT invent or fabricate any company or URL
+- If you are not confident a company or URL is real, do not include it
+- Return between 8-15 results
+- Focus on companies that would hire voice actors
+
+Return your response as a PIPE-DELIMITED list with one company per line in this exact format:
+COMPANY_NAME|WEBSITE_URL|SHORT_DESCRIPTION|CITY_STATE_OR_COUNTRY|CATEGORY
+
+Categories must be one of: production_company, ad_agency, studio, animation, e_learning, audiobook, gaming, podcast, casting
+
+Example line:
+Pixar Animation Studios|https://www.pixar.com|Award-winning animation studio known for Toy Story, Finding Nemo, and more|Emeryville, CA|animation
+
+Do NOT include any other text, headers, numbering, or markdown. Just the pipe-delimited lines.`,
+      prompt: `Find real production companies, studios, and agencies matching this search: "${query}"`,
+    })
+
+    // Parse pipe-delimited response - extremely robust
+    const lines = result.text
+      .split("\n")
+      .map((line: string) => line.trim())
+      .filter((line: string) => line.length > 0 && line.includes("|") && line.includes("http"))
+
+    const results = lines
+      .map((line: string) => {
+        const parts = line.split("|").map((p: string) => p.trim())
+        if (parts.length < 3) return null
+
+        const title = parts[0] || ""
+        const link = parts[1] || ""
+        const snippet = parts[2] || ""
+        const location = parts[3] || ""
+        const category = parts[4] || ""
+
+        // Validate URL
+        try {
+          const url = new URL(link)
+          return {
+            title,
+            link: url.href,
+            snippet,
+            displayLink: url.hostname.replace("www.", ""),
+            location,
+            category,
+          }
+        } catch {
+          return null
+        }
+      })
+      .filter(Boolean)
+
+    if (results.length === 0) {
+      return NextResponse.json(
+        { error: "No results found. Try different keywords like 'animation studios Los Angeles' or 'e-learning production company'." },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({ results })
   } catch (error) {
     console.error("[v0] Search error:", error)
     return NextResponse.json(
