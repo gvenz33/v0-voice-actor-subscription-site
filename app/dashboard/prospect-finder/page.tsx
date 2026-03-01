@@ -44,6 +44,8 @@ interface SearchResult {
   link: string
   snippet: string
   displayLink: string
+  location?: string
+  category?: string
 }
 
 interface ExtractedContact {
@@ -310,16 +312,31 @@ export default function ProspectFinder() {
               >
                 <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <Globe className="size-4 shrink-0 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">
-                        {result.displayLink}
-                      </span>
-                    </div>
-                    <h4 className="mt-1 text-sm font-medium text-foreground line-clamp-1">
+                    <h4 className="text-sm font-semibold text-foreground line-clamp-1">
                       {result.title}
                     </h4>
-                    <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <Globe className="size-3 shrink-0 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">
+                          {result.displayLink}
+                        </span>
+                      </div>
+                      {result.location && (
+                        <div className="flex items-center gap-1">
+                          <MapPin className="size-3 shrink-0 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">
+                            {result.location}
+                          </span>
+                        </div>
+                      )}
+                      {result.category && (
+                        <Badge variant="secondary" className="text-[10px] capitalize">
+                          {result.category.replace(/_/g, " ")}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="mt-1.5 text-xs text-muted-foreground line-clamp-2">
                       {result.snippet}
                     </p>
                   </div>
