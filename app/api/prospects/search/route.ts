@@ -38,9 +38,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ results })
     }
 
-    // Option 2: Use Bing Web Search via scraping the HTML
+    // Option 2: DuckDuckGo HTML scraping
     const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`
-    console.log("[v0] Fetching DuckDuckGo:", searchUrl)
 
     const res = await fetch(searchUrl, {
       headers: {
@@ -53,7 +52,6 @@ export async function POST(req: NextRequest) {
     })
 
     if (!res.ok) {
-      console.error("[v0] DuckDuckGo returned status:", res.status)
       return NextResponse.json(
         { error: "Search service temporarily unavailable. Please try again." },
         { status: 502 }
@@ -61,12 +59,8 @@ export async function POST(req: NextRequest) {
     }
 
     const html = await res.text()
-    console.log("[v0] DuckDuckGo HTML length:", html.length)
 
-    // Parse the DuckDuckGo HTML results page
-    // Each result is inside a <div class="result results_links results_links_deep web-result">
-    // with an <a class="result__a" href="...">Title</a>
-    // and <a class="result__snippet">description</a>
+    // Split by web-result blocks (skip ads which have result--ad)
     const results: Array<{
       title: string
       link: string
@@ -74,34 +68,61 @@ export async function POST(req: NextRequest) {
       displayLink: string
     }> = []
 
-    // Extract each result block using result__a for the link/title and result__snippet for description
-    const resultBlocks = html.split(/class="result__body"/)
+    // Match each result__a tag - DDG structure is:
+    // <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=ENCODED_URL&...">Title</a>
+    const resultAMatches = [
+      ...html.matchAll(
+        /class="result__a"\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g
+      ),
+    ]
 
-    for (let i = 1; i < resultBlocks.length && results.length < 15; i++) {
-      const block = resultBlocks[i]
+    // Match snippets separately
+    const snippetMatches = [
+      ...html.matchAll(
+        /class="result__snippet"[^>]*>([\s\S]*?)<\/(?:a|span|div)>/g
+      ),
+    ]
 
-      // Extract the URL from result__a href
-      const hrefMatch = block.match(
-        /class="result__a"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/
-      )
-      if (!hrefMatch) continue
+    for (let i = 0; i < resultAMatches.length && results.length < 15; i++) {
+      const rawHref = resultAMatches[i][1]
+      const rawTitle = resultAMatches[i][2]
 
-      let url = hrefMatch[1]
-      // DuckDuckGo wraps URLs in a redirect, extract the actual URL
-      const uddgMatch = url.match(/uddg=([^&]+)/)
+      // Extract the actual URL from DuckDuckGo's redirect wrapper
+      // Format: //duckduckgo.com/l/?uddg=ENCODED_URL&rut=...
+      let url = ""
+      const uddgMatch = rawHref.match(/uddg=([^&]+)/)
       if (uddgMatch) {
         url = decodeURIComponent(uddgMatch[1])
+      } else if (rawHref.startsWith("http")) {
+        url = rawHref
+      } else {
+        continue // Skip if we can't extract a real URL
       }
 
-      // Clean HTML tags from title
-      const title = hrefMatch[2].replace(/<[^>]*>/g, "").replace(/&amp;/g, "&").replace(/&#x27;/g, "'").replace(/&quot;/g, '"').trim()
+      // Clean title (strip HTML tags and decode entities)
+      const title = rawTitle
+        .replace(/<[^>]*>/g, "")
+        .replace(/&amp;/g, "&")
+        .replace(/&#x27;/g, "'")
+        .replace(/&quot;/g, '"')
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&#39;/g, "'")
+        .trim()
 
-      // Extract snippet
-      const snippetMatch = block.match(
-        /class="result__snippet"[^>]*>([\s\S]*?)<\/a>/
-      )
-      const snippet = snippetMatch
-        ? snippetMatch[1].replace(/<[^>]*>/g, "").replace(/&amp;/g, "&").replace(/&#x27;/g, "'").replace(/&quot;/g, '"').trim()
+      // Get snippet if available at same index
+      const snippet = snippetMatches[i]
+        ? snippetMatches[i][1]
+            .replace(/<[^>]*>/g, "")
+            .replace(/&amp;/g, "&")
+            .replace(/&#x27;/g, "'")
+            .replace(/&quot;/g, '"')
+            .replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">")
+            .replace(/&#39;/g, "'")
+            .replace(/<b>/g, "")
+            .replace(/<\/b>/g, "")
+            .trim()
         : ""
 
       // Extract display link
@@ -112,11 +133,13 @@ export async function POST(req: NextRequest) {
         displayLink = url.replace(/^https?:\/\//, "").split("/")[0]
       }
 
-      // Skip obviously bad results (search engines, directories, etc)
+      // Filter out ads, search engines, and junk
       if (
         !url.startsWith("http") ||
         url.includes("duckduckgo.com") ||
         url.includes("google.com/search") ||
+        rawHref.includes("ad_provider") ||
+        rawHref.includes("ad_domain") ||
         !title
       ) {
         continue
@@ -126,14 +149,6 @@ export async function POST(req: NextRequest) {
     }
 
     console.log("[v0] Parsed", results.length, "results from DuckDuckGo")
-
-    if (results.length === 0) {
-      // If parsing failed, return a helpful message
-      return NextResponse.json({
-        results: [],
-        error: "No results found. Try more specific terms like 'Pixar animation studio' or 'e-learning production company New York'.",
-      })
-    }
 
     return NextResponse.json({ results })
   } catch (error) {
