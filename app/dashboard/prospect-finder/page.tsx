@@ -263,12 +263,12 @@ export default function ProspectFinder() {
           <div className="mt-3 flex flex-wrap gap-2">
             <span className="text-xs text-muted-foreground">Try:</span>
             {[
-              "commercial production companies",
-              "animation studios",
-              "e-learning content production",
-              "podcast production agency",
-              "audiobook publishers accepting narrators",
-              "video game studios casting",
+              "commercial voice over production companies Los Angeles",
+              "animation studios hiring voice actors",
+              "e-learning narration production companies",
+              "podcast production agencies New York",
+              "audiobook publishers accepting narrator submissions",
+              "video game voice acting studios",
             ].map((suggestion) => (
               <button
                 key={suggestion}
