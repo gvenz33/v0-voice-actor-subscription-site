@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { generateText, Output } from "ai"
-import { z } from "zod"
+import { generateText } from "ai"
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -41,20 +40,26 @@ export async function POST(req: NextRequest) {
     }
 
     // Fallback: Use AI to find real, specific companies
-    const { output } = await generateText({
+    const { text } = await generateText({
       model: "openai/gpt-4o-mini",
       prompt: `You are a voice acting industry research assistant. The user is an independent voice actor looking for production companies to pitch their services to.
 
 Based on this search query: "${query}"
 
-Return a list of 10 REAL, SPECIFIC production companies, studios, or agencies that match this query. These must be real companies that actually exist with real websites.
+Return a JSON array of 10 REAL, SPECIFIC production companies, studios, or agencies that match this query. These must be real companies that actually exist with real websites.
 
-For each company provide:
-- name: The exact company name
-- website: Their real website URL (must be a real, working URL)
-- location: City, State/Country
-- description: A 1-2 sentence description of what they do and why a voice actor would want to contact them
-- category: One of "production_company", "ad_agency", "studio", "e_learning", "podcast", "animation", "gaming", "audiobook"
+Return ONLY valid JSON in this exact format, no other text:
+[
+  {
+    "name": "Company Name",
+    "website": "https://example.com",
+    "location": "City, State",
+    "description": "What they do and why a voice actor would contact them.",
+    "category": "production_company"
+  }
+]
+
+category must be one of: production_company, ad_agency, studio, e_learning, podcast, animation, gaming, audiobook
 
 Focus on companies that:
 1. Actually hire voice actors or accept voice over submissions
@@ -63,22 +68,35 @@ Focus on companies that:
 4. Range from well-known to mid-size (not just the huge players)
 
 Be specific and accurate. Only include companies you are confident are real.`,
-      output: Output.object({
-        schema: z.object({
-          companies: z.array(
-            z.object({
-              name: z.string(),
-              website: z.string(),
-              location: z.string(),
-              description: z.string(),
-              category: z.string(),
-            })
-          ),
-        }),
-      }),
     })
 
-    const results = (output?.companies || []).map((company) => ({
+    console.log("[v0] AI search raw response length:", text.length)
+
+    // Parse the JSON from the AI response
+    let companies: Array<{
+      name: string
+      website: string
+      location: string
+      description: string
+      category: string
+    }> = []
+
+    try {
+      // Try to extract JSON from the response (handle markdown code blocks)
+      const jsonMatch = text.match(/\[[\s\S]*\]/)
+      if (jsonMatch) {
+        companies = JSON.parse(jsonMatch[0])
+      }
+    } catch (parseErr) {
+      console.error("[v0] Failed to parse AI response:", parseErr)
+      console.error("[v0] Raw text:", text.substring(0, 500))
+      return NextResponse.json(
+        { error: "Failed to parse search results. Please try again." },
+        { status: 500 }
+      )
+    }
+
+    const results = companies.map((company) => ({
       title: company.name,
       link: company.website.startsWith("http")
         ? company.website
@@ -91,9 +109,10 @@ Be specific and accurate. Only include companies you are confident are real.`,
       category: company.category,
     }))
 
+    console.log("[v0] Returning", results.length, "search results")
     return NextResponse.json({ results })
   } catch (error) {
-    console.error("Search error:", error)
+    console.error("[v0] Search error:", error)
     return NextResponse.json(
       { error: "Search failed. Please try again." },
       { status: 500 }
