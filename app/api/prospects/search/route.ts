@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { generateText } from "ai"
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -71,72 +70,110 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ results })
     }
 
-    // Priority 3: AI-powered company directory
-    // Uses GPT to return real, verifiable companies with their actual websites
-    console.log("[v0] Starting AI search for query:", query)
-    const result = await generateText({
-      model: "openai/gpt-4o-mini",
-      system: `You are a research assistant that helps voice actors find production companies and studios to pitch their services to.
-
-CRITICAL RULES:
-- Only return REAL companies that actually exist with their REAL website URLs
-- Do NOT invent or fabricate any company or URL
-- If you are not confident a company or URL is real, do not include it
-- Return between 8-15 results
-- Focus on companies that would hire voice actors
-
-Return your response as a PIPE-DELIMITED list with one company per line in this exact format:
-COMPANY_NAME|WEBSITE_URL|SHORT_DESCRIPTION|CITY_STATE_OR_COUNTRY|CATEGORY
-
-Categories must be one of: production_company, ad_agency, studio, animation, e_learning, audiobook, gaming, podcast, casting
-
-Example line:
-Pixar Animation Studios|https://www.pixar.com|Award-winning animation studio known for Toy Story, Finding Nemo, and more|Emeryville, CA|animation
-
-Do NOT include any other text, headers, numbering, or markdown. Just the pipe-delimited lines.`,
-      prompt: `Find real production companies, studios, and agencies matching this search: "${query}"`,
+    // Priority 3: DuckDuckGo HTML scraping (no API key needed)
+    const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`
+    const ddgRes = await fetch(ddgUrl, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+      },
     })
 
-    console.log("[v0] AI response received, text length:", result.text?.length)
-    console.log("[v0] AI response first 500 chars:", result.text?.substring(0, 500))
+    if (!ddgRes.ok) {
+      return NextResponse.json(
+        { error: "Search service is temporarily unavailable. Please try again in a moment." },
+        { status: 503 }
+      )
+    }
 
-    // Parse pipe-delimited response - extremely robust
-    const lines = result.text
-      .split("\n")
-      .map((line: string) => line.trim())
-      .filter((line: string) => line.length > 0 && line.includes("|") && line.includes("http"))
+    const html = await ddgRes.text()
 
-    const results = lines
-      .map((line: string) => {
-        const parts = line.split("|").map((p: string) => p.trim())
-        if (parts.length < 3) return null
+    // Extract all result__a links: <a rel="nofollow" class="result__a" href="...">TITLE</a>
+    // The href is //duckduckgo.com/l/?uddg=ENCODED_URL&amp;rut=...
+    const linkRegex = /class="result__a"\s+href="([^"]+)"[^>]*>([^<]+(?:<[^>]*>[^<]*)*)<\/a>/g
+    const snippetRegex = /class="result__snippet"[^>]*href="[^"]*"[^>]*>([\s\S]*?)<\/a>/g
 
-        const title = parts[0] || ""
-        const link = parts[1] || ""
-        const snippet = parts[2] || ""
-        const location = parts[3] || ""
-        const category = parts[4] || ""
+    const links: Array<{ rawUrl: string; title: string }> = []
+    let linkMatch
+    while ((linkMatch = linkRegex.exec(html)) !== null) {
+      links.push({
+        rawUrl: linkMatch[1],
+        title: linkMatch[2].replace(/<\/?b>/g, "").replace(/<[^>]*>/g, "").trim(),
+      })
+    }
 
-        // Validate URL
+    const snippets: string[] = []
+    let snippetMatch
+    while ((snippetMatch = snippetRegex.exec(html)) !== null) {
+      snippets.push(
+        snippetMatch[1]
+          .replace(/<\/?b>/g, "")
+          .replace(/<[^>]*>/g, "")
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&#x27;/g, "'")
+          .replace(/&quot;/g, '"')
+          .trim()
+      )
+    }
+
+    // Decode the DDG redirect URLs to get actual website URLs
+    const results = links
+      .map((link, i) => {
+        // Extract the real URL from //duckduckgo.com/l/?uddg=ENCODED_URL&rut=...
+        let realUrl = ""
         try {
-          const url = new URL(link)
-          return {
-            title,
-            link: url.href,
-            snippet,
-            displayLink: url.hostname.replace("www.", ""),
-            location,
-            category,
+          // The href starts with // so prepend https:
+          const fullDdgUrl = link.rawUrl.startsWith("//")
+            ? "https:" + link.rawUrl.replace(/&amp;/g, "&")
+            : link.rawUrl.replace(/&amp;/g, "&")
+          const parsed = new URL(fullDdgUrl)
+          const uddg = parsed.searchParams.get("uddg")
+          if (uddg) {
+            realUrl = decodeURIComponent(uddg)
+          } else {
+            realUrl = fullDdgUrl
           }
         } catch {
           return null
+        }
+
+        // Skip non-http URLs and DDG internal links
+        if (!realUrl.startsWith("http")) return null
+        if (realUrl.includes("duckduckgo.com")) return null
+
+        let displayLink = ""
+        try {
+          displayLink = new URL(realUrl).hostname.replace("www.", "")
+        } catch {
+          displayLink = realUrl
+        }
+
+        // Filter out generic aggregator/list sites
+        const skipDomains = [
+          "wikipedia.org", "youtube.com", "reddit.com", "facebook.com",
+          "twitter.com", "instagram.com", "tiktok.com", "pinterest.com",
+        ]
+        if (skipDomains.some((d) => displayLink.includes(d))) return null
+
+        return {
+          title: link.title || displayLink,
+          link: realUrl,
+          snippet: snippets[i] || "",
+          displayLink,
         }
       })
       .filter(Boolean)
 
     if (results.length === 0) {
       return NextResponse.json(
-        { error: "No results found. Try different keywords like 'animation studios Los Angeles' or 'e-learning production company'." },
+        {
+          error:
+            "No results found. Try more specific keywords like 'Pixar animation studio' or 'commercial production company Los Angeles'.",
+        },
         { status: 404 }
       )
     }
@@ -144,11 +181,9 @@ Do NOT include any other text, headers, numbering, or markdown. Just the pipe-de
     return NextResponse.json({ results })
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error)
-    const errStack = error instanceof Error ? error.stack : ""
-    console.error("[v0] Search error message:", errMsg)
-    console.error("[v0] Search error stack:", errStack)
+    console.error("[v0] Search error:", errMsg)
     return NextResponse.json(
-      { error: `Search failed: ${errMsg}` },
+      { error: "Search failed. Please try again." },
       { status: 500 }
     )
   }
