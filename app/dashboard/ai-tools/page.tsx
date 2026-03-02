@@ -222,6 +222,7 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
         }),
       })
       const data = await res.json()
+      console.log("[v0] Generate response status:", res.status, "| data:", data)
       if (!res.ok) {
         if (data.error === "limit_reached") {
           setError(`Monthly limit reached (${data.used}/${data.limit}). Upgrade for more.`)
@@ -232,8 +233,9 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
         setResult(data.text)
         onGenerated()
       }
-    } catch {
-      setError("Something went wrong. Please try again.")
+    } catch (err) {
+      console.error("[v0] Client generate error:", err)
+      setError("Network error. Please try again.")
     }
     setLoading(false)
   }
