@@ -5,14 +5,18 @@ import { getUserAIAccess, incrementUsage } from '@/lib/ai-limits'
 export const maxDuration = 30
 
 export async function POST(req: Request) {
+  try {
   // Check user's tier and usage
+  console.log("[v0] Generate route called")
   const access = await getUserAIAccess()
+  console.log("[v0] Access result:", access ? { tier: access.tier, canGenerate: access.canGenerate, count: access.generationCount } : "null")
 
   if (!access) {
     return Response.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
   const { type, context } = await req.json()
+  console.log("[v0] Generate type:", type, "| Company:", context?.companyName)
 
   // Check feature access based on tier
   if (type === 'follow_up' && !access.limits.hasFollowUpWriter) {
@@ -96,11 +100,16 @@ Guidelines:
 - Output ONLY the email text, no extra commentary`
   }
 
+  console.log("[v0] Calling OpenAI with model gpt-4o-mini, prompt length:", prompt.length)
+  console.log("[v0] OPENAI_API_KEY present:", !!process.env.OPENAI_API_KEY, "| Key starts with:", process.env.OPENAI_API_KEY?.substring(0, 7))
+
   const { text } = await generateText({
     model: openai('gpt-4o-mini'),
     prompt,
     maxOutputTokens: 1000,
   })
+
+  console.log("[v0] OpenAI response received, length:", text?.length)
 
   // Track usage after successful generation
   await incrementUsage(access.userId)
@@ -113,4 +122,10 @@ Guidelines:
       isUnlimited: access.isUnlimited,
     },
   })
+
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error("[v0] Generate route error:", message)
+    return Response.json({ error: message }, { status: 500 })
+  }
 }
