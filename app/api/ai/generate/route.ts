@@ -1,4 +1,5 @@
 import { generateText } from 'ai'
+import { openai } from '@ai-sdk/openai'
 import { getUserAIAccess, incrementUsage } from '@/lib/ai-limits'
 
 export const maxDuration = 30
@@ -96,7 +97,7 @@ Guidelines:
   }
 
   const { text } = await generateText({
-    model: 'openai/gpt-5-mini',
+    model: openai('gpt-4o-mini'),
     prompt,
     maxOutputTokens: 1000,
   })

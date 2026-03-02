@@ -4,6 +4,7 @@ import {
   streamText,
   UIMessage,
 } from 'ai'
+import { openai } from '@ai-sdk/openai'
 import { getUserAIAccess, incrementUsage } from '@/lib/ai-limits'
 
 export const maxDuration = 30
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
   await incrementUsage(access.userId)
 
   const result = streamText({
-    model: 'openai/gpt-5-mini',
+    model: openai('gpt-4o-mini'),
     system: `You are the VO Biz Suite AI Assistant — a knowledgeable, encouraging business coach for independent voice actors.
 
 You help voice actors with:
