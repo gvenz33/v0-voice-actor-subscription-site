@@ -27,14 +27,21 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    console.log("[v0] Searching Google for:", query)
+    // Debug: log key lengths and CX format (not the actual values for security)
+    console.log("[v0] API key length:", googleApiKey.length, "| CX value:", googleCx, "| Query:", query)
 
-    const url = `https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${googleCx}&q=${encodeURIComponent(query)}&num=10`
+    // Make sure CX doesn't have extra spaces or quotes
+    const cleanCx = googleCx.trim().replace(/['"]/g, "")
+    const cleanKey = googleApiKey.trim().replace(/['"]/g, "")
+
+    const url = `https://www.googleapis.com/customsearch/v1?key=${cleanKey}&cx=${cleanCx}&q=${encodeURIComponent(query)}&num=10`
+    console.log("[v0] Fetching URL (redacted key):", url.replace(cleanKey, "REDACTED"))
+    
     const res = await fetch(url)
     const data = await res.json()
 
     if (!res.ok) {
-      console.error("[v0] Google API error:", JSON.stringify(data.error || data))
+      console.error("[v0] Google API error status:", res.status, "| Full error:", JSON.stringify(data))
       return NextResponse.json(
         { error: `Google Search error: ${data.error?.message || "Unknown error"}` },
         { status: res.status }
