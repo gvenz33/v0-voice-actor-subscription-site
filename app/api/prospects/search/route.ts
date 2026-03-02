@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { generateText } from "ai"
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -17,55 +16,99 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await generateText({
-      model: "openai/gpt-4o-mini",
-      prompt: `You are a research assistant for voice actors looking for production companies to pitch their services to.
+    // Use DuckDuckGo Lite - free, no API key, returns real results
+    const ddgRes = await fetch(
+      `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`,
+      {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          Accept: "text/html",
+        },
+      }
+    )
 
-Given this search query: "${query}"
+    if (!ddgRes.ok) {
+      return NextResponse.json(
+        { error: "Search service temporarily unavailable." },
+        { status: 502 }
+      )
+    }
 
-Return EXACTLY 10 real, verifiable companies that match. Each company must be a real business that currently exists. Focus on production companies, studios, agencies, and post-production houses that hire voice actors.
+    const html = await ddgRes.text()
 
-Return ONLY lines in this exact format with no headers, numbering, or extra text:
-COMPANY NAME | https://their-real-website.com | City, State | Short 1-sentence description of what they do and why a voice actor would contact them
+    // Parse result links: <a rel="nofollow" href="//duckduckgo.com/l/?uddg=ENCODED_URL&..." class='result-link'>TITLE</a>
+    const linkPattern =
+      /rel="nofollow"\s+href="[^"]*uddg=([^&"]+)[^"]*"\s+class='result-link'>([^<]+)/g
+    const linkMatches = [...html.matchAll(linkPattern)]
 
-Example output format:
-Pixar Animation Studios | https://www.pixar.com | Emeryville, CA | Award-winning animation studio producing feature films that regularly cast voice talent
-Funimation | https://www.funimation.com | Flower Mound, TX | Leading anime dubbing and distribution company that frequently casts English voice actors
+    // Parse snippets: <td class='result-snippet'>TEXT</td>
+    const snippetPattern = /class='result-snippet'>\s*([\s\S]*?)<\/td>/g
+    const snippetMatches = [...html.matchAll(snippetPattern)]
 
-Return exactly 10 lines. No numbering. No headers. No blank lines. Just the pipe-separated data.`,
-    })
+    const results: Array<{
+      title: string
+      link: string
+      snippet: string
+      displayLink: string
+    }> = []
 
-    const lines = result.text
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l.includes("|") && l.includes("http"))
+    for (let i = 0; i < linkMatches.length; i++) {
+      let url: string
+      try {
+        url = decodeURIComponent(linkMatches[i][1])
+      } catch {
+        continue
+      }
 
-    const results = lines.map((line) => {
-      const parts = line.split("|").map((p) => p.trim())
-      const name = parts[0] || "Unknown Company"
-      const link = parts[1] || ""
-      const location = parts[2] || ""
-      const snippet = parts[3] || ""
+      // Skip non-http and aggregator sites
+      if (!url.startsWith("http")) continue
+      if (
+        /wikipedia\.org|youtube\.com|reddit\.com|facebook\.com|twitter\.com|tiktok\.com/i.test(
+          url
+        )
+      ) {
+        continue
+      }
+
+      const title = linkMatches[i][2]
+        .replace(/<[^>]*>/g, "")
+        .replace(/&amp;/g, "&")
+        .replace(/&#x27;/g, "'")
+        .replace(/&quot;/g, '"')
+        .trim()
+
+      const snippet = snippetMatches[i]
+        ? snippetMatches[i][1]
+            .replace(/<[^>]*>/g, "")
+            .replace(/&amp;/g, "&")
+            .replace(/&#x27;/g, "'")
+            .replace(/&quot;/g, '"')
+            .replace(/\s+/g, " ")
+            .trim()
+        : ""
 
       let displayLink = ""
       try {
-        displayLink = new URL(link).hostname.replace("www.", "")
+        displayLink = new URL(url).hostname.replace("www.", "")
       } catch {
-        displayLink = link
+        displayLink = url
       }
 
-      return {
-        title: name,
-        link,
+      results.push({
+        title,
+        link: url,
         snippet,
         displayLink,
-        location,
-      }
-    })
+      })
+    }
 
     if (results.length === 0) {
       return NextResponse.json(
-        { error: "No results found. Try different search terms." },
+        {
+          error:
+            "No results found. Try more specific keywords like 'Pixar animation studio' or 'commercial production company Los Angeles'.",
+        },
         { status: 404 }
       )
     }
