@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useSearchParams } from "next/navigation"
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport } from "ai"
 import useSWR from "swr"
@@ -176,16 +177,32 @@ function LimitReached({ usage }: { usage: UsageData }) {
 }
 
 // --- Outreach Email Writer ---
-function OutreachEmailWriter({ usage, onGenerated }: { usage: UsageData; onGenerated: () => void }) {
-  const [companyName, setCompanyName] = useState("")
-  const [contactName, setContactName] = useState("")
+function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, prefillEmail, prefillRole }: {
+  usage: UsageData
+  onGenerated: () => void
+  prefillCompany?: string
+  prefillName?: string
+  prefillEmail?: string
+  prefillRole?: string
+}) {
+  const [companyName, setCompanyName] = useState(prefillCompany || "")
+  const [contactName, setContactName] = useState(prefillName || "")
+  const [recipientEmail, setRecipientEmail] = useState(prefillEmail || "")
   const [genre, setGenre] = useState("")
   const [tone, setTone] = useState("professional")
-  const [customNotes, setCustomNotes] = useState("")
+  const [customNotes, setCustomNotes] = useState(prefillRole ? `Contact role: ${prefillRole}` : "")
   const [result, setResult] = useState("")
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState("")
+
+  // Update fields if prefill values change (navigating from Prospect Finder)
+  useEffect(() => {
+    if (prefillCompany) setCompanyName(prefillCompany)
+    if (prefillName) setContactName(prefillName)
+    if (prefillEmail) setRecipientEmail(prefillEmail)
+    if (prefillRole) setCustomNotes(`Contact role: ${prefillRole}`)
+  }, [prefillCompany, prefillName, prefillEmail, prefillRole])
 
   if (!usage.canGenerate && usage.tier !== "free") {
     return <LimitReached usage={usage} />
@@ -249,6 +266,10 @@ function OutreachEmailWriter({ usage, onGenerated }: { usage: UsageData; onGener
             <Input id="contactName" placeholder="e.g. Sarah Johnson" value={contactName} onChange={(e) => setContactName(e.target.value)} />
           </div>
           <div className="flex flex-col gap-1.5">
+            <Label htmlFor="recipientEmail">Recipient Email</Label>
+            <Input id="recipientEmail" type="email" placeholder="e.g. casting@acmeproductions.com" value={recipientEmail} onChange={(e) => setRecipientEmail(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="genre">Genre / Niche</Label>
             <Select value={genre} onValueChange={setGenre}>
               <SelectTrigger><SelectValue placeholder="Select genre" /></SelectTrigger>
@@ -302,7 +323,28 @@ function OutreachEmailWriter({ usage, onGenerated }: { usage: UsageData; onGener
         </CardHeader>
         <CardContent>
           {result ? (
-            <div className="whitespace-pre-wrap rounded-lg border border-border bg-muted/50 p-4 text-sm leading-relaxed text-foreground">{result}</div>
+            <div className="flex flex-col gap-4">
+              <div className="whitespace-pre-wrap rounded-lg border border-border bg-muted/50 p-4 text-sm leading-relaxed text-foreground">{result}</div>
+              <div className="flex flex-wrap gap-3">
+                {recipientEmail && (
+                  <Button
+                    className="gap-2 bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90"
+                    onClick={() => {
+                      const subject = encodeURIComponent(`Voice Over Inquiry - ${companyName || "Collaboration Opportunity"}`)
+                      const body = encodeURIComponent(result)
+                      window.open(`mailto:${recipientEmail}?subject=${subject}&body=${body}`, "_blank")
+                    }}
+                  >
+                    <Send className="size-4" />
+                    Send to {recipientEmail}
+                  </Button>
+                )}
+                <Button variant="outline" className="gap-2" onClick={handleCopy}>
+                  {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                  {copied ? "Copied!" : "Copy to Clipboard"}
+                </Button>
+              </div>
+            </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Mail className="mb-3 size-10 text-muted-foreground/30" />
@@ -580,6 +622,13 @@ function VOAssistant({ usage }: { usage: UsageData }) {
 
 // --- Main Page ---
 export default function AIToolsPage() {
+  const searchParams = useSearchParams()
+  const prefillCompany = searchParams.get("company") || ""
+  const prefillEmail = searchParams.get("email") || ""
+  const prefillName = searchParams.get("name") || ""
+  const prefillRole = searchParams.get("role") || ""
+  const hasPrefill = !!(prefillCompany || prefillEmail)
+
   const { data: usage, mutate } = useSWR<UsageData>("/api/ai/usage", fetcher, { refreshInterval: 0 })
 
   const refreshUsage = useCallback(() => { mutate() }, [mutate])
@@ -642,7 +691,7 @@ export default function AIToolsPage() {
               {!usage.hasChatAssistant && <Lock className="ml-1 size-3" />}
             </TabsTrigger>
           </TabsList>
-          <TabsContent value="outreach" className="mt-6"><OutreachEmailWriter usage={usage} onGenerated={refreshUsage} /></TabsContent>
+          <TabsContent value="outreach" className="mt-6"><OutreachEmailWriter usage={usage} onGenerated={refreshUsage} prefillCompany={prefillCompany} prefillName={prefillName} prefillEmail={prefillEmail} prefillRole={prefillRole} /></TabsContent>
           <TabsContent value="followup" className="mt-6"><FollowUpWriter usage={usage} onGenerated={refreshUsage} /></TabsContent>
           <TabsContent value="pitch" className="mt-6"><PitchGenerator usage={usage} onGenerated={refreshUsage} /></TabsContent>
           <TabsContent value="assistant" className="mt-6"><VOAssistant usage={usage} /></TabsContent>

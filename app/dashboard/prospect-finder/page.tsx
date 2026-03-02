@@ -37,6 +37,7 @@ import {
   ArrowRight,
   CheckCircle2,
   AlertCircle,
+  Send,
 } from "lucide-react"
 
 interface SearchResult {
@@ -540,36 +541,56 @@ export default function ProspectFinder() {
                                 </Badge>
                               )}
                             </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="min-h-[40px] shrink-0 gap-1.5"
-                              disabled={
-                                savedContacts.has(contactKey) ||
-                                savingContact === contactKey
-                              }
-                              onClick={() =>
-                                handleSaveContact(
-                                  contact,
-                                  scanResult.companyName,
-                                  scanResult.sourceUrl
-                                )
-                              }
-                            >
-                              {savedContacts.has(contactKey) ? (
-                                <>
-                                  <CheckCircle2 className="size-3.5 text-violet-400" />
-                                  Saved
-                                </>
-                              ) : savingContact === contactKey ? (
-                                <Loader2 className="size-3.5 animate-spin" />
-                              ) : (
-                                <>
-                                  <UserPlus className="size-3.5" />
-                                  Save to CRM
-                                </>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="min-h-[40px] shrink-0 gap-1.5"
+                                disabled={
+                                  savedContacts.has(contactKey) ||
+                                  savingContact === contactKey
+                                }
+                                onClick={() =>
+                                  handleSaveContact(
+                                    contact,
+                                    scanResult.companyName,
+                                    scanResult.sourceUrl
+                                  )
+                                }
+                              >
+                                {savedContacts.has(contactKey) ? (
+                                  <>
+                                    <CheckCircle2 className="size-3.5 text-violet-400" />
+                                    Saved
+                                  </>
+                                ) : savingContact === contactKey ? (
+                                  <Loader2 className="size-3.5 animate-spin" />
+                                ) : (
+                                  <>
+                                    <UserPlus className="size-3.5" />
+                                    Save to CRM
+                                  </>
+                                )}
+                              </Button>
+                              {contact.email && (
+                                <Button
+                                  size="sm"
+                                  className="min-h-[40px] shrink-0 gap-1.5 bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90"
+                                  onClick={() => {
+                                    const params = new URLSearchParams()
+                                    params.set("company", scanResult.companyName || "")
+                                    params.set("email", contact.email || "")
+                                    if (contact.name) params.set("name", contact.name)
+                                    if (contact.role) params.set("role", contact.role)
+                                    setDetailOpen(false)
+                                    window.location.href = `/dashboard/ai-tools?${params.toString()}`
+                                  }}
+                                >
+                                  <Send className="size-3.5" />
+                                  Email Now
+                                </Button>
                               )}
-                            </Button>
+                            </div>
                           </CardContent>
                         </Card>
                       )
