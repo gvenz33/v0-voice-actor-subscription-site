@@ -10,10 +10,10 @@ import { startCheckoutSession } from '@/app/actions/stripe'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
-export default function Checkout({ productId }: { productId: string }) {
+export default function Checkout({ productId, billingInterval = 'month' }: { productId: string; billingInterval?: 'month' | 'year' }) {
   const fetchClientSecret = useCallback(
-    () => startCheckoutSession(productId),
-    [productId],
+    () => startCheckoutSession(productId, billingInterval),
+    [productId, billingInterval],
   )
 
   return (

@@ -1,13 +1,16 @@
 'use server'
 
 import { stripe } from '@/lib/stripe'
-import { PRODUCTS } from '@/lib/products'
+import { PRODUCTS, getProductPrice } from '@/lib/products'
 
-export async function startCheckoutSession(productId: string) {
+export async function startCheckoutSession(productId: string, billingInterval: 'month' | 'year' = 'month') {
   const product = PRODUCTS.find((p) => p.id === productId)
   if (!product) {
     throw new Error(`Product with id "${productId}" not found`)
   }
+
+  const priceInCents = getProductPrice(product, billingInterval)
+  const intervalLabel = billingInterval === 'year' ? 'Annual' : 'Monthly'
 
   const session = await stripe.checkout.sessions.create({
     ui_mode: 'embedded',
@@ -17,12 +20,12 @@ export async function startCheckoutSession(productId: string) {
         price_data: {
           currency: 'usd',
           product_data: {
-            name: `VO Biz Suite - ${product.name}`,
+            name: `VO Biz Suite - ${product.name} (${intervalLabel})`,
             description: product.description,
           },
-          unit_amount: product.priceInCents,
+          unit_amount: priceInCents,
           recurring: {
-            interval: product.interval,
+            interval: billingInterval,
           },
         },
         quantity: 1,

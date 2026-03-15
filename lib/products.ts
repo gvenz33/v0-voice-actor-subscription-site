@@ -2,20 +2,21 @@ export interface Product {
   id: string
   name: string
   description: string
-  priceInCents: number
-  interval: 'month'
+  monthlyPriceInCents: number
+  annualPriceInCents: number
   features: string[]
   tier: 'launch' | 'momentum' | 'command'
   highlighted?: boolean
 }
 
+// Annual pricing = 10 months (2 months free, ~17% discount)
 export const PRODUCTS: Product[] = [
   {
     id: 'launch',
     name: 'Launch',
     description: 'For voice actors just getting started in the business',
-    priceInCents: 1900,
-    interval: 'month',
+    monthlyPriceInCents: 1900,
+    annualPriceInCents: 19000, // $190/yr ($15.83/mo effective)
     tier: 'launch',
     features: [
       'Up to 50 contacts in Client Hub',
@@ -32,8 +33,8 @@ export const PRODUCTS: Product[] = [
     id: 'momentum',
     name: 'Momentum',
     description: 'For growing voice actors scaling their outreach',
-    priceInCents: 4900,
-    interval: 'month',
+    monthlyPriceInCents: 4900,
+    annualPriceInCents: 49000, // $490/yr ($40.83/mo effective)
     tier: 'momentum',
     highlighted: true,
     features: [
@@ -54,8 +55,8 @@ export const PRODUCTS: Product[] = [
     id: 'command',
     name: 'Command',
     description: 'For professional voice actors running a full business',
-    priceInCents: 9900,
-    interval: 'month',
+    monthlyPriceInCents: 9900,
+    annualPriceInCents: 99000, // $990/yr ($82.50/mo effective)
     tier: 'command',
     features: [
       'Everything in Momentum',
@@ -72,3 +73,13 @@ export const PRODUCTS: Product[] = [
     ],
   },
 ]
+
+// Helper to get price based on billing interval
+export function getProductPrice(product: Product, interval: 'month' | 'year') {
+  return interval === 'year' ? product.annualPriceInCents : product.monthlyPriceInCents
+}
+
+// Helper to get effective monthly price for annual plans
+export function getEffectiveMonthlyPrice(product: Product) {
+  return Math.round(product.annualPriceInCents / 12)
+}

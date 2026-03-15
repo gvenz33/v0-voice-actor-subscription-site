@@ -1,4 +1,4 @@
-import { PRODUCTS } from '@/lib/products'
+import { PRODUCTS, getProductPrice } from '@/lib/products'
 import { notFound } from 'next/navigation'
 import Checkout from '@/components/checkout'
 import { Mic, ArrowLeft } from 'lucide-react'
@@ -6,15 +6,25 @@ import Link from 'next/link'
 
 export default async function CheckoutPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ productId: string }>
+  searchParams: Promise<{ interval?: string }>
 }) {
   const { productId } = await params
+  const { interval } = await searchParams
+  const billingInterval = interval === 'year' ? 'year' : 'month'
+  
   const product = PRODUCTS.find((p) => p.id === productId)
 
   if (!product) {
     notFound()
   }
+
+  const priceInCents = getProductPrice(product, billingInterval)
+  const displayPrice = billingInterval === 'year' 
+    ? `$${(priceInCents / 100).toFixed(0)}/year`
+    : `$${(priceInCents / 100).toFixed(0)}/month`
 
   return (
     <div className="min-h-svh bg-secondary">
@@ -38,10 +48,15 @@ export default async function CheckoutPage({
             Subscribe to {product.name}
           </h1>
           <p className="mt-2 text-muted-foreground">
-            {product.description} &mdash; ${(product.priceInCents / 100).toFixed(0)}/month
+            {product.description} &mdash; {displayPrice}
           </p>
+          {billingInterval === 'year' && (
+            <p className="mt-1 text-sm text-accent font-medium">
+              2 months free with annual billing
+            </p>
+          )}
         </div>
-        <Checkout productId={productId} />
+        <Checkout productId={productId} billingInterval={billingInterval} />
       </div>
     </div>
   )
