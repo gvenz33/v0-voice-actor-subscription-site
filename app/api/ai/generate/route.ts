@@ -24,8 +24,14 @@ async function callGrok(prompt: string): Promise<string> {
   })
 
   if (!res.ok) {
-    const error = await res.json()
-    throw new Error(error.error?.message || 'xAI API error')
+    const errorText = await res.text()
+    console.error("[v0] xAI API error response:", res.status, errorText)
+    try {
+      const error = JSON.parse(errorText)
+      throw new Error(error.error?.message || `xAI API error: ${res.status}`)
+    } catch {
+      throw new Error(`xAI API error: ${res.status} - ${errorText.substring(0, 100)}`)
+    }
   }
 
   const data = await res.json()
