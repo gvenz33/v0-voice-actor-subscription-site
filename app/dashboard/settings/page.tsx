@@ -32,6 +32,7 @@ interface EmailConfig {
   smtp_host: string | null
   smtp_from_email: string | null
   smtp_from_name: string | null
+  bcc_self?: boolean
 }
 
 export default function SettingsPage() {
@@ -335,6 +336,35 @@ create policy "email_config_delete_own" on public.email_config
                   Disconnect
                 </Button>
               </div>
+              
+              <Separator />
+              
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="bcc-self">BCC myself on all outgoing emails</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Receive a copy of every email you send for your records.
+                  </p>
+                </div>
+                <Switch
+                  id="bcc-self"
+                  checked={emailConfig.bcc_self === true}
+                  onCheckedChange={async (checked) => {
+                    try {
+                      await fetch("/api/email-config", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ action: "toggle_bcc", bcc_self: checked }),
+                      })
+                      setEmailConfig({ ...emailConfig, bcc_self: checked })
+                      setEmailMessage(checked ? "BCC enabled - you'll receive copies of sent emails." : "BCC disabled.")
+                    } catch {
+                      setEmailMessage("Failed to update BCC setting.")
+                    }
+                  }}
+                />
+              </div>
+              
               {emailMessage && (
                 <p className="text-sm text-green-500">{emailMessage}</p>
               )}

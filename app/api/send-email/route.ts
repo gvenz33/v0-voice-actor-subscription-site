@@ -165,14 +165,21 @@ export async function POST(req: Request) {
         }
       })
 
-      const info = await transporter.sendMail({
+      const mailOptions: nodemailer.SendMailOptions = {
         from: config.smtp_from_name 
           ? `"${config.smtp_from_name}" <${config.smtp_from_email}>`
           : config.smtp_from_email,
         to,
         subject,
         text: body,
-      })
+      }
+
+      // Add BCC to self if enabled
+      if (config.bcc_self && config.smtp_from_email) {
+        mailOptions.bcc = config.smtp_from_email
+      }
+
+      const info = await transporter.sendMail(mailOptions)
 
       return NextResponse.json({ success: true, provider: "smtp", from: config.smtp_from_email, messageId: info.messageId })
     }

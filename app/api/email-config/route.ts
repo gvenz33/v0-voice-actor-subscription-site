@@ -35,7 +35,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("email_config")
-    .select("provider, oauth_email, smtp_host, smtp_from_email, smtp_from_name")
+    .select("provider, oauth_email, smtp_host, smtp_from_email, smtp_from_name, bcc_self")
     .eq("user_id", user.id)
     .single()
 
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
   const { action } = body
 
   if (action === "save_smtp") {
-    const { smtp_host, smtp_port, smtp_username, smtp_password, smtp_from_email, smtp_from_name, smtp_use_tls } = body
+    const { smtp_host, smtp_port, smtp_username, smtp_password, smtp_from_email, smtp_from_name, smtp_use_tls, bcc_self } = body
 
     // Upsert SMTP config
     const { error } = await supabase.from("email_config").upsert({
@@ -84,6 +84,7 @@ export async function POST(req: Request) {
       smtp_from_email,
       smtp_from_name,
       smtp_use_tls: smtp_use_tls !== false,
+      bcc_self: bcc_self === true,
       updated_at: new Date().toISOString(),
     }, { onConflict: "user_id" })
 
@@ -104,6 +105,21 @@ export async function POST(req: Request) {
     if (error) {
       console.error("Error disconnecting email:", error)
       return NextResponse.json({ error: "Failed to disconnect" }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  }
+
+  if (action === "toggle_bcc") {
+    const { bcc_self } = body
+    const { error } = await supabase
+      .from("email_config")
+      .update({ bcc_self: bcc_self === true, updated_at: new Date().toISOString() })
+      .eq("user_id", user.id)
+
+    if (error) {
+      console.error("Error toggling BCC:", error)
+      return NextResponse.json({ error: "Failed to update BCC setting" }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
