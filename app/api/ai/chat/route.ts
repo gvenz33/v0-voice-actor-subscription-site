@@ -33,15 +33,15 @@ export async function POST(req: Request) {
 
     await incrementUsage(access.userId)
 
-    // Call xAI Grok with streaming
-    const res = await fetch('https://api.x.ai/v1/chat/completions', {
+    // Call Groq with streaming
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.XAI_API_KEY}`,
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'grok-beta',
+        model: 'llama-3.1-8b-instant',
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           ...messages.map((m: { role: string; content: string }) => ({
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
 
     if (!res.ok) {
       const error = await res.json()
-      throw new Error(error.error?.message || 'xAI API error')
+      throw new Error(error.error?.message || 'Groq API error')
     }
 
     // Stream the response
