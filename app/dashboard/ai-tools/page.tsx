@@ -206,6 +206,11 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
   const [showSignatureEditor, setShowSignatureEditor] = useState(false)
   const [signatureLoading, setSignatureLoading] = useState(false)
   const [signatureSaved, setSignatureSaved] = useState(false)
+  
+  // Send email state
+  const [sending, setSending] = useState(false)
+  const [sendSuccess, setSendSuccess] = useState(false)
+  const [sendError, setSendError] = useState("")
 
   // Load signature on mount
   useEffect(() => {
@@ -257,6 +262,37 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
   const getFinalEmail = () => {
     const emailContent = isEditing ? editedResult : result
     return signature ? `${emailContent}\n\n${signature}` : emailContent
+  }
+
+  const handleSendEmail = async () => {
+    if (!recipientEmail) return
+    setSending(true)
+    setSendError("")
+    setSendSuccess(false)
+    
+    try {
+      const res = await fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: recipientEmail,
+          subject: `Voice Over Inquiry - ${companyName || "Collaboration Opportunity"}`,
+          body: getFinalEmail(),
+        }),
+      })
+      
+      const data = await res.json()
+      
+      if (res.ok) {
+        setSendSuccess(true)
+        setTimeout(() => setSendSuccess(false), 3000)
+      } else {
+        setSendError(data.error || "Failed to send email")
+      }
+    } catch {
+      setSendError("Network error. Please try again.")
+    }
+    setSending(false)
   }
 
   if (!usage.canGenerate && usage.tier !== "free") {
@@ -408,24 +444,49 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
                     )}
                   </div>
                 )}
-                <div className="flex flex-wrap gap-3">
-                  {recipientEmail && (
-                    <Button
-                      className="gap-2 bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90"
-                      onClick={() => {
-                        const subject = encodeURIComponent(`Voice Over Inquiry - ${companyName || "Collaboration Opportunity"}`)
-                        const body = encodeURIComponent(getFinalEmail())
-                        window.open(`mailto:${recipientEmail}?subject=${subject}&body=${body}`, "_blank")
-                      }}
-                    >
-                      <Send className="size-4" />
-                      Send to {recipientEmail}
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-wrap gap-3">
+                    {recipientEmail && (
+                      <>
+                        <Button
+                          className="gap-2 bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90"
+                          onClick={handleSendEmail}
+                          disabled={sending}
+                        >
+                          {sending ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : sendSuccess ? (
+                            <Check className="size-4" />
+                          ) : (
+                            <Send className="size-4" />
+                          )}
+                          {sending ? "Sending..." : sendSuccess ? "Sent!" : `Send to ${recipientEmail}`}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="gap-2"
+                          onClick={() => {
+                            const subject = encodeURIComponent(`Voice Over Inquiry - ${companyName || "Collaboration Opportunity"}`)
+                            const body = encodeURIComponent(getFinalEmail())
+                            window.open(`mailto:${recipientEmail}?subject=${subject}&body=${body}`, "_blank")
+                          }}
+                        >
+                          <Mail className="size-4" />
+                          Open in Mail App
+                        </Button>
+                      </>
+                    )}
+                    <Button variant="outline" className="gap-2" onClick={handleCopy}>
+                      {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                      {copied ? "Copied!" : "Copy to Clipboard"}
                     </Button>
+                  </div>
+                  {sendError && (
+                    <p className="text-sm text-destructive">{sendError}</p>
                   )}
-                  <Button variant="outline" className="gap-2" onClick={handleCopy}>
-                    {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-                    {copied ? "Copied!" : "Copy to Clipboard"}
-                  </Button>
+                  {sendSuccess && (
+                    <p className="text-sm text-green-500">Email sent successfully!</p>
+                  )}
                 </div>
               </div>
             ) : (

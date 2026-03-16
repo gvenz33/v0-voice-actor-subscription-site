@@ -68,11 +68,13 @@
     "ai": "^6.0.0",
     "@ai-sdk/react": "^3.0.0",
     "@ai-sdk/openai": "^2.0.0",
-    "@ai-sdk/groq": "^2.0.0"
+    "@ai-sdk/groq": "^2.0.0",
+    "nodemailer": "^6.9.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.0",
     "@types/node": "^22",
+    "@types/nodemailer": "^6.4.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "postcss": "^8.5",
