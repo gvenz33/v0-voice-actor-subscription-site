@@ -29,7 +29,8 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Search, Building2, Mail, Phone, Globe, Trash2, Pencil } from "lucide-react"
+import { Plus, Search, Building2, Mail, Phone, Globe, Trash2, Pencil, Upload, Download } from "lucide-react"
+import { ContactsImportExport } from "@/components/contacts-import-export"
 
 interface Contact {
   id: string
@@ -93,6 +94,8 @@ export default function ClientHub() {
   const [filterStatus, setFilterStatus] = useState<string>("all")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
 
   const filtered = contacts?.filter((c) => {
     const matchSearch =
@@ -150,13 +153,22 @@ export default function ClientHub() {
             Manage your contacts, prospects, and production companies.
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingContact(null) }}>
-          <DialogTrigger asChild>
-            <Button size="lg" className="min-h-[44px]">
-              <Plus className="size-4" />
-              Add Contact
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="lg" className="min-h-[44px]" onClick={() => setImportOpen(true)}>
+            <Upload className="size-4" />
+            <span className="hidden sm:inline ml-1.5">Import</span>
+          </Button>
+          <Button variant="outline" size="lg" className="min-h-[44px]" onClick={() => setExportOpen(true)} disabled={!contacts?.length}>
+            <Download className="size-4" />
+            <span className="hidden sm:inline ml-1.5">Export</span>
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingContact(null) }}>
+            <DialogTrigger asChild>
+              <Button size="lg" className="min-h-[44px]">
+                <Plus className="size-4" />
+                Add Contact
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>{editingContact ? "Edit Contact" : "Add New Contact"}</DialogTitle>
@@ -227,7 +239,20 @@ export default function ClientHub() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+      
+      <ContactsImportExport 
+        open={importOpen} 
+        onOpenChange={setImportOpen} 
+        mode="import" 
+      />
+      <ContactsImportExport 
+        open={exportOpen} 
+        onOpenChange={setExportOpen} 
+        mode="export" 
+        contacts={contacts}
+      />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
