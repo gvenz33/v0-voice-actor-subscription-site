@@ -96,26 +96,27 @@ function UsageMeter({ usage }: { usage: UsageData }) {
     ? 0
     : Math.min(100, ((usage.monthlyLimit - usage.remainingGenerations) / usage.monthlyLimit) * 100)
 
-  const tokenPercent = usage.isUnlimited ? 0 : Math.max(0, Math.min(100, 100 - (usage.remainingTokens / usage.monthlyLimit) * 100))
-
   return (
     <Card>
       <CardContent className="flex items-center gap-6 p-4">
         <div className="flex-1">
           <div className="flex items-center justify-between text-sm">
-            <span className="font-medium text-foreground">{usage.tierLabel} Plan</span>
+            <span className="font-medium text-foreground">
+              {usage.tierLabel} Plan
+            </span>
             <span className="text-muted-foreground">
-              {usage.isUnlimited ? "Unlimited tokens" : `${usage.remainingTokens} tokens remaining`}
+              {usage.isUnlimited
+                ? "Unlimited tokens"
+                : `${usage.remainingTokens} tokens remaining`}
               {usage.purchasedTokens > 0 && ` (+${usage.purchasedTokens} purchased)`}
             </span>
           </div>
-          {!usage.isUnlimited && <Progress value={tokenPercent} className="mt-2 h-2" />}
+          {!usage.isUnlimited && (
+            <Progress value={100 - (usage.remainingTokens / usage.monthlyLimit) * 100} className="mt-2 h-2" />
+          )}
         </div>
         {!usage.isUnlimited && usage.remainingTokens <= 20 && usage.remainingTokens > 0 && (
-          <Link
-            href="/dashboard/tokens"
-            className="whitespace-nowrap rounded-full bg-orange-500/10 px-3 py-1 text-xs font-medium text-orange-400 transition-colors hover:bg-orange-500/20"
-          >
+          <Link href="/dashboard/tokens" className="whitespace-nowrap rounded-full bg-orange-500/10 px-3 py-1 text-xs font-medium text-orange-400 hover:bg-orange-500/20 transition-colors">
             Low tokens - Buy more
           </Link>
         )}
