@@ -121,7 +121,11 @@ STRICT RULES:
 - Each sentence should feel fresh and specific
 - Include ONE memorable detail or hook
 - Sign off with [Your Name] only (no signature block)
-- Output the email text ONLY - no subject line, no commentary, no explanations`
+
+OUTPUT FORMAT (follow exactly):
+SUBJECT: [Write a compelling, specific subject line - 5-10 words]
+---
+[Email body here]`
     } else if (type === 'pitch_generator') {
       prompt = `Write a 2-3 sentence elevator pitch for a voice actor.
 
@@ -151,12 +155,33 @@ Rules:
 - Output ONLY the email, no commentary`
     }
 
-    const text = await callGroq(prompt)
+    const rawText = await callGroq(prompt)
 
     await incrementUsage(access.userId)
 
+    // Parse subject line from outreach emails
+    let text = rawText
+    let subject = ''
+    
+    if (type === 'outreach_email' && rawText.includes('SUBJECT:')) {
+      const lines = rawText.split('\n')
+      const subjectLine = lines.find(l => l.startsWith('SUBJECT:'))
+      if (subjectLine) {
+        subject = subjectLine.replace('SUBJECT:', '').trim()
+        // Remove subject line and separator from body
+        const separatorIndex = rawText.indexOf('---')
+        if (separatorIndex !== -1) {
+          text = rawText.substring(separatorIndex + 3).trim()
+        } else {
+          // Fallback: remove just the subject line
+          text = lines.filter(l => !l.startsWith('SUBJECT:')).join('\n').trim()
+        }
+      }
+    }
+
     return Response.json({
       text,
+      subject,
       usage: {
         used: access.generationCount + 1,
         limit: access.limits.monthlyGenerations,

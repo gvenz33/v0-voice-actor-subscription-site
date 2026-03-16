@@ -196,6 +196,8 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
   const [customNotes, setCustomNotes] = useState(prefillRole ? `Contact role: ${prefillRole}` : "")
   const [result, setResult] = useState("")
   const [editedResult, setEditedResult] = useState("")
+  const [subject, setSubject] = useState("")
+  const [editedSubject, setEditedSubject] = useState("")
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -226,11 +228,12 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
     if (prefillRole) setCustomNotes(`Contact role: ${prefillRole}`)
   }, [prefillCompany, prefillName, prefillEmail, prefillRole])
 
-  // Sync editedResult with result when result changes
+  // Sync editedResult and editedSubject when result/subject changes
   useEffect(() => {
     setEditedResult(result)
+    setEditedSubject(subject)
     setIsEditing(false)
-  }, [result])
+  }, [result, subject])
 
   const saveSignature = () => {
     setSignatureLoading(true)
@@ -259,7 +262,7 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           to: recipientEmail,
-          subject: `Voice Over Inquiry - ${companyName || "Collaboration Opportunity"}`,
+          subject: editedSubject || `Voice Over Inquiry - ${companyName || "Collaboration Opportunity"}`,
           body: getFinalEmail(),
         }),
       })
@@ -305,6 +308,7 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
         }
       } else {
         setResult(data.text)
+        setSubject(data.subject || "")
         onGenerated()
       }
     } catch (err) {
@@ -409,24 +413,45 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
           <CardContent>
             {result ? (
               <div className="flex flex-col gap-4">
-                {isEditing ? (
-                  <Textarea
-                    value={editedResult}
-                    onChange={(e) => setEditedResult(e.target.value)}
-                    className="min-h-[200px] text-sm leading-relaxed"
-                    placeholder="Edit your email here..."
-                  />
-                ) : (
-                  <div className="whitespace-pre-wrap rounded-lg border border-border bg-muted/50 p-4 text-sm leading-relaxed text-foreground">
-                    {editedResult || result}
-                    {signature && (
-                      <>
-                        <div className="my-4 border-t border-border/50" />
-                        <div className="text-muted-foreground">{signature}</div>
-                      </>
-                    )}
-                  </div>
-                )}
+                {/* Subject Line */}
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground">Subject Line</Label>
+                  {isEditing ? (
+                    <Input
+                      value={editedSubject}
+                      onChange={(e) => setEditedSubject(e.target.value)}
+                      className="font-medium"
+                      placeholder="Enter subject line..."
+                    />
+                  ) : (
+                    <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm font-medium">
+                      {editedSubject || subject || "No subject"}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Email Body */}
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground">Email Body</Label>
+                  {isEditing ? (
+                    <Textarea
+                      value={editedResult}
+                      onChange={(e) => setEditedResult(e.target.value)}
+                      className="min-h-[200px] text-sm leading-relaxed"
+                      placeholder="Edit your email here..."
+                    />
+                  ) : (
+                    <div className="whitespace-pre-wrap rounded-lg border border-border bg-muted/50 p-4 text-sm leading-relaxed text-foreground">
+                      {editedResult || result}
+                      {signature && (
+                        <>
+                          <div className="my-4 border-t border-border/50" />
+                          <div className="text-muted-foreground">{signature}</div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <div className="flex flex-col gap-3">
                   <div className="flex flex-wrap gap-3">
                     {recipientEmail && (
@@ -449,9 +474,9 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
                           variant="outline"
                           className="gap-2"
                           onClick={() => {
-                            const subject = encodeURIComponent(`Voice Over Inquiry - ${companyName || "Collaboration Opportunity"}`)
+                            const subjectText = editedSubject || `Voice Over Inquiry - ${companyName || "Collaboration Opportunity"}`
                             const body = encodeURIComponent(getFinalEmail())
-                            window.open(`mailto:${recipientEmail}?subject=${subject}&body=${body}`, "_blank")
+                            window.open(`mailto:${recipientEmail}?subject=${encodeURIComponent(subjectText)}&body=${body}`, "_blank")
                           }}
                         >
                           <Mail className="size-4" />
