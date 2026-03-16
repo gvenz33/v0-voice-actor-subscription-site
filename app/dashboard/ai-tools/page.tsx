@@ -92,7 +92,6 @@ function UsageMeter({ usage }: { usage: UsageData }) {
     )
   }
 
-  const totalTokens = usage.remainingTokens + (usage.purchasedTokens || 0)
   const percentage = usage.isUnlimited
     ? 0
     : Math.min(100, ((usage.monthlyLimit - usage.remainingGenerations) / usage.monthlyLimit) * 100)
