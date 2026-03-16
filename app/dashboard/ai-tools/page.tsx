@@ -573,6 +573,7 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
         </Card>
       </div>
     </div>
+    </>
   )
 }
 
