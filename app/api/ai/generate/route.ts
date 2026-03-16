@@ -1,130 +1,129 @@
-import { generateText } from 'ai'
-import { groq } from '@ai-sdk/groq'
 import { getUserAIAccess, incrementUsage } from '@/lib/ai-limits'
 
 export const maxDuration = 30
 
+async function callGroq(prompt: string): Promise<string> {
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 500,
+      temperature: 0.7,
+    }),
+  })
+
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.error?.message || 'Groq API error')
+  }
+
+  const data = await res.json()
+  return data.choices[0]?.message?.content || ''
+}
+
 export async function POST(req: Request) {
   try {
-  // Check user's tier and usage
-  console.log("[v0] Generate route called")
-  const access = await getUserAIAccess()
-  console.log("[v0] Access result:", access ? { tier: access.tier, canGenerate: access.canGenerate, count: access.generationCount } : "null")
+    const access = await getUserAIAccess()
 
-  if (!access) {
-    return Response.json({ error: 'Not authenticated' }, { status: 401 })
-  }
+    if (!access) {
+      return Response.json({ error: 'Not authenticated' }, { status: 401 })
+    }
 
-  const { type, context } = await req.json()
-  console.log("[v0] Generate type:", type, "| Company:", context?.companyName)
+    const { type, context } = await req.json()
 
-  // Check feature access based on tier
-  if (type === 'follow_up' && !access.limits.hasFollowUpWriter) {
-    return Response.json(
-      { error: 'upgrade_required', feature: 'Follow-Up Writer', requiredTier: 'Momentum' },
-      { status: 403 }
-    )
-  }
+    if (type === 'follow_up' && !access.limits.hasFollowUpWriter) {
+      return Response.json(
+        { error: 'upgrade_required', feature: 'Follow-Up Writer', requiredTier: 'Momentum' },
+        { status: 403 }
+      )
+    }
 
-  if (type === 'pitch_generator' && !access.limits.hasPitchGenerator) {
-    return Response.json(
-      { error: 'upgrade_required', feature: 'Pitch Generator', requiredTier: 'Momentum' },
-      { status: 403 }
-    )
-  }
+    if (type === 'pitch_generator' && !access.limits.hasPitchGenerator) {
+      return Response.json(
+        { error: 'upgrade_required', feature: 'Pitch Generator', requiredTier: 'Momentum' },
+        { status: 403 }
+      )
+    }
 
-  // Check generation limit
-  if (!access.canGenerate) {
-    return Response.json(
-      {
-        error: 'limit_reached',
-        tier: access.tier,
-        used: access.generationCount,
-        limit: access.limits.monthlyGenerations,
-      },
-      { status: 429 }
-    )
-  }
+    if (!access.canGenerate) {
+      return Response.json(
+        {
+          error: 'limit_reached',
+          tier: access.tier,
+          used: access.generationCount,
+          limit: access.limits.monthlyGenerations,
+        },
+        { status: 429 }
+      )
+    }
 
-  let prompt = ''
+    let prompt = ''
 
-  if (type === 'outreach_email') {
-    prompt = `Write a professional cold outreach email from an independent voice actor to a production company or client.
+    if (type === 'outreach_email') {
+      prompt = `Write a professional cold outreach email from an independent voice actor to a production company.
 
-Context provided by the voice actor:
+Context:
 ${context.companyName ? `Company: ${context.companyName}` : ''}
-${context.contactName ? `Contact Person: ${context.contactName}` : ''}
-${context.genre ? `Genre/Niche: ${context.genre}` : ''}
-${context.tone ? `Desired Tone: ${context.tone}` : ''}
-${context.customNotes ? `Additional Notes: ${context.customNotes}` : ''}
+${context.contactName ? `Contact: ${context.contactName}` : ''}
+${context.genre ? `Genre: ${context.genre}` : ''}
+${context.tone ? `Tone: ${context.tone}` : ''}
+${context.customNotes ? `Notes: ${context.customNotes}` : ''}
 
-Guidelines:
-- Keep it under 150 words
-- Be professional but personable
-- Mention a specific reason for reaching out (reference their work if company name given)
-- Include a clear call to action (listen to demo, schedule a quick call)
-- Do NOT be salesy or desperate
-- Sign off with [Your Name] as placeholder
-- Output ONLY the email text, no extra commentary`
-  } else if (type === 'pitch_generator') {
-    prompt = `Write a compelling elevator pitch for an independent voice actor.
+Rules:
+- Under 150 words
+- Professional but personable
+- Clear call to action
+- Sign off with [Your Name]
+- Output ONLY the email, no commentary`
+    } else if (type === 'pitch_generator') {
+      prompt = `Write a 2-3 sentence elevator pitch for a voice actor.
 
 Context:
 ${context.genre ? `Specialization: ${context.genre}` : ''}
-${context.experience ? `Experience Level: ${context.experience}` : ''}
-${context.strengths ? `Key Strengths: ${context.strengths}` : ''}
-${context.targetAudience ? `Target Clients: ${context.targetAudience}` : ''}
+${context.experience ? `Experience: ${context.experience}` : ''}
+${context.strengths ? `Strengths: ${context.strengths}` : ''}
 
-Guidelines:
-- Keep it to 2-3 sentences (under 60 words)
-- Make it memorable and specific
-- Highlight what makes this voice actor unique
-- Output ONLY the pitch text, no extra commentary`
-  } else if (type === 'follow_up') {
-    prompt = `Write a follow-up email for a voice actor who previously reached out to a client.
+Rules:
+- Under 60 words
+- Memorable and specific
+- Output ONLY the pitch, no commentary`
+    } else if (type === 'follow_up') {
+      prompt = `Write a follow-up email for a voice actor.
 
 Context:
 ${context.companyName ? `Company: ${context.companyName}` : ''}
 ${context.contactName ? `Contact: ${context.contactName}` : ''}
 ${context.daysSince ? `Days since last contact: ${context.daysSince}` : ''}
 ${context.previousContext ? `Previous interaction: ${context.previousContext}` : ''}
-${context.customNotes ? `Notes: ${context.customNotes}` : ''}
 
-Guidelines:
-- Keep it under 100 words
-- Reference the previous outreach naturally
-- Provide a new reason to connect (new demo, seasonal availability, industry news)
-- Be warm but professional, not pushy
-- Include a soft call to action
+Rules:
+- Under 100 words
+- Reference previous outreach
+- Soft call to action
 - Sign off with [Your Name]
-- Output ONLY the email text, no extra commentary`
-  }
+- Output ONLY the email, no commentary`
+    }
 
-  console.log("[v0] Calling Groq with model llama-3.3-70b-versatile, prompt length:", prompt.length)
+    const text = await callGroq(prompt)
 
-  const { text } = await generateText({
-    model: groq('llama-3.3-70b-versatile'),
-    prompt,
-    maxTokens: 500,
-  })
+    await incrementUsage(access.userId)
 
-  console.log("[v0] Groq response received, length:", text?.length)
-
-  // Track usage after successful generation
-  await incrementUsage(access.userId)
-
-  return Response.json({
-    text,
-    usage: {
-      used: access.generationCount + 1,
-      limit: access.limits.monthlyGenerations,
-      isUnlimited: access.isUnlimited,
-    },
-  })
-
+    return Response.json({
+      text,
+      usage: {
+        used: access.generationCount + 1,
+        limit: access.limits.monthlyGenerations,
+        isUnlimited: access.isUnlimited,
+      },
+    })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    console.error("[v0] Generate route error:", message)
+    console.error("[v0] Generate error:", message)
     return Response.json({ error: message }, { status: 500 })
   }
 }
