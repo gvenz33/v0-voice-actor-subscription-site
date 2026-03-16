@@ -37,6 +37,9 @@ import {
   Zap,
   Lock,
   ArrowUpRight,
+  Pencil,
+  Save,
+  FileSignature,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -192,9 +195,31 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
   const [tone, setTone] = useState("professional")
   const [customNotes, setCustomNotes] = useState(prefillRole ? `Contact role: ${prefillRole}` : "")
   const [result, setResult] = useState("")
+  const [editedResult, setEditedResult] = useState("")
+  const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState("")
+  
+  // Signature state
+  const [signature, setSignature] = useState("")
+  const [showSignatureEditor, setShowSignatureEditor] = useState(false)
+  const [signatureLoading, setSignatureLoading] = useState(false)
+  const [signatureSaved, setSignatureSaved] = useState(false)
+
+  // Load signature on mount
+  useEffect(() => {
+    fetch("/api/signature")
+      .then(res => res.json())
+      .then(data => {
+        if (data.signature) setSignature(data.signature)
+      })
+      .catch(() => {
+        // Fallback to localStorage
+        const saved = localStorage.getItem("vo_email_signature")
+        if (saved) setSignature(saved)
+      })
+  }, [])
 
   // Update fields if prefill values change (navigating from Prospect Finder)
   useEffect(() => {
@@ -203,6 +228,36 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
     if (prefillEmail) setRecipientEmail(prefillEmail)
     if (prefillRole) setCustomNotes(`Contact role: ${prefillRole}`)
   }, [prefillCompany, prefillName, prefillEmail, prefillRole])
+
+  // Sync editedResult with result when result changes
+  useEffect(() => {
+    setEditedResult(result)
+    setIsEditing(false)
+  }, [result])
+
+  const saveSignature = async () => {
+    setSignatureLoading(true)
+    try {
+      await fetch("/api/signature", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signature }),
+      })
+      localStorage.setItem("vo_email_signature", signature)
+      setSignatureSaved(true)
+      setTimeout(() => setSignatureSaved(false), 2000)
+    } catch {
+      localStorage.setItem("vo_email_signature", signature)
+      setSignatureSaved(true)
+      setTimeout(() => setSignatureSaved(false), 2000)
+    }
+    setSignatureLoading(false)
+  }
+
+  const getFinalEmail = () => {
+    const emailContent = isEditing ? editedResult : result
+    return signature ? `${emailContent}\n\n${signature}` : emailContent
+  }
 
   if (!usage.canGenerate && usage.tier !== "free") {
     return <LimitReached usage={usage} />
@@ -241,7 +296,7 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
   }
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(result)
+    navigator.clipboard.writeText(getFinalEmail())
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -311,50 +366,123 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between text-lg">
-            <span className="flex items-center gap-2"><Zap className="size-5 text-[oklch(0.65_0.18_265)]" /> Generated Email</span>
-            {result && (
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm" onClick={handleCopy}>{copied ? <Check className="size-4" /> : <Copy className="size-4" />}</Button>
-                <Button variant="ghost" size="sm" onClick={handleGenerate} disabled={loading}><RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} /></Button>
+      <div className="flex flex-col gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between text-lg">
+              <span className="flex items-center gap-2"><Zap className="size-5 text-[oklch(0.65_0.18_265)]" /> Generated Email</span>
+              {result && (
+                <div className="flex gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setIsEditing(!isEditing)}
+                    title={isEditing ? "Done editing" : "Edit email"}
+                  >
+                    {isEditing ? <Check className="size-4" /> : <Pencil className="size-4" />}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={handleCopy}>{copied ? <Check className="size-4" /> : <Copy className="size-4" />}</Button>
+                  <Button variant="ghost" size="sm" onClick={handleGenerate} disabled={loading}><RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} /></Button>
+                </div>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {result ? (
+              <div className="flex flex-col gap-4">
+                {isEditing ? (
+                  <Textarea
+                    value={editedResult}
+                    onChange={(e) => setEditedResult(e.target.value)}
+                    className="min-h-[200px] text-sm leading-relaxed"
+                    placeholder="Edit your email here..."
+                  />
+                ) : (
+                  <div className="whitespace-pre-wrap rounded-lg border border-border bg-muted/50 p-4 text-sm leading-relaxed text-foreground">
+                    {editedResult || result}
+                    {signature && (
+                      <>
+                        <div className="my-4 border-t border-border/50" />
+                        <div className="text-muted-foreground">{signature}</div>
+                      </>
+                    )}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-3">
+                  {recipientEmail && (
+                    <Button
+                      className="gap-2 bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90"
+                      onClick={() => {
+                        const subject = encodeURIComponent(`Voice Over Inquiry - ${companyName || "Collaboration Opportunity"}`)
+                        const body = encodeURIComponent(getFinalEmail())
+                        window.open(`mailto:${recipientEmail}?subject=${subject}&body=${body}`, "_blank")
+                      }}
+                    >
+                      <Send className="size-4" />
+                      Send to {recipientEmail}
+                    </Button>
+                  )}
+                  <Button variant="outline" className="gap-2" onClick={handleCopy}>
+                    {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    {copied ? "Copied!" : "Copy to Clipboard"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Mail className="mb-3 size-10 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground">Fill in the details and hit Generate to craft your outreach email.</p>
               </div>
             )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {result ? (
-            <div className="flex flex-col gap-4">
-              <div className="whitespace-pre-wrap rounded-lg border border-border bg-muted/50 p-4 text-sm leading-relaxed text-foreground">{result}</div>
-              <div className="flex flex-wrap gap-3">
-                {recipientEmail && (
-                  <Button
-                    className="gap-2 bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90"
-                    onClick={() => {
-                      const subject = encodeURIComponent(`Voice Over Inquiry - ${companyName || "Collaboration Opportunity"}`)
-                      const body = encodeURIComponent(result)
-                      window.open(`mailto:${recipientEmail}?subject=${subject}&body=${body}`, "_blank")
-                    }}
-                  >
-                    <Send className="size-4" />
-                    Send to {recipientEmail}
-                  </Button>
-                )}
-                <Button variant="outline" className="gap-2" onClick={handleCopy}>
-                  {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-                  {copied ? "Copied!" : "Copy to Clipboard"}
+          </CardContent>
+        </Card>
+
+        {/* Email Signature Section */}
+        <Card>
+          <CardHeader className="cursor-pointer" onClick={() => setShowSignatureEditor(!showSignatureEditor)}>
+            <CardTitle className="flex items-center justify-between text-base">
+              <span className="flex items-center gap-2">
+                <FileSignature className="size-4 text-[oklch(0.65_0.18_265)]" />
+                Email Signature
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {showSignatureEditor ? "Click to collapse" : "Click to expand"}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          {showSignatureEditor && (
+            <CardContent className="flex flex-col gap-3">
+              <Textarea
+                value={signature}
+                onChange={(e) => setSignature(e.target.value)}
+                placeholder="Best regards,&#10;Your Name&#10;Voice Over Artist&#10;yourwebsite.com | (555) 123-4567"
+                rows={5}
+                className="text-sm"
+              />
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  Your signature will be automatically appended to generated emails.
+                </p>
+                <Button 
+                  size="sm" 
+                  onClick={saveSignature} 
+                  disabled={signatureLoading}
+                  className="gap-1.5"
+                >
+                  {signatureLoading ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : signatureSaved ? (
+                    <Check className="size-3.5" />
+                  ) : (
+                    <Save className="size-3.5" />
+                  )}
+                  {signatureSaved ? "Saved!" : "Save Signature"}
                 </Button>
               </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Mail className="mb-3 size-10 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">Fill in the details and hit Generate to craft your outreach email.</p>
-            </div>
+            </CardContent>
           )}
-        </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   )
 }
