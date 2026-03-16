@@ -19,7 +19,8 @@ async function callGroq(prompt: string): Promise<string> {
       model: 'llama-3.1-8b-instant',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 500,
-      temperature: 0.7,
+      temperature: 0.9, // Higher temperature for more variation
+      top_p: 0.95,
     }),
   })
 
@@ -77,6 +78,11 @@ export async function POST(req: Request) {
     let prompt = ''
 
     if (type === 'outreach_email') {
+      // Add variation elements
+      const openingStyles = ['question', 'compliment', 'observation', 'direct', 'story']
+      const randomOpening = openingStyles[Math.floor(Math.random() * openingStyles.length)]
+      const randomSeed = Math.floor(Math.random() * 1000)
+      
       prompt = `Write a professional cold outreach email from an independent voice actor to a production company.
 
 Context:
@@ -85,6 +91,11 @@ ${context.contactName ? `Contact: ${context.contactName}` : ''}
 ${context.genre ? `Genre: ${context.genre}` : ''}
 ${context.tone ? `Tone: ${context.tone}` : ''}
 ${context.customNotes ? `Notes: ${context.customNotes}` : ''}
+
+Style instructions (variation seed: ${randomSeed}):
+- Opening style: ${randomOpening} - start with a ${randomOpening === 'question' ? 'thought-provoking question' : randomOpening === 'compliment' ? 'genuine compliment about their work' : randomOpening === 'observation' ? 'relevant industry observation' : randomOpening === 'direct' ? 'direct value proposition' : 'brief personal story or connection'}
+- Be creative and unique - avoid generic phrases like "I hope this email finds you well"
+- Vary sentence structure and length
 
 Rules:
 - Under 150 words

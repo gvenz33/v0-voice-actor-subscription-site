@@ -16,6 +16,8 @@ create table if not exists public.email_config (
   smtp_from_email text,
   smtp_from_name text,
   smtp_use_tls boolean default true,
+  bcc_self boolean default false,
+  signature_text text, -- Email signature
   -- Metadata
   created_at timestamptz default now(),
   updated_at timestamptz default now()
