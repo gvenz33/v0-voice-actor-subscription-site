@@ -26,11 +26,27 @@ export async function POST(req: Request) {
     .eq("user_id", user.id)
     .single()
 
-  if (configError || !config) {
+  console.log("[v0] Send email - config fetch result:", { config: !!config, error: configError?.message || configError?.code })
+
+  if (configError) {
+    // Check if table doesn't exist
+    if (configError.code === "PGRST205") {
+      return NextResponse.json({ 
+        error: "Email configuration table not set up. Please run the database migration in Settings, or use 'Open in Mail App' instead." 
+      }, { status: 400 })
+    }
     return NextResponse.json({ 
       error: "No email account configured. Please connect Gmail, Outlook, or configure SMTP in Settings." 
     }, { status: 400 })
   }
+  
+  if (!config) {
+    return NextResponse.json({ 
+      error: "No email account configured. Please connect Gmail, Outlook, or configure SMTP in Settings." 
+    }, { status: 400 })
+  }
+  
+  console.log("[v0] Send email - using provider:", config.provider)
 
   try {
     if (config.provider === "gmail") {

@@ -282,6 +282,7 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
       })
       
       const data = await res.json()
+      console.log("[v0] Send email response:", { status: res.status, ok: res.ok, data })
       
       if (res.ok) {
         setSendSuccess(true)
@@ -289,7 +290,8 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
       } else {
         setSendError(data.error || "Failed to send email")
       }
-    } catch {
+    } catch (err) {
+      console.error("[v0] Send email error:", err)
       setSendError("Network error. Please try again.")
     }
     setSending(false)
