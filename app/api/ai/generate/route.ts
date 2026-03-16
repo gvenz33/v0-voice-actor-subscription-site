@@ -3,10 +3,17 @@ import { getUserAIAccess, incrementUsage } from '@/lib/ai-limits'
 export const maxDuration = 30
 
 async function callGroq(prompt: string): Promise<string> {
+  const apiKey = (process.env.GROQ_API_KEY || '').trim()
+  console.log("[v0] GROQ_API_KEY length:", apiKey.length, "| starts with:", apiKey.substring(0, 8), "| ends with:", apiKey.substring(apiKey.length - 4))
+  
+  if (!apiKey) {
+    throw new Error("GROQ_API_KEY is not set")
+  }
+
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+      'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
