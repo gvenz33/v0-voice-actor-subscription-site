@@ -2,22 +2,21 @@ import { getUserAIAccess, incrementUsage } from '@/lib/ai-limits'
 
 export const maxDuration = 30
 
-async function callGroq(prompt: string): Promise<string> {
-  const apiKey = (process.env.GROQ_API_KEY || '').trim()
-  console.log("[v0] GROQ_API_KEY length:", apiKey.length, "| starts with:", apiKey.substring(0, 8), "| ends with:", apiKey.substring(apiKey.length - 4))
+async function callGrok(prompt: string): Promise<string> {
+  const apiKey = (process.env.XAI_API_KEY || '').trim()
   
   if (!apiKey) {
-    throw new Error("GROQ_API_KEY is not set")
+    throw new Error("XAI_API_KEY is not set")
   }
 
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+  const res = await fetch('https://api.x.ai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
+      model: 'grok-2-latest',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 500,
       temperature: 0.7,
@@ -26,7 +25,7 @@ async function callGroq(prompt: string): Promise<string> {
 
   if (!res.ok) {
     const error = await res.json()
-    throw new Error(error.error?.message || 'Groq API error')
+    throw new Error(error.error?.message || 'xAI API error')
   }
 
   const data = await res.json()
@@ -116,7 +115,7 @@ Rules:
 - Output ONLY the email, no commentary`
     }
 
-    const text = await callGroq(prompt)
+    const text = await callGrok(prompt)
 
     await incrementUsage(access.userId)
 
