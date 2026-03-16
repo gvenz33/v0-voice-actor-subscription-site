@@ -1,12 +1,36 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
+// Helper to ensure the email_config table exists
+async function ensureTable(supabase: Awaited<ReturnType<typeof createClient>>) {
+  // Check if table exists by trying a simple query
+  const { error } = await supabase.from("email_config").select("id").limit(1)
+  
+  if (error?.code === "PGRST205" || error?.message?.includes("does not exist")) {
+    // Table doesn't exist - we need to create it via SQL Editor in Supabase Dashboard
+    // Return a helpful error instead of crashing
+    return false
+  }
+  return true
+}
+
 export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  }
+
+  // Check if table exists
+  const tableExists = await ensureTable(supabase)
+  if (!tableExists) {
+    // Return empty config - user can still use mailto: fallback
+    return NextResponse.json({
+      config: null,
+      hasConfig: false,
+      tableNotCreated: true,
+    })
   }
 
   const { data, error } = await supabase
@@ -32,6 +56,15 @@ export async function POST(req: Request) {
 
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  }
+
+  // Check if table exists
+  const tableExists = await ensureTable(supabase)
+  if (!tableExists) {
+    return NextResponse.json({ 
+      error: "Email configuration table not set up. Please run the migration in Supabase SQL Editor.",
+      tableNotCreated: true,
+    }, { status: 503 })
   }
 
   const body = await req.json()

@@ -44,6 +44,7 @@ export default function SettingsPage() {
   // Email config state
   const [emailConfig, setEmailConfig] = useState<EmailConfig | null>(null)
   const [emailConfigLoading, setEmailConfigLoading] = useState(true)
+  const [emailTableNotCreated, setEmailTableNotCreated] = useState(false)
   const [smtpForm, setSmtpForm] = useState({
     smtp_host: "",
     smtp_port: "587",
@@ -75,6 +76,9 @@ export default function SettingsPage() {
         const res = await fetch("/api/email-config")
         const data = await res.json()
         setEmailConfig(data.config)
+        if (data.tableNotCreated) {
+          setEmailTableNotCreated(true)
+        }
       } catch {
         console.error("Failed to load email config")
       }
@@ -265,6 +269,50 @@ export default function SettingsPage() {
           {emailConfigLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="size-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : emailTableNotCreated ? (
+            <div className="flex flex-col gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="size-5 text-amber-500" />
+                <p className="font-medium text-amber-500">Database Setup Required</p>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                The email configuration table needs to be created in your Supabase database. Please run the following SQL in your Supabase SQL Editor:
+              </p>
+              <pre className="overflow-x-auto rounded bg-muted p-3 text-xs">
+{`create table if not exists public.email_config (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade unique,
+  provider text,
+  oauth_access_token text,
+  oauth_refresh_token text,
+  oauth_expires_at timestamptz,
+  oauth_email text,
+  smtp_host text,
+  smtp_port int,
+  smtp_username text,
+  smtp_password text,
+  smtp_from_email text,
+  smtp_from_name text,
+  smtp_use_tls boolean default true,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table public.email_config enable row level security;
+
+create policy "email_config_select_own" on public.email_config 
+  for select using (auth.uid() = user_id);
+create policy "email_config_insert_own" on public.email_config 
+  for insert with check (auth.uid() = user_id);
+create policy "email_config_update_own" on public.email_config 
+  for update using (auth.uid() = user_id);
+create policy "email_config_delete_own" on public.email_config 
+  for delete using (auth.uid() = user_id);`}
+              </pre>
+              <p className="text-sm text-muted-foreground">
+                After running the migration, refresh this page. In the meantime, you can still use the "Open in Mail App" option.
+              </p>
             </div>
           ) : emailConfig?.provider ? (
             <div className="flex flex-col gap-4">
