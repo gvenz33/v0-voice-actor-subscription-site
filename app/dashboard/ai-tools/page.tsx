@@ -260,7 +260,9 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
   }
 
   const getFinalEmail = () => {
-    const emailContent = isEditing ? editedResult : result
+    // Always use editedResult since it's synced with result on generation
+    // and contains any user edits
+    const emailContent = editedResult || result
     return signature ? `${emailContent}\n\n${signature}` : emailContent
   }
 
@@ -282,7 +284,6 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
       })
       
       const data = await res.json()
-      console.log("[v0] Send email response:", { status: res.status, ok: res.ok, data })
       
       if (res.ok) {
         setSendSuccess(true)
@@ -290,8 +291,7 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
       } else {
         setSendError(data.error || "Failed to send email")
       }
-    } catch (err) {
-      console.error("[v0] Send email error:", err)
+    } catch {
       setSendError("Network error. Please try again.")
     }
     setSending(false)
