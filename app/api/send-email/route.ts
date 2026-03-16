@@ -155,6 +155,14 @@ export async function POST(req: Request) {
     }
 
     if (config.provider === "smtp") {
+      console.log("[v0] SMTP config:", { 
+        host: config.smtp_host, 
+        port: config.smtp_port, 
+        username: config.smtp_username ? "set" : "not set",
+        password: config.smtp_password ? "set" : "not set",
+        from: config.smtp_from_email 
+      })
+      
       // Send via SMTP using nodemailer
       const transporter = nodemailer.createTransport({
         host: config.smtp_host,
@@ -164,9 +172,14 @@ export async function POST(req: Request) {
           user: config.smtp_username,
           pass: config.smtp_password,
         },
+        tls: {
+          rejectUnauthorized: false
+        }
       })
 
-      await transporter.sendMail({
+      console.log("[v0] Attempting to send email to:", to)
+      
+      const info = await transporter.sendMail({
         from: config.smtp_from_name 
           ? `"${config.smtp_from_name}" <${config.smtp_from_email}>`
           : config.smtp_from_email,
@@ -175,7 +188,8 @@ export async function POST(req: Request) {
         text: body,
       })
 
-      return NextResponse.json({ success: true, provider: "smtp", from: config.smtp_from_email })
+      console.log("[v0] Email sent successfully:", info.messageId)
+      return NextResponse.json({ success: true, provider: "smtp", from: config.smtp_from_email, messageId: info.messageId })
     }
 
     return NextResponse.json({ error: "Unknown email provider" }, { status: 400 })
