@@ -42,6 +42,7 @@ import {
   FileSignature,
 } from "lucide-react"
 import Link from "next/link"
+import { TokenPurchaseModal } from "@/components/token-purchase-modal"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -51,6 +52,8 @@ interface UsageData {
   generationCount: number
   monthlyLimit: number
   remainingGenerations: number
+  remainingTokens: number
+  purchasedTokens: number
   isUnlimited: boolean
   canGenerate: boolean
   hasFollowUpWriter: boolean
@@ -89,9 +92,10 @@ function UsageMeter({ usage }: { usage: UsageData }) {
     )
   }
 
+  const totalTokens = usage.remainingTokens + (usage.purchasedTokens || 0)
   const percentage = usage.isUnlimited
     ? 0
-    : Math.min(100, (usage.generationCount / usage.monthlyLimit) * 100)
+    : Math.min(100, ((usage.monthlyLimit - usage.remainingGenerations) / usage.monthlyLimit) * 100)
 
   return (
     <Card>
@@ -103,17 +107,18 @@ function UsageMeter({ usage }: { usage: UsageData }) {
             </span>
             <span className="text-muted-foreground">
               {usage.isUnlimited
-                ? `${usage.generationCount} used (unlimited)`
-                : `${usage.generationCount} / ${usage.monthlyLimit} this month`}
+                ? "Unlimited tokens"
+                : `${usage.remainingTokens} tokens remaining`}
+              {usage.purchasedTokens > 0 && ` (+${usage.purchasedTokens} purchased)`}
             </span>
           </div>
           {!usage.isUnlimited && (
-            <Progress value={percentage} className="mt-2 h-2" />
+            <Progress value={100 - (usage.remainingTokens / usage.monthlyLimit) * 100} className="mt-2 h-2" />
           )}
         </div>
-        {!usage.isUnlimited && usage.remainingGenerations <= 5 && usage.remainingGenerations > 0 && (
-          <span className="whitespace-nowrap rounded-full bg-orange-500/10 px-3 py-1 text-xs font-medium text-orange-400">
-            {usage.remainingGenerations} left
+        {!usage.isUnlimited && usage.remainingTokens <= 20 && usage.remainingTokens > 0 && (
+          <Link href="/dashboard/tokens" className="whitespace-nowrap rounded-full bg-orange-500/10 px-3 py-1 text-xs font-medium text-orange-400 hover:bg-orange-500/20 transition-colors">
+            Low tokens - Buy more
           </span>
         )}
         {!usage.isUnlimited && usage.remainingGenerations === 0 && (
@@ -213,6 +218,9 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
   const [sending, setSending] = useState(false)
   const [sendSuccess, setSendSuccess] = useState(false)
   const [sendError, setSendError] = useState("")
+  
+  // Token purchase modal
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false)
 
   // Load signature from localStorage on mount
   useEffect(() => {
@@ -299,11 +307,17 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
         }),
       })
       const data = await res.json()
-      console.log("[v0] Generate response status:", res.status, "| data:", data)
-      if (!res.ok) {
-        if (data.error === "limit_reached") {
-          setError(`Monthly limit reached (${data.used}/${data.limit}). Upgrade for more.`)
-        } else {
+  if (!res.ok) {
+    if (data.error === "insufficient_tokens" || data.purchaseRequired) {
+      setError(`Not enough tokens (need ${data.required}, have ${data.remaining}). Purchase more to continue.`)
+      setShowPurchaseModal(true)
+    } else if (data.error === "limit_reached") {
+      setError(`Monthly limit reached. Purchase tokens to continue.`)
+      setShowPurchaseModal(true)
+    } else {
+      setError(data.error || "Something went wrong.")
+    }
+  } else {
           setError(data.error || "Something went wrong.")
         }
       } else {
@@ -325,6 +339,15 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
   }
 
   return (
+    <>
+    <TokenPurchaseModal 
+      open={showPurchaseModal} 
+      onOpenChange={setShowPurchaseModal}
+      onSuccess={() => {
+        setShowPurchaseModal(false)
+        setError("")
+      }}
+    />
     <div className="grid gap-6 lg:grid-cols-2">
       <Card>
         <CardHeader>
