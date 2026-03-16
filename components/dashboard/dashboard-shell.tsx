@@ -16,6 +16,7 @@ import {
   Mic2,
   Sparkles,
   ScanSearch,
+  Coins,
 } from "lucide-react"
 import {
   SidebarProvider,
@@ -90,6 +91,11 @@ const NAV_ITEMS = [
     title: "AI Tools",
     href: "/dashboard/ai-tools",
     icon: Sparkles,
+  },
+  {
+    title: "Tokens",
+    href: "/dashboard/tokens",
+    icon: Coins,
   },
 ]
 

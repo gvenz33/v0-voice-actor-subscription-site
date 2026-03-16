@@ -10,13 +10,24 @@ export async function GET() {
   return Response.json({
     tier: access.tier,
     tierLabel: access.limits.label,
-    generationCount: access.generationCount,
-    monthlyLimit: access.limits.monthlyGenerations,
-    remainingGenerations: access.isUnlimited ? -1 : access.remainingGenerations,
+    // Legacy fields for backward compatibility
+    generationCount: access.tokensUsed,
+    monthlyLimit: access.monthlyTokens,
+    remainingGenerations: access.isUnlimited ? -1 : access.remainingTokens,
+    // New token fields
+    tokensUsed: access.tokensUsed,
+    purchasedTokens: access.purchasedTokens,
+    monthlyTokens: access.monthlyTokens,
+    totalAvailable: access.totalAvailable,
+    remainingTokens: access.isUnlimited ? -1 : access.remainingTokens,
     isUnlimited: access.isUnlimited,
     canGenerate: access.canGenerate,
+    canResearch: access.canResearch,
+    canChat: access.canChat,
     hasFollowUpWriter: access.limits.hasFollowUpWriter,
     hasPitchGenerator: access.limits.hasPitchGenerator,
     hasChatAssistant: access.limits.hasChatAssistant,
+    hasProspectFinder: access.limits.hasProspectFinder,
+    tokenCosts: access.tokenCosts,
   })
 }

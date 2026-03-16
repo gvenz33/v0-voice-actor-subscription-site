@@ -1,42 +1,48 @@
 import { createClient } from "@/lib/supabase/server"
+import { TOKEN_COSTS } from "@/lib/token-products"
 
 export type SubscriptionTier = "free" | "launch" | "momentum" | "command"
 
 export interface TierLimits {
-  monthlyGenerations: number // 0 = no access, -1 = unlimited
+  monthlyTokens: number // Base tokens per month from subscription (0 = no access, -1 = unlimited)
   hasFollowUpWriter: boolean
   hasPitchGenerator: boolean
   hasChatAssistant: boolean
+  hasProspectFinder: boolean
   label: string
 }
 
 export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
   free: {
-    monthlyGenerations: 0,
+    monthlyTokens: 0,
     hasFollowUpWriter: false,
     hasPitchGenerator: false,
     hasChatAssistant: false,
+    hasProspectFinder: false,
     label: "Free",
   },
   launch: {
-    monthlyGenerations: 5,
+    monthlyTokens: 25, // ~5 emails
     hasFollowUpWriter: false,
     hasPitchGenerator: false,
     hasChatAssistant: false,
+    hasProspectFinder: false,
     label: "Launch",
   },
   momentum: {
-    monthlyGenerations: 50,
+    monthlyTokens: 250, // ~50 emails or mix of features
     hasFollowUpWriter: true,
     hasPitchGenerator: true,
     hasChatAssistant: false,
+    hasProspectFinder: true,
     label: "Momentum",
   },
   command: {
-    monthlyGenerations: -1, // unlimited
+    monthlyTokens: -1, // unlimited
     hasFollowUpWriter: true,
     hasPitchGenerator: true,
     hasChatAssistant: true,
+    hasProspectFinder: true,
     label: "Command",
   },
 }
@@ -55,54 +61,62 @@ export async function getUserAIAccess() {
 
   if (!user) return null
 
-  // Get user's subscription tier from profile
+  // Get user's subscription tier and purchased tokens from profile
   const { data: profile } = await supabase
     .from("profiles")
-    .select("subscription_tier")
+    .select("subscription_tier, purchased_tokens")
     .eq("id", user.id)
     .single()
 
   const tier = (profile?.subscription_tier || "free") as SubscriptionTier
+  const purchasedTokens = profile?.purchased_tokens || 0
   const limits = TIER_LIMITS[tier]
   const currentMonth = getCurrentMonth()
 
-  // Get or create usage record for this month
+  // Get usage for this month
   const { data: usage } = await supabase
     .from("ai_usage")
-    .select("generation_count")
+    .select("tokens_used")
     .eq("user_id", user.id)
     .eq("usage_month", currentMonth)
     .single()
 
-  const generationCount = usage?.generation_count || 0
-
-  const isUnlimited = limits.monthlyGenerations === -1
-  const remainingGenerations = isUnlimited
-    ? Infinity
-    : Math.max(0, limits.monthlyGenerations - generationCount)
-  const canGenerate =
-    limits.monthlyGenerations !== 0 && (isUnlimited || remainingGenerations > 0)
+  const tokensUsed = usage?.tokens_used || 0
+  const isUnlimited = limits.monthlyTokens === -1
+  
+  // Total available = subscription tokens + purchased tokens
+  const totalAvailable = isUnlimited ? Infinity : limits.monthlyTokens + purchasedTokens
+  const remainingTokens = isUnlimited ? Infinity : Math.max(0, totalAvailable - tokensUsed)
+  
+  const canUseTokens = (cost: number) => 
+    limits.monthlyTokens !== 0 && (isUnlimited || remainingTokens >= cost)
 
   return {
     userId: user.id,
     tier,
     limits,
-    generationCount,
-    remainingGenerations,
-    canGenerate,
+    tokensUsed,
+    purchasedTokens,
+    monthlyTokens: limits.monthlyTokens,
+    totalAvailable,
+    remainingTokens,
+    canGenerate: canUseTokens(TOKEN_COSTS.EMAIL_GENERATION),
+    canResearch: canUseTokens(TOKEN_COSTS.WEB_RESEARCH),
+    canChat: canUseTokens(TOKEN_COSTS.CHAT_MESSAGE),
     isUnlimited,
     currentMonth,
+    tokenCosts: TOKEN_COSTS,
   }
 }
 
-export async function incrementUsage(userId: string) {
+export async function consumeTokens(userId: string, amount: number, operation: string) {
   const supabase = await createClient()
   const currentMonth = getCurrentMonth()
 
-  // Upsert: insert if no row exists, otherwise increment
+  // Get current usage
   const { data: existing } = await supabase
     .from("ai_usage")
-    .select("id, generation_count")
+    .select("id, tokens_used")
     .eq("user_id", userId)
     .eq("usage_month", currentMonth)
     .single()
@@ -111,7 +125,7 @@ export async function incrementUsage(userId: string) {
     await supabase
       .from("ai_usage")
       .update({
-        generation_count: existing.generation_count + 1,
+        tokens_used: existing.tokens_used + amount,
         updated_at: new Date().toISOString(),
       })
       .eq("id", existing.id)
@@ -119,7 +133,54 @@ export async function incrementUsage(userId: string) {
     await supabase.from("ai_usage").insert({
       user_id: userId,
       usage_month: currentMonth,
-      generation_count: 1,
+      tokens_used: amount,
+      generation_count: operation.includes('EMAIL') ? 1 : 0,
     })
   }
+
+  // Log the token consumption
+  await supabase.from("token_transactions").insert({
+    user_id: userId,
+    amount: -amount,
+    operation,
+    created_at: new Date().toISOString(),
+  }).catch(() => {
+    // Table may not exist yet, ignore
+  })
+}
+
+export async function addPurchasedTokens(userId: string, tokens: number) {
+  const supabase = await createClient()
+  
+  // Add tokens to user's purchased_tokens balance
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("purchased_tokens")
+    .eq("id", userId)
+    .single()
+
+  const currentTokens = profile?.purchased_tokens || 0
+  
+  await supabase
+    .from("profiles")
+    .update({ 
+      purchased_tokens: currentTokens + tokens,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", userId)
+
+  // Log the transaction
+  await supabase.from("token_transactions").insert({
+    user_id: userId,
+    amount: tokens,
+    operation: "PURCHASE",
+    created_at: new Date().toISOString(),
+  }).catch(() => {
+    // Table may not exist yet, ignore
+  })
+}
+
+// Legacy function for backward compatibility
+export async function incrementUsage(userId: string) {
+  await consumeTokens(userId, TOKEN_COSTS.EMAIL_GENERATION, "EMAIL_GENERATION")
 }

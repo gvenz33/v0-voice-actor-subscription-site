@@ -1,4 +1,5 @@
-import { getUserAIAccess, incrementUsage } from '@/lib/ai-limits'
+import { getUserAIAccess, consumeTokens } from '@/lib/ai-limits'
+import { TOKEN_COSTS } from '@/lib/token-products'
 
 export const maxDuration = 30
 
@@ -65,13 +66,20 @@ export async function POST(req: Request) {
       )
     }
 
-    if (!access.canGenerate) {
+    // Determine token cost based on type
+    const tokenCost = type === 'outreach_email' ? TOKEN_COSTS.EMAIL_GENERATION 
+      : type === 'follow_up' ? TOKEN_COSTS.FOLLOWUP_GENERATION 
+      : type === 'pitch_generator' ? TOKEN_COSTS.PITCH_GENERATION 
+      : TOKEN_COSTS.EMAIL_GENERATION
+
+    if (!access.canGenerate || (!access.isUnlimited && access.remainingTokens < tokenCost)) {
       return Response.json(
         {
-          error: 'limit_reached',
+          error: 'insufficient_tokens',
           tier: access.tier,
-          used: access.generationCount,
-          limit: access.limits.monthlyGenerations,
+          remaining: access.remainingTokens,
+          required: tokenCost,
+          purchaseRequired: true,
         },
         { status: 429 }
       )
@@ -157,7 +165,7 @@ Rules:
 
     const rawText = await callGroq(prompt)
 
-    await incrementUsage(access.userId)
+    await consumeTokens(access.userId, tokenCost, type.toUpperCase())
 
     // Parse subject line from outreach emails
     let text = rawText
@@ -183,8 +191,8 @@ Rules:
       text,
       subject,
       usage: {
-        used: access.generationCount + 1,
-        limit: access.limits.monthlyGenerations,
+        tokensUsed: tokenCost,
+        remaining: access.isUnlimited ? -1 : access.remainingTokens - tokenCost,
         isUnlimited: access.isUnlimited,
       },
     })
