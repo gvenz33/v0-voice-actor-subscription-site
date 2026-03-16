@@ -306,7 +306,7 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
         }),
       })
       const data = await res.json()
-      
+
       if (!res.ok) {
         if (data.error === "insufficient_tokens" || data.purchaseRequired) {
           setError(`Not enough tokens (need ${data.required}, have ${data.remaining}). Purchase more to continue.`)
