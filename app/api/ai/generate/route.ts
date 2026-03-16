@@ -1,5 +1,5 @@
 import { generateText } from 'ai'
-import { openai } from '@ai-sdk/openai'
+import { groq } from '@ai-sdk/groq'
 import { getUserAIAccess, incrementUsage } from '@/lib/ai-limits'
 
 export const maxDuration = 30
@@ -100,16 +100,15 @@ Guidelines:
 - Output ONLY the email text, no extra commentary`
   }
 
-  console.log("[v0] Calling OpenAI with model gpt-4o-mini, prompt length:", prompt.length)
-  console.log("[v0] OPENAI_API_KEY present:", !!process.env.OPENAI_API_KEY, "| Key starts with:", process.env.OPENAI_API_KEY?.substring(0, 7))
+  console.log("[v0] Calling Groq with model llama-3.3-70b-versatile, prompt length:", prompt.length)
 
   const { text } = await generateText({
-    model: openai('gpt-4o-mini'),
+    model: groq('llama-3.3-70b-versatile'),
     prompt,
-    maxOutputTokens: 1000,
+    maxTokens: 500,
   })
 
-  console.log("[v0] OpenAI response received, length:", text?.length)
+  console.log("[v0] Groq response received, length:", text?.length)
 
   // Track usage after successful generation
   await incrementUsage(access.userId)

@@ -4,7 +4,7 @@ import {
   streamText,
   UIMessage,
 } from 'ai'
-import { openai } from '@ai-sdk/openai'
+import { groq } from '@ai-sdk/groq'
 import { getUserAIAccess, incrementUsage } from '@/lib/ai-limits'
 
 export const maxDuration = 30
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
   await incrementUsage(access.userId)
 
   const result = streamText({
-    model: openai('gpt-4o-mini'),
+    model: groq('llama-3.3-70b-versatile'),
     system: `You are the VO Biz Suite AI Assistant — a knowledgeable, encouraging business coach for independent voice actors.
 
 You help voice actors with:
