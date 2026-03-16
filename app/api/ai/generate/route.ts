@@ -16,7 +16,7 @@ async function callGrok(prompt: string): Promise<string> {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'grok-2-latest',
+      model: 'grok-beta',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 500,
       temperature: 0.7,

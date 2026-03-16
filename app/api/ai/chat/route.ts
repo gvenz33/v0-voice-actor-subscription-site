@@ -41,7 +41,7 @@ export async function POST(req: Request) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'grok-2-latest',
+        model: 'grok-beta',
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           ...messages.map((m: { role: string; content: string }) => ({
