@@ -8,13 +8,14 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
-import { User, CreditCard, Shield, Mail, Check, AlertCircle, Loader2, Unlink } from "lucide-react"
+import { User, CreditCard, Shield, Mail, Check, AlertCircle, Loader2, Unlink, FileSignature, Save } from "lucide-react"
 import Link from "next/link"
 
 interface Profile {
@@ -57,6 +58,12 @@ export default function SettingsPage() {
   })
   const [smtpSaving, setSmtpSaving] = useState(false)
   const [emailMessage, setEmailMessage] = useState("")
+  
+  // Signature state
+  const [signature, setSignature] = useState("")
+  const [signatureLoading, setSignatureLoading] = useState(true)
+  const [signatureSaving, setSignatureSaving] = useState(false)
+  const [signatureMessage, setSignatureMessage] = useState("")
 
   useEffect(() => {
     async function load() {
@@ -86,6 +93,23 @@ export default function SettingsPage() {
       setEmailConfigLoading(false)
     }
     loadEmailConfig()
+  }, [])
+
+  // Load signature
+  useEffect(() => {
+    async function loadSignature() {
+      try {
+        const res = await fetch("/api/signature")
+        const data = await res.json()
+        if (data.signature) setSignature(data.signature)
+      } catch {
+        // Fallback to localStorage
+        const saved = localStorage.getItem("vo_email_signature")
+        if (saved) setSignature(saved)
+      }
+      setSignatureLoading(false)
+    }
+    loadSignature()
   }, [])
 
   // Handle OAuth success/error messages
@@ -139,6 +163,26 @@ export default function SettingsPage() {
     } catch {
       setEmailMessage("Failed to disconnect.")
     }
+  }
+
+  const handleSaveSignature = async () => {
+    setSignatureSaving(true)
+    setSignatureMessage("")
+    try {
+      await fetch("/api/signature", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signature }),
+      })
+      localStorage.setItem("vo_email_signature", signature)
+      setSignatureMessage("Signature saved successfully!")
+      setTimeout(() => setSignatureMessage(""), 3000)
+    } catch {
+      localStorage.setItem("vo_email_signature", signature)
+      setSignatureMessage("Saved locally.")
+      setTimeout(() => setSignatureMessage(""), 3000)
+    }
+    setSignatureSaving(false)
   }
 
   const handleSaveProfile = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -501,6 +545,56 @@ create policy "email_config_delete_own" on public.email_config
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileSignature className="size-4" />
+            Email Signature
+          </CardTitle>
+          <CardDescription>Create a signature to automatically append to your outreach emails.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {signatureLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="size-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <>
+              <Textarea
+                value={signature}
+                onChange={(e) => setSignature(e.target.value)}
+                placeholder="Best regards,&#10;Your Name&#10;Voice Over Artist&#10;yourwebsite.com | (555) 123-4567"
+                rows={6}
+                className="text-sm"
+              />
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  Your signature will be automatically appended to generated emails.
+                </p>
+                <Button 
+                  size="sm" 
+                  onClick={handleSaveSignature} 
+                  disabled={signatureSaving}
+                  className="gap-1.5"
+                >
+                  {signatureSaving ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : signatureMessage ? (
+                    <Check className="size-3.5" />
+                  ) : (
+                    <Save className="size-3.5" />
+                  )}
+                  {signatureSaving ? "Saving..." : signatureMessage ? "Saved!" : "Save Signature"}
+                </Button>
+              </div>
+              {signatureMessage && (
+                <p className="text-sm text-green-500">{signatureMessage}</p>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+      
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
