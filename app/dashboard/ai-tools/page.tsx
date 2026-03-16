@@ -119,7 +119,7 @@ function UsageMeter({ usage }: { usage: UsageData }) {
         {!usage.isUnlimited && usage.remainingTokens <= 20 && usage.remainingTokens > 0 && (
           <Link href="/dashboard/tokens" className="whitespace-nowrap rounded-full bg-orange-500/10 px-3 py-1 text-xs font-medium text-orange-400 hover:bg-orange-500/20 transition-colors">
             Low tokens - Buy more
-          </span>
+          </Link>
         )}
         {!usage.isUnlimited && usage.remainingGenerations === 0 && (
           <Button variant="outline" size="sm" asChild>
