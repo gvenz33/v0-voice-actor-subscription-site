@@ -306,17 +306,15 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
         }),
       })
       const data = await res.json()
-  if (!res.ok) {
-    if (data.error === "insufficient_tokens" || data.purchaseRequired) {
-      setError(`Not enough tokens (need ${data.required}, have ${data.remaining}). Purchase more to continue.`)
-      setShowPurchaseModal(true)
-    } else if (data.error === "limit_reached") {
-      setError(`Monthly limit reached. Purchase tokens to continue.`)
-      setShowPurchaseModal(true)
-    } else {
-      setError(data.error || "Something went wrong.")
-    }
-  } else {
+      
+      if (!res.ok) {
+        if (data.error === "insufficient_tokens" || data.purchaseRequired) {
+          setError(`Not enough tokens (need ${data.required}, have ${data.remaining}). Purchase more to continue.`)
+          setShowPurchaseModal(true)
+        } else if (data.error === "limit_reached") {
+          setError(`Monthly limit reached. Purchase tokens to continue.`)
+          setShowPurchaseModal(true)
+        } else {
           setError(data.error || "Something went wrong.")
         }
       } else {
