@@ -212,18 +212,10 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
   const [sendSuccess, setSendSuccess] = useState(false)
   const [sendError, setSendError] = useState("")
 
-  // Load signature on mount
+  // Load signature from localStorage on mount
   useEffect(() => {
-    fetch("/api/signature")
-      .then(res => res.json())
-      .then(data => {
-        if (data.signature) setSignature(data.signature)
-      })
-      .catch(() => {
-        // Fallback to localStorage
-        const saved = localStorage.getItem("vo_email_signature")
-        if (saved) setSignature(saved)
-      })
+    const saved = localStorage.getItem("vo_email_signature")
+    if (saved) setSignature(saved)
   }, [])
 
   // Update fields if prefill values change (navigating from Prospect Finder)
@@ -240,22 +232,11 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
     setIsEditing(false)
   }, [result])
 
-  const saveSignature = async () => {
+  const saveSignature = () => {
     setSignatureLoading(true)
-    try {
-      await fetch("/api/signature", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ signature }),
-      })
-      localStorage.setItem("vo_email_signature", signature)
-      setSignatureSaved(true)
-      setTimeout(() => setSignatureSaved(false), 2000)
-    } catch {
-      localStorage.setItem("vo_email_signature", signature)
-      setSignatureSaved(true)
-      setTimeout(() => setSignatureSaved(false), 2000)
-    }
+    localStorage.setItem("vo_email_signature", signature)
+    setSignatureSaved(true)
+    setTimeout(() => setSignatureSaved(false), 2000)
     setSignatureLoading(false)
   }
 

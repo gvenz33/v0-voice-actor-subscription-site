@@ -18,9 +18,11 @@ async function callGroq(prompt: string): Promise<string> {
     body: JSON.stringify({
       model: 'llama-3.1-8b-instant',
       messages: [{ role: 'user', content: prompt }],
-      max_tokens: 500,
-      temperature: 0.9, // Higher temperature for more variation
+      max_tokens: 600,
+      temperature: 1.0,
       top_p: 0.95,
+      frequency_penalty: 0.3,
+      presence_penalty: 0.3,
     }),
   })
 
@@ -78,31 +80,48 @@ export async function POST(req: Request) {
     let prompt = ''
 
     if (type === 'outreach_email') {
-      // Add variation elements
-      const openingStyles = ['question', 'compliment', 'observation', 'direct', 'story']
-      const randomOpening = openingStyles[Math.floor(Math.random() * openingStyles.length)]
-      const randomSeed = Math.floor(Math.random() * 1000)
+      // Add variation elements for unique emails each time
+      const openingStyles = ['question', 'compliment', 'observation', 'direct', 'story', 'statistic', 'bold_claim']
+      const closingStyles = ['curious', 'helpful', 'confident', 'casual', 'enthusiastic']
+      const toneModifiers = ['slightly humorous', 'warmly professional', 'confidently casual', 'genuinely curious', 'enthusiastically helpful']
       
-      prompt = `Write a professional cold outreach email from an independent voice actor to a production company.
+      const randomOpening = openingStyles[Math.floor(Math.random() * openingStyles.length)]
+      const randomClosing = closingStyles[Math.floor(Math.random() * closingStyles.length)]
+      const randomTone = toneModifiers[Math.floor(Math.random() * toneModifiers.length)]
+      const randomSeed = Math.floor(Math.random() * 10000)
+      const wordCount = 100 + Math.floor(Math.random() * 80) // 100-180 words
+      
+      const openingInstructions: Record<string, string> = {
+        question: 'an intriguing question about their recent project or industry trend',
+        compliment: 'a specific, genuine compliment about their recent work (be creative)',
+        observation: 'a fresh observation about their company or the industry',
+        direct: 'a bold, direct statement about what you can offer them',
+        story: 'a brief 1-sentence personal anecdote that connects to their work',
+        statistic: 'a surprising industry fact or statistic relevant to their work',
+        bold_claim: 'a confident claim about your unique value as a voice actor'
+      }
+      
+      prompt = `Write a unique cold outreach email from a voice actor to a production company. Make this email COMPLETELY DIFFERENT from any template.
 
 Context:
 ${context.companyName ? `Company: ${context.companyName}` : ''}
 ${context.contactName ? `Contact: ${context.contactName}` : ''}
-${context.genre ? `Genre: ${context.genre}` : ''}
-${context.tone ? `Tone: ${context.tone}` : ''}
-${context.customNotes ? `Notes: ${context.customNotes}` : ''}
+${context.genre ? `Genre/Specialty: ${context.genre}` : ''}
+${context.tone ? `Requested tone: ${context.tone}` : ''}
+${context.customNotes ? `Additional context: ${context.customNotes}` : ''}
 
-Style instructions (variation seed: ${randomSeed}):
-- Opening style: ${randomOpening} - start with a ${randomOpening === 'question' ? 'thought-provoking question' : randomOpening === 'compliment' ? 'genuine compliment about their work' : randomOpening === 'observation' ? 'relevant industry observation' : randomOpening === 'direct' ? 'direct value proposition' : 'brief personal story or connection'}
-- Be creative and unique - avoid generic phrases like "I hope this email finds you well"
-- Vary sentence structure and length
+CREATIVE DIRECTION (seed ${randomSeed}):
+1. OPENING: Start with ${openingInstructions[randomOpening]}
+2. TONE: Write in a ${randomTone} voice throughout
+3. CLOSING: End with a ${randomClosing} call-to-action
+4. LENGTH: Approximately ${wordCount} words
 
-Rules:
-- Under 150 words
-- Professional but personable
-- Clear call to action
-- Sign off with [Your Name]
-- Output ONLY the email, no commentary`
+STRICT RULES:
+- NO generic phrases like "I hope this email finds you well", "I came across", "I wanted to reach out"
+- Each sentence should feel fresh and specific
+- Include ONE memorable detail or hook
+- Sign off with [Your Name] only (no signature block)
+- Output the email text ONLY - no subject line, no commentary, no explanations`
     } else if (type === 'pitch_generator') {
       prompt = `Write a 2-3 sentence elevator pitch for a voice actor.
 

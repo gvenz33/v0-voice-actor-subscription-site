@@ -95,21 +95,11 @@ export default function SettingsPage() {
     loadEmailConfig()
   }, [])
 
-  // Load signature
+  // Load signature from localStorage
   useEffect(() => {
-    async function loadSignature() {
-      try {
-        const res = await fetch("/api/signature")
-        const data = await res.json()
-        if (data.signature) setSignature(data.signature)
-      } catch {
-        // Fallback to localStorage
-        const saved = localStorage.getItem("vo_email_signature")
-        if (saved) setSignature(saved)
-      }
-      setSignatureLoading(false)
-    }
-    loadSignature()
+    const saved = localStorage.getItem("vo_email_signature")
+    if (saved) setSignature(saved)
+    setSignatureLoading(false)
   }, [])
 
   // Handle OAuth success/error messages
@@ -165,23 +155,12 @@ export default function SettingsPage() {
     }
   }
 
-  const handleSaveSignature = async () => {
+  const handleSaveSignature = () => {
     setSignatureSaving(true)
     setSignatureMessage("")
-    try {
-      await fetch("/api/signature", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ signature }),
-      })
-      localStorage.setItem("vo_email_signature", signature)
-      setSignatureMessage("Signature saved successfully!")
-      setTimeout(() => setSignatureMessage(""), 3000)
-    } catch {
-      localStorage.setItem("vo_email_signature", signature)
-      setSignatureMessage("Saved locally.")
-      setTimeout(() => setSignatureMessage(""), 3000)
-    }
+    localStorage.setItem("vo_email_signature", signature)
+    setSignatureMessage("Signature saved successfully!")
+    setTimeout(() => setSignatureMessage(""), 3000)
     setSignatureSaving(false)
   }
 
