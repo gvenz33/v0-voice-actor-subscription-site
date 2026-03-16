@@ -26,8 +26,6 @@ export async function POST(req: Request) {
     .eq("user_id", user.id)
     .single()
 
-  console.log("[v0] Send email - config fetch result:", { config: !!config, error: configError?.message || configError?.code })
-
   if (configError) {
     // Check if table doesn't exist
     if (configError.code === "PGRST205") {
@@ -46,8 +44,6 @@ export async function POST(req: Request) {
     }, { status: 400 })
   }
   
-  console.log("[v0] Send email - using provider:", config.provider)
-
   try {
     if (config.provider === "gmail") {
       // Refresh token if expired
@@ -155,14 +151,6 @@ export async function POST(req: Request) {
     }
 
     if (config.provider === "smtp") {
-      console.log("[v0] SMTP config:", { 
-        host: config.smtp_host, 
-        port: config.smtp_port, 
-        username: config.smtp_username ? "set" : "not set",
-        password: config.smtp_password ? "set" : "not set",
-        from: config.smtp_from_email 
-      })
-      
       // Send via SMTP using nodemailer
       const transporter = nodemailer.createTransport({
         host: config.smtp_host,
@@ -177,8 +165,6 @@ export async function POST(req: Request) {
         }
       })
 
-      console.log("[v0] Attempting to send email to:", to)
-      
       const info = await transporter.sendMail({
         from: config.smtp_from_name 
           ? `"${config.smtp_from_name}" <${config.smtp_from_email}>`
@@ -188,7 +174,6 @@ export async function POST(req: Request) {
         text: body,
       })
 
-      console.log("[v0] Email sent successfully:", info.messageId)
       return NextResponse.json({ success: true, provider: "smtp", from: config.smtp_from_email, messageId: info.messageId })
     }
 
