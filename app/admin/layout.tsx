@@ -28,14 +28,14 @@ export default async function AdminLayout({
     redirect("/auth/login")
   }
 
-  // Check if user is admin
+  // Check if user is admin or superadmin
   const { data: profile } = await supabase
     .from("profiles")
-    .select("is_admin")
+    .select("is_admin, is_superadmin")
     .eq("id", user.id)
     .single()
 
-  if (!profile?.is_admin) {
+  if (!profile?.is_admin && !profile?.is_superadmin) {
     redirect("/dashboard")
   }
 

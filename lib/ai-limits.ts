@@ -52,6 +52,15 @@ function getCurrentMonth(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
 }
 
+interface FeatureOverrides {
+  hasFollowUpWriter?: boolean | null
+  hasPitchGenerator?: boolean | null
+  hasChatAssistant?: boolean | null
+  hasProspectFinder?: boolean | null
+  monthlyTokensOverride?: number | null
+  disabled?: boolean
+}
+
 export async function getUserAIAccess() {
   const supabase = await createClient()
 
@@ -61,16 +70,33 @@ export async function getUserAIAccess() {
 
   if (!user) return null
 
-  // Get user's subscription tier and purchased tokens from profile
+  // Get user's subscription tier, purchased tokens, and feature overrides from profile
   const { data: profile } = await supabase
     .from("profiles")
-    .select("subscription_tier, purchased_tokens")
+    .select("subscription_tier, purchased_tokens, feature_overrides")
     .eq("id", user.id)
     .single()
 
+  // Check if account is disabled
+  const overrides: FeatureOverrides = profile?.feature_overrides || {}
+  if (overrides.disabled) {
+    return null // Treat disabled accounts as not authenticated
+  }
+
   const tier = (profile?.subscription_tier || "free") as SubscriptionTier
   const purchasedTokens = profile?.purchased_tokens || 0
-  const limits = TIER_LIMITS[tier]
+  const baseLimits = TIER_LIMITS[tier]
+  
+  // Apply feature overrides
+  const limits: TierLimits = {
+    ...baseLimits,
+    hasFollowUpWriter: overrides.hasFollowUpWriter ?? baseLimits.hasFollowUpWriter,
+    hasPitchGenerator: overrides.hasPitchGenerator ?? baseLimits.hasPitchGenerator,
+    hasChatAssistant: overrides.hasChatAssistant ?? baseLimits.hasChatAssistant,
+    hasProspectFinder: overrides.hasProspectFinder ?? baseLimits.hasProspectFinder,
+    monthlyTokens: overrides.monthlyTokensOverride ?? baseLimits.monthlyTokens,
+  }
+  
   const currentMonth = getCurrentMonth()
 
   // Get usage for this month
