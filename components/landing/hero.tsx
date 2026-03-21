@@ -12,15 +12,18 @@ export function Hero() {
         <div className="absolute right-1/3 top-1/2 h-40 w-40 rounded-full bg-[oklch(0.45_0.15_240)] opacity-10 blur-[60px]" />
       </div>
       <div className="relative mx-auto max-w-5xl text-center">
-        <div className="mb-10 flex justify-center">
-          <Image 
-            src="/images/vobizsuite-logo-cropped.png" 
-            alt="VOBizSuite" 
-            width={800} 
-            height={200} 
-            className="h-32 w-auto mix-blend-lighten md:h-40 lg:h-48"
-            priority
-          />
+        <div className="relative mb-10 flex justify-center">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-background/50 to-transparent" />
+          <div className="relative" style={{ maskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%)' }}>
+            <Image 
+              src="/images/vobizsuite-logo-cropped.png" 
+              alt="VOBizSuite" 
+              width={800} 
+              height={200} 
+              className="h-32 w-auto mix-blend-lighten md:h-40 lg:h-48"
+              priority
+            />
+          </div>
         </div>
         <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-foreground/20 bg-foreground/10 px-4 py-1.5">
           <span className="text-xs font-medium text-foreground/80">Built for Voice Actors</span>
