@@ -16,9 +16,9 @@ export function Navbar() {
           <Image 
             src="/images/vobizsuite-logo.png" 
             alt="VOBizSuite" 
-            width={500} 
-            height={125} 
-            className="h-16 w-auto mix-blend-lighten"
+            width={800} 
+            height={200} 
+            className="h-40 w-auto mix-blend-lighten"
             priority
           />
         </Link>
