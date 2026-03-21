@@ -10,9 +10,9 @@ export function Footer() {
             <Image 
               src="/images/vobizsuite-logo.png" 
               alt="VOBizSuite" 
-              width={150} 
-              height={38} 
-              className="h-9 w-auto"
+              width={220} 
+              height={55} 
+              className="h-12 w-auto"
             />
           </Link>
           <nav className="flex flex-wrap items-center justify-center gap-6">
