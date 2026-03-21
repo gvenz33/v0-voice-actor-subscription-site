@@ -13,8 +13,13 @@ export function Hero() {
       </div>
       <div className="relative mx-auto max-w-5xl text-center">
         <div className="relative mb-10 flex justify-center">
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-background/50 to-transparent" />
-          <div className="relative" style={{ maskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%)' }}>
+          <div 
+            className="relative"
+            style={{ 
+              maskImage: 'linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%)', 
+              WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%)' 
+            }}
+          >
             <Image 
               src="/images/vobizsuite-logo-cropped.png" 
               alt="VOBizSuite" 
