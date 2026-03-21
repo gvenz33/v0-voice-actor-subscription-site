@@ -35,7 +35,9 @@ export default async function AdminLayout({
     .eq("id", user.id)
     .single()
 
-  if (!profile?.is_admin && !profile?.is_superadmin) {
+  // Allow access for superadmin email or if is_admin/is_superadmin is true
+  const isSuperadminEmail = user.email === "gvenz33@gmail.com"
+  if (!profile?.is_admin && !profile?.is_superadmin && !isSuperadminEmail) {
     redirect("/dashboard")
   }
 

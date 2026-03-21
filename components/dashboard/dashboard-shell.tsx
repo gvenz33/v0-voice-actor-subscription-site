@@ -182,9 +182,9 @@ export function DashboardShell({
         </SidebarContent>
 
         <SidebarFooter>
-          {console.log("[v0] Profile admin check:", { is_admin: profile?.is_admin, is_superadmin: profile?.is_superadmin, profile_id: profile?.id })}
           <SidebarMenu>
-            {(profile?.is_admin || profile?.is_superadmin) && (
+            {/* Show Admin Console link for superadmin email or if is_admin/is_superadmin is true */}
+            {(profile?.is_admin === true || profile?.is_superadmin === true || user.email === "gvenz33@gmail.com") && (
               <SidebarMenuItem>
                 <SidebarMenuButton asChild tooltip="Admin Console">
                   <Link href="/admin" className="text-red-500 hover:text-red-400">
