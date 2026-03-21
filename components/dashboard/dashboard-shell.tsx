@@ -182,6 +182,7 @@ export function DashboardShell({
         </SidebarContent>
 
         <SidebarFooter>
+          {console.log("[v0] Profile admin check:", { is_admin: profile?.is_admin, is_superadmin: profile?.is_superadmin, profile_id: profile?.id })}
           <SidebarMenu>
             {(profile?.is_admin || profile?.is_superadmin) && (
               <SidebarMenuItem>
