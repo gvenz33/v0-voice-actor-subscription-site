@@ -141,11 +141,11 @@ export function DashboardShell({
         <SidebarHeader className="p-4">
           <Link href="/dashboard" className="flex flex-col gap-2">
             <Image 
-              src="/images/vobizsuite-logo.png" 
+              src="/images/vobizsuite-logo-cropped.png" 
               alt="VOBizSuite" 
-              width={600} 
-              height={150} 
-              className="h-24 w-auto mix-blend-lighten"
+              width={220} 
+              height={55} 
+              className="h-9 w-auto mix-blend-lighten"
             />
             <span className="text-[10px] uppercase tracking-widest text-sidebar-foreground/50">
               {tierLabel} Plan

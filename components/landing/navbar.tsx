@@ -11,14 +11,14 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
-      <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+      <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-2">
         <Link href="/" className="flex items-center">
           <Image 
-            src="/images/vobizsuite-logo.png" 
+            src="/images/vobizsuite-logo-cropped.png" 
             alt="VOBizSuite" 
-            width={800} 
-            height={200} 
-            className="h-40 w-auto brightness-90 contrast-110 mix-blend-lighten"
+            width={280} 
+            height={70} 
+            className="h-12 w-auto mix-blend-lighten"
             priority
           />
         </Link>
