@@ -18,7 +18,7 @@ export function Navbar() {
             alt="VOBizSuite" 
             width={800} 
             height={200} 
-            className="h-40 w-auto mix-blend-lighten"
+            className="h-40 w-auto brightness-90 contrast-110 mix-blend-lighten"
             priority
           />
         </Link>
