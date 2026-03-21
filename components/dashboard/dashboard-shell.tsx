@@ -17,6 +17,7 @@ import {
   Sparkles,
   ScanSearch,
   Coins,
+  Shield,
 } from "lucide-react"
 import {
   SidebarProvider,
@@ -44,6 +45,8 @@ interface Profile {
   business_name: string | null
   subscription_tier: string
   experience_level: string | null
+  is_admin?: boolean
+  is_superadmin?: boolean
 }
 
 const NAV_ITEMS = [
@@ -180,6 +183,17 @@ export function DashboardShell({
 
         <SidebarFooter>
           <SidebarMenu>
+            {/* Show Admin Console link for superadmin email or if is_admin/is_superadmin is true */}
+            {(profile?.is_admin === true || profile?.is_superadmin === true || user.email === "gvenz33@gmail.com") && (
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Admin Console">
+                  <Link href="/admin" className="text-red-500 hover:text-red-400">
+                    <Shield className="text-red-500" />
+                    <span>Admin Console</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
             <SidebarMenuItem>
               <SidebarMenuButton asChild tooltip="Settings">
                 <Link href="/dashboard/settings">
