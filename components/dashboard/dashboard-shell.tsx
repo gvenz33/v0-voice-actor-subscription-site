@@ -143,9 +143,9 @@ export function DashboardShell({
             <Image 
               src="/images/vobizsuite-logo.png" 
               alt="VOBizSuite" 
-              width={180} 
-              height={45} 
-              className="h-10 w-auto"
+              width={280} 
+              height={70} 
+              className="h-16 w-auto"
             />
             <span className="text-[10px] uppercase tracking-widest text-sidebar-foreground/50">
               {tierLabel} Plan
