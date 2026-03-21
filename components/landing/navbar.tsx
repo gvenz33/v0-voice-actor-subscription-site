@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
-import { Mic, Menu, X } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
 import { useState } from 'react'
 
 export function Navbar() {
@@ -11,11 +12,15 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <Mic className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <span className="text-lg font-bold text-foreground">VO Biz Suite</span>
+        <Link href="/" className="flex items-center">
+          <Image 
+            src="/images/vobizsuite-logo.png" 
+            alt="VOBizSuite" 
+            width={180} 
+            height={45} 
+            className="h-10 w-auto"
+            priority
+          />
         </Link>
 
         <div className="hidden items-center gap-8 md:flex">

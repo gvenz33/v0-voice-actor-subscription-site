@@ -12,7 +12,7 @@ export function Hero() {
       </div>
       <div className="relative mx-auto max-w-5xl text-center">
         <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-foreground/20 bg-foreground/10 px-4 py-1.5">
-          <span className="text-xs font-medium text-foreground/80">Built for Independent Voice Actors</span>
+          <span className="text-xs font-medium text-foreground/80">Built for Voice Actors</span>
         </div>
         <h1 className="text-balance text-4xl font-bold leading-tight tracking-tight text-foreground md:text-6xl lg:text-7xl">
           Build Your Voiceover Career{' '}

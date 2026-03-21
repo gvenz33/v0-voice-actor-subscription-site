@@ -13,7 +13,7 @@ export function CTA() {
           Ready to Run Your VO Career Like a Real Business?
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-pretty text-lg leading-relaxed text-foreground/70">
-          Join hundreds of independent voice actors who are using VO Biz Suite to organize, grow, and thrive.
+          Join hundreds of voice actors who are using VO Biz Suite to organize, grow, and thrive.
         </p>
         <div className="mt-8">
           <Button size="lg" className="bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90 shadow-lg shadow-[oklch(0.50_0.22_295_/_0.25)]" asChild>
