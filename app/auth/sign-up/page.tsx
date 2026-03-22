@@ -12,11 +12,11 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
 import { Mic, Eye, EyeOff } from 'lucide-react'
 
-export default function SignUpPage() {
+function SignUpForm() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
@@ -26,7 +26,16 @@ export default function SignUpPage() {
   const [showRepeatPassword, setShowRepeatPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [referralCode, setReferralCode] = useState<string | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const ref = searchParams.get('ref')
+    if (ref) {
+      setReferralCode(ref)
+    }
+  }, [searchParams])
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -51,6 +60,7 @@ export default function SignUpPage() {
           data: {
             first_name: firstName,
             last_name: lastName,
+            referred_by: referralCode,
           },
         },
       })
@@ -190,5 +200,17 @@ export default function SignUpPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-svh w-full items-center justify-center bg-secondary p-6 md:p-10">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    }>
+      <SignUpForm />
+    </Suspense>
   )
 }
