@@ -19,6 +19,7 @@ import {
   ScanSearch,
   Coins,
   Shield,
+  Gift,
 } from "lucide-react"
 import {
   SidebarProvider,
@@ -100,6 +101,11 @@ const NAV_ITEMS = [
     title: "Tokens",
     href: "/dashboard/tokens",
     icon: Coins,
+  },
+  {
+    title: "Affiliate",
+    href: "/dashboard/affiliate",
+    icon: Gift,
   },
 ]
 
