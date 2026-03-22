@@ -14,7 +14,7 @@ export function Hero() {
       <div className="relative mx-auto max-w-5xl text-center">
         <div className="mb-10 flex justify-center">
           <Image 
-            src="/images/vobizsuite-waveform-transparent.png" 
+            src="/images/vobizsuite-hero-transparent.png" 
             alt="VOBizSuite" 
             width={700} 
             height={200} 
