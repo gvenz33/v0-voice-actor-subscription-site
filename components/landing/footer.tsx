@@ -30,10 +30,20 @@ export function Footer() {
             </Link>
           </nav>
         </div>
-        <div className="mt-8 border-t border-border pt-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            {`\u00A9 ${new Date().getFullYear()} VO Biz Suite. All rights reserved.`}
-          </p>
+        <div className="mt-8 border-t border-border pt-8">
+          <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
+            <p className="text-sm text-muted-foreground">
+              {`\u00A9 ${new Date().getFullYear()} VO Biz Suite. All rights reserved.`}
+            </p>
+            <nav className="flex items-center gap-6">
+              <Link href="/privacy" className="text-sm text-muted-foreground hover:text-foreground">
+                Privacy Policy
+              </Link>
+              <Link href="/terms" className="text-sm text-muted-foreground hover:text-foreground">
+                Terms of Use
+              </Link>
+            </nav>
+          </div>
         </div>
       </div>
     </footer>
