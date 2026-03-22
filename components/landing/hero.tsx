@@ -18,7 +18,7 @@ export function Hero() {
             alt="VOBizSuite" 
             width={600} 
             height={150} 
-            className="h-24 w-auto md:h-32 lg:h-40"
+            className="h-32 w-auto md:h-40 lg:h-52"
             priority
           />
         </div>
