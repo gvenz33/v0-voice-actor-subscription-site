@@ -12,15 +12,16 @@ export function Hero() {
         <div className="absolute right-1/3 top-1/2 h-40 w-40 rounded-full bg-[oklch(0.45_0.15_240)] opacity-10 blur-[60px]" />
       </div>
       <div className="relative mx-auto max-w-5xl text-center">
-        <div className="mb-10 flex justify-center">
+        <div className="mb-10 flex flex-col items-center gap-2">
           <Image 
-            src="/images/vobizsuite-icon-transparent.png" 
+            src="/images/vobizsuite-waveform-transparent.png" 
             alt="VOBizSuite" 
-            width={600} 
-            height={150} 
-            className="h-32 w-auto mix-blend-lighten md:h-40 lg:h-52"
+            width={700} 
+            height={200} 
+            className="h-28 w-auto md:h-36 lg:h-44"
             priority
           />
+          <span className="text-4xl font-bold tracking-tight text-white md:text-5xl lg:text-6xl">VOBizSuite</span>
         </div>
         <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-foreground/20 bg-foreground/10 px-4 py-1.5">
           <span className="text-xs font-medium text-foreground/80">Built for Voice Actors</span>
