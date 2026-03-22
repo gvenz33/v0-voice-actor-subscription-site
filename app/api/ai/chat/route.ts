@@ -2,7 +2,7 @@ import { getUserAIAccess, incrementUsage } from '@/lib/ai-limits'
 
 export const maxDuration = 30
 
-const SYSTEM_PROMPT = `You are the VO Biz Suite AI Assistant — a knowledgeable, encouraging business coach for independent voice actors.
+const SYSTEM_PROMPT = `You are the VO Biz Suite AI Assistant — a knowledgeable, encouraging business coach for voice actors.
 
 You help voice actors with:
 - Cold outreach strategies to production companies, ad agencies, studios

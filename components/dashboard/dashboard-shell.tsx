@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation"
 import Link from "next/link"
+import Image from "next/image"
 import type { User } from "@supabase/supabase-js"
 import {
   LayoutDashboard,
@@ -138,18 +139,17 @@ export function DashboardShell({
     <SidebarProvider>
       <Sidebar className="border-sidebar-border">
         <SidebarHeader className="p-4">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-              <Mic2 className="size-4" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-[family-name:var(--font-heading)] text-sm font-bold tracking-tight text-sidebar-foreground">
-                VO Biz Suite
-              </span>
-              <span className="text-[10px] uppercase tracking-widest text-sidebar-foreground/50">
-                {tierLabel} Plan
-              </span>
-            </div>
+          <Link href="/dashboard" className="flex flex-col gap-2">
+            <Image 
+              src="/images/vobizsuite-logo-cropped.png" 
+              alt="VOBizSuite" 
+              width={220} 
+              height={55} 
+              className="h-9 w-auto mix-blend-lighten"
+            />
+            <span className="text-[10px] uppercase tracking-widest text-sidebar-foreground/50">
+              {tierLabel} Plan
+            </span>
           </Link>
         </SidebarHeader>
 

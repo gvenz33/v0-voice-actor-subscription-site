@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     default: 'VO Biz Suite | Build Your Voiceover Career Like a Business',
     template: '%s | VO Biz Suite',
   },
-  description: 'The all-in-one CRM and business management platform built exclusively for independent voice actors. Track auditions, manage clients, send invoices, and grow your VO career with AI-powered tools.',
+  description: 'The all-in-one CRM and business management platform built for voice actors. Track auditions, manage clients, send invoices, and grow your VO career with AI-powered tools.',
   keywords: [
     'voice actor CRM',
     'voiceover business management',
@@ -49,12 +49,12 @@ export const metadata: Metadata = {
     locale: 'en_US',
     siteName: 'VO Biz Suite',
     title: 'VO Biz Suite | Build Your Voiceover Career Like a Business',
-    description: 'The all-in-one CRM and business management platform built exclusively for independent voice actors. Track auditions, manage clients, send invoices, and grow your VO career.',
+    description: 'The all-in-one CRM and business management platform built for voice actors. Track auditions, manage clients, send invoices, and grow your VO career.',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'VO Biz Suite | Build Your Voiceover Career Like a Business',
-    description: 'The all-in-one CRM and business management platform built exclusively for independent voice actors.',
+    description: 'The all-in-one CRM and business management platform built for voice actors.',
     creator: '@vobizsuite',
   },
   metadataBase: new URL('https://vobizsuite.com'),

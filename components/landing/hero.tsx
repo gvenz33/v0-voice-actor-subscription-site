@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { ArrowRight, BarChart3, Users, Send } from 'lucide-react'
 
@@ -11,8 +12,18 @@ export function Hero() {
         <div className="absolute right-1/3 top-1/2 h-40 w-40 rounded-full bg-[oklch(0.45_0.15_240)] opacity-10 blur-[60px]" />
       </div>
       <div className="relative mx-auto max-w-5xl text-center">
+        <div className="mb-10 flex justify-center">
+          <Image 
+            src="/images/vobizsuite-icon-transparent.png" 
+            alt="VOBizSuite" 
+            width={600} 
+            height={150} 
+            className="h-32 w-auto mix-blend-lighten md:h-40 lg:h-52"
+            priority
+          />
+        </div>
         <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-foreground/20 bg-foreground/10 px-4 py-1.5">
-          <span className="text-xs font-medium text-foreground/80">Built for Independent Voice Actors</span>
+          <span className="text-xs font-medium text-foreground/80">Built for Voice Actors</span>
         </div>
         <h1 className="text-balance text-4xl font-bold leading-tight tracking-tight text-foreground md:text-6xl lg:text-7xl">
           Build Your Voiceover Career{' '}
