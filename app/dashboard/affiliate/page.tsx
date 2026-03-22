@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Copy, Check, Users, DollarSign, TrendingUp, Share2 } from "lucide-react"
+import { Copy, Check, Users, DollarSign, TrendingUp, Share2, Crown, Lock } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import Link from "next/link"
 
 interface AffiliateStats {
   affiliateCode: string
@@ -30,12 +31,16 @@ interface Referral {
   }
 }
 
+const ELIGIBLE_TIERS = ["momentum", "command"]
+
 export default function AffiliatePage() {
   const [stats, setStats] = useState<AffiliateStats | null>(null)
   const [referrals, setReferrals] = useState<Referral[]>([])
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [copiedLink, setCopiedLink] = useState(false)
+  const [subscriptionTier, setSubscriptionTier] = useState<string>("free")
+  const [isEligible, setIsEligible] = useState(false)
 
   useEffect(() => {
     async function loadAffiliateData() {
@@ -44,12 +49,16 @@ export default function AffiliatePage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Get user's affiliate code
+      // Get user's affiliate code and subscription tier
       const { data: profile } = await supabase
         .from("profiles")
-        .select("affiliate_code")
+        .select("affiliate_code, subscription_tier")
         .eq("id", user.id)
         .single()
+
+      const tier = profile?.subscription_tier || "free"
+      setSubscriptionTier(tier)
+      setIsEligible(ELIGIBLE_TIERS.includes(tier))
 
       // Get referrals
       const { data: referralData } = await supabase
@@ -85,7 +94,7 @@ export default function AffiliatePage() {
   }, [])
 
   const copyCode = () => {
-    if (stats?.affiliateCode) {
+    if (stats?.affiliateCode && isEligible) {
       navigator.clipboard.writeText(stats.affiliateCode)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
@@ -93,7 +102,7 @@ export default function AffiliatePage() {
   }
 
   const copyLink = () => {
-    if (stats?.affiliateCode) {
+    if (stats?.affiliateCode && isEligible) {
       const link = `${window.location.origin}/auth/sign-up?ref=${stats.affiliateCode}`
       navigator.clipboard.writeText(link)
       setCopiedLink(true)
@@ -124,6 +133,16 @@ export default function AffiliatePage() {
     }
   }
 
+  const getTierLabel = (tier: string) => {
+    switch (tier) {
+      case "free": return "Free"
+      case "launch": return "Launch"
+      case "momentum": return "Momentum"
+      case "command": return "Command"
+      default: return tier
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
@@ -132,6 +151,124 @@ export default function AffiliatePage() {
     )
   }
 
+  // Locked state for Free and Launch tiers
+  if (!isEligible) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Affiliate Program</h1>
+          <p className="mt-1 text-muted-foreground">
+            Earn 20% commission on every subscription from your referrals
+          </p>
+        </div>
+
+        {/* Locked Card */}
+        <Card className="relative overflow-hidden border-yellow-500/30 bg-gradient-to-br from-yellow-500/5 via-transparent to-yellow-500/10">
+          <div className="absolute right-4 top-4">
+            <Crown className="h-16 w-16 text-yellow-500/20" />
+          </div>
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-yellow-500/10">
+                <Lock className="h-6 w-6 text-yellow-500" />
+              </div>
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  Unlock Affiliate Referrals
+                  <Crown className="h-5 w-5 text-yellow-500" />
+                </CardTitle>
+                <CardDescription>
+                  Available with Momentum or Command subscription
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <p className="text-muted-foreground">
+              You&apos;re currently on the <Badge variant="outline" className="mx-1">{getTierLabel(subscriptionTier)}</Badge> plan. 
+              Upgrade to <span className="font-semibold text-yellow-500">Momentum</span> or <span className="font-semibold text-yellow-500">Command</span> to 
+              unlock your unique affiliate code and start earning 20% commission on every referral.
+            </p>
+
+            <div className="rounded-lg border border-border/50 bg-card/50 p-4">
+              <h3 className="mb-3 font-semibold">What you&apos;ll unlock:</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  Unique referral code: <span className="font-mono text-foreground/50">VOB••••••••</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  Shareable referral link
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  20% commission on all referral subscriptions
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  Lifetime commissions for as long as they subscribe
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  Monthly payouts via PayPal or bank transfer
+                </li>
+              </ul>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button asChild className="flex-1 bg-yellow-500 text-black hover:bg-yellow-400">
+                <Link href="/dashboard/settings">
+                  <Crown className="mr-2 h-4 w-4" />
+                  Upgrade to Momentum - $49/mo
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="flex-1 border-yellow-500/30 hover:bg-yellow-500/10">
+                <Link href="/dashboard/settings">
+                  <Crown className="mr-2 h-4 w-4" />
+                  Upgrade to Command - $99/mo
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* How It Works (visible to all) */}
+        <Card>
+          <CardHeader>
+            <CardTitle>How It Works</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-6 md:grid-cols-3">
+              <div className="flex flex-col gap-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">1</div>
+                <h3 className="font-semibold">Share Your Link</h3>
+                <p className="text-sm text-muted-foreground">
+                  Share your unique referral link with other voice actors through social media, email, or word of mouth.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">2</div>
+                <h3 className="font-semibold">They Subscribe</h3>
+                <p className="text-sm text-muted-foreground">
+                  When someone signs up using your link and subscribes to any paid plan, you start earning commissions.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">3</div>
+                <h3 className="font-semibold">Earn 20%</h3>
+                <p className="text-sm text-muted-foreground">
+                  Earn 20% of their subscription fee for as long as they remain a paying customer. Payouts are processed monthly.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Full affiliate dashboard for eligible tiers
   return (
     <div className="space-y-8">
       <div>
