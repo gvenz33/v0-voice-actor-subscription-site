@@ -14,11 +14,11 @@ export function Hero() {
       <div className="relative mx-auto max-w-5xl text-center">
         <div className="mb-10 flex justify-center">
           <Image 
-            src="/images/vobizsuite-icon-transparent.png" 
+            src="/images/vobizsuite-hero-logo.png" 
             alt="VOBizSuite" 
-            width={600} 
-            height={150} 
-            className="h-32 w-auto mix-blend-lighten md:h-40 lg:h-52"
+            width={800} 
+            height={300} 
+            className="h-32 w-auto md:h-40 lg:h-52"
             priority
           />
         </div>
