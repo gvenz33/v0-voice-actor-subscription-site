@@ -9,6 +9,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@ai-sdk/gateway": "^3.0.77",
     "@ai-sdk/groq": "^2.0.0",
     "@ai-sdk/openai": "^2.0.0",
     "@ai-sdk/react": "^3.0.0",

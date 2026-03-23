@@ -40,6 +40,7 @@ import {
   Pencil,
   Save,
   FileSignature,
+  Award,
 } from "lucide-react"
 import Link from "next/link"
 import { TokenPurchaseModal } from "@/components/token-purchase-modal"
@@ -59,6 +60,7 @@ interface UsageData {
   hasFollowUpWriter: boolean
   hasPitchGenerator: boolean
   hasChatAssistant: boolean
+  hasVOCoach: boolean
 }
 
 function getUIMessageText(msg: { parts?: Array<{ type: string; text?: string }> }): string {
@@ -840,6 +842,115 @@ function VOAssistant({ usage }: { usage: UsageData }) {
   )
 }
 
+// --- VO Coach ---
+function VOCoach({ usage }: { usage: UsageData }) {
+  const [input, setInput] = useState("")
+  const { messages, sendMessage, status } = useChat({
+    transport: new DefaultChatTransport({ api: "/api/ai/coach" }),
+  })
+
+  const isLoading = status === "streaming" || status === "submitted"
+
+  if (!usage.hasVOCoach) {
+    return <LockedFeature featureName="VO Career Coach" requiredTier="Launch" requiredTierId="launch" />
+  }
+
+  return (
+    <Card className="flex h-[600px] flex-col">
+      <CardHeader className="shrink-0">
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <Award className="size-5 text-[oklch(0.70_0.22_295)]" /> 
+          VO Career Coach
+        </CardTitle>
+        <CardDescription>
+          Your personal coach with 25+ years in voice acting, producing, and business building. Get advice on craft, career growth, and mindset.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
+        <div className="flex-1 overflow-y-auto rounded-lg border border-border bg-muted/30 p-4">
+          {messages.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center text-center">
+              <Award className="mb-3 size-10 text-[oklch(0.60_0.22_295)]/30" />
+              <p className="text-sm font-medium text-muted-foreground">
+                Hey there! I&apos;m Coach V - 25 years in the VO game. What can I help you with today?
+              </p>
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                {[
+                  "How do I stay motivated during rejection?",
+                  "Tips for breaking into commercial VO",
+                  "How do I know if my rates are right?",
+                  "Building a sustainable VO business",
+                  "Improving my audition booking rate",
+                  "Dealing with imposter syndrome",
+                ].map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    onClick={() => sendMessage({ text: suggestion })}
+                    className="rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-[oklch(0.60_0.22_295)] hover:text-foreground"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                      message.role === "user"
+                        ? "bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground"
+                        : "border border-border bg-card text-card-foreground"
+                    }`}
+                  >
+                    <div className="whitespace-pre-wrap">{getUIMessageText(message)}</div>
+                  </div>
+                </div>
+              ))}
+              {isLoading && messages[messages.length - 1]?.role === "user" && (
+                <div className="flex justify-start">
+                  <div className="rounded-2xl border border-border bg-card px-4 py-2.5">
+                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <form
+          className="flex shrink-0 gap-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (!input.trim() || isLoading) return
+            sendMessage({ text: input })
+            setInput("")
+          }}
+        >
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask about voice acting, business building, mindset..."
+            disabled={isLoading}
+            className="min-h-[48px] text-base"
+          />
+          <Button
+            type="submit"
+            disabled={!input.trim() || isLoading}
+            className="min-h-[48px] bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90"
+          >
+            <Send className="size-4" />
+            <span className="sr-only">Send message</span>
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
+
 // --- Main Page ---
 export default function AIToolsPage() {
   const searchParams = useSearchParams()
@@ -876,9 +987,10 @@ export default function AIToolsPage() {
       <UsageMeter usage={usage} />
 
       {usage.tier === "free" ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {[
             { icon: Mail, name: "Outreach Email Writer", tier: "Launch", id: "launch" },
+            { icon: Award, name: "VO Career Coach", tier: "Launch", id: "launch" },
             { icon: RefreshCw, name: "Follow-Up Writer", tier: "Momentum", id: "momentum" },
             { icon: Sparkles, name: "Elevator Pitch Generator", tier: "Momentum", id: "momentum" },
             { icon: MessageSquare, name: "VO Business Assistant", tier: "Command", id: "command" },
@@ -893,8 +1005,12 @@ export default function AIToolsPage() {
         </div>
       ) : (
         <Tabs defaultValue="outreach" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-5">
             <TabsTrigger value="outreach" className="gap-1.5"><Mail className="size-4" /><span className="hidden sm:inline">Outreach</span> Email</TabsTrigger>
+            <TabsTrigger value="coach" className="gap-1.5">
+              <Award className="size-4" />
+              <span className="hidden sm:inline">VO</span> Coach
+            </TabsTrigger>
             <TabsTrigger value="followup" className="gap-1.5">
               <RefreshCw className="size-4" />
               Follow-Up
@@ -912,6 +1028,7 @@ export default function AIToolsPage() {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="outreach" className="mt-6"><OutreachEmailWriter usage={usage} onGenerated={refreshUsage} prefillCompany={prefillCompany} prefillName={prefillName} prefillEmail={prefillEmail} prefillRole={prefillRole} /></TabsContent>
+          <TabsContent value="coach" className="mt-6"><VOCoach usage={usage} /></TabsContent>
           <TabsContent value="followup" className="mt-6"><FollowUpWriter usage={usage} onGenerated={refreshUsage} /></TabsContent>
           <TabsContent value="pitch" className="mt-6"><PitchGenerator usage={usage} onGenerated={refreshUsage} /></TabsContent>
           <TabsContent value="assistant" className="mt-6"><VOAssistant usage={usage} /></TabsContent>

@@ -28,6 +28,7 @@ export async function GET() {
     hasPitchGenerator: access.limits.hasPitchGenerator,
     hasChatAssistant: access.limits.hasChatAssistant,
     hasProspectFinder: access.limits.hasProspectFinder,
+    hasVOCoach: access.limits.hasVOCoach,
     tokenCosts: access.tokenCosts,
   })
 }

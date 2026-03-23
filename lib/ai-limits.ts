@@ -9,6 +9,7 @@ export interface TierLimits {
   hasPitchGenerator: boolean
   hasChatAssistant: boolean
   hasProspectFinder: boolean
+  hasVOCoach: boolean
   label: string
 }
 
@@ -19,6 +20,7 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     hasPitchGenerator: false,
     hasChatAssistant: false,
     hasProspectFinder: false,
+    hasVOCoach: false,
     label: "Free",
   },
   launch: {
@@ -27,6 +29,7 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     hasPitchGenerator: false,
     hasChatAssistant: false,
     hasProspectFinder: false,
+    hasVOCoach: true, // Available at Launch+
     label: "Launch",
   },
   momentum: {
@@ -35,6 +38,7 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     hasPitchGenerator: true,
     hasChatAssistant: false,
     hasProspectFinder: true,
+    hasVOCoach: true,
     label: "Momentum",
   },
   command: {
@@ -43,6 +47,7 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     hasPitchGenerator: true,
     hasChatAssistant: true,
     hasProspectFinder: true,
+    hasVOCoach: true,
     label: "Command",
   },
 }
@@ -57,6 +62,7 @@ interface FeatureOverrides {
   hasPitchGenerator?: boolean | null
   hasChatAssistant?: boolean | null
   hasProspectFinder?: boolean | null
+  hasVOCoach?: boolean | null
   monthlyTokensOverride?: number | null
   disabled?: boolean
 }
@@ -94,6 +100,7 @@ export async function getUserAIAccess() {
     hasPitchGenerator: overrides.hasPitchGenerator ?? baseLimits.hasPitchGenerator,
     hasChatAssistant: overrides.hasChatAssistant ?? baseLimits.hasChatAssistant,
     hasProspectFinder: overrides.hasProspectFinder ?? baseLimits.hasProspectFinder,
+    hasVOCoach: overrides.hasVOCoach ?? baseLimits.hasVOCoach,
     monthlyTokens: overrides.monthlyTokensOverride ?? baseLimits.monthlyTokens,
   }
   
