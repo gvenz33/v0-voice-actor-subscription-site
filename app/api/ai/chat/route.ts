@@ -1,4 +1,7 @@
-import { getUserAIAccess, incrementUsage } from '@/lib/ai-limits'
+import { streamText } from "ai"
+import { gateway } from "@ai-sdk/gateway"
+import { getUserAIAccess, consumeTokens } from '@/lib/ai-limits'
+import { TOKEN_COSTS } from '@/lib/token-products'
 
 export const maxDuration = 30
 
@@ -31,83 +34,15 @@ export async function POST(req: Request) {
 
     const { messages } = await req.json()
 
-    await incrementUsage(access.userId)
+    await consumeTokens(access.userId, TOKEN_COSTS.CHAT_MESSAGE, "CHAT_MESSAGE")
 
-    // Call Groq with streaming
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          ...messages.map((m: { role: string; content: string }) => ({
-            role: m.role,
-            content: m.content,
-          })),
-        ],
-        max_tokens: 1000,
-        temperature: 0.7,
-        stream: true,
-      }),
+    const result = streamText({
+      model: gateway("groq/llama-3.3-70b-versatile"),
+      system: SYSTEM_PROMPT,
+      messages,
     })
 
-    if (!res.ok) {
-      const error = await res.json()
-      throw new Error(error.error?.message || 'Groq API error')
-    }
-
-    // Stream the response
-    const encoder = new TextEncoder()
-    const stream = new ReadableStream({
-      async start(controller) {
-        const reader = res.body?.getReader()
-        if (!reader) return
-
-        const decoder = new TextDecoder()
-        let buffer = ''
-
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n')
-          buffer = lines.pop() || ''
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6)
-              if (data === '[DONE]') continue
-
-              try {
-                const json = JSON.parse(data)
-                const content = json.choices[0]?.delta?.content
-                if (content) {
-                  controller.enqueue(encoder.encode(`0:${JSON.stringify(content)}\n`))
-                }
-              } catch {
-                // Skip invalid JSON
-              }
-            }
-          }
-        }
-
-        controller.enqueue(encoder.encode('e:{"finishReason":"stop"}\n'))
-        controller.enqueue(encoder.encode('d:{"finishReason":"stop"}\n'))
-        controller.close()
-      },
-    })
-
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'X-Vercel-AI-Data-Stream': 'v1',
-      },
-    })
+    return result.toDataStreamResponse()
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error("[v0] Chat error:", message)
