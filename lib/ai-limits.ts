@@ -186,15 +186,17 @@ export async function consumeTokens(userId: string, amount: number, operation: s
     })
   }
 
-  // Log the token consumption
-  await supabase.from("token_transactions").insert({
-    user_id: userId,
-    amount: -amount,
-    operation,
-    created_at: new Date().toISOString(),
-  }).catch(() => {
+  // Log the token consumption (ignore errors if table doesn't exist)
+  try {
+    await supabase.from("token_transactions").insert({
+      user_id: userId,
+      amount: -amount,
+      operation,
+      created_at: new Date().toISOString(),
+    })
+  } catch {
     // Table may not exist yet, ignore
-  })
+  }
 }
 
 export async function addPurchasedTokens(userId: string, tokens: number) {
@@ -217,15 +219,17 @@ export async function addPurchasedTokens(userId: string, tokens: number) {
     })
     .eq("id", userId)
 
-  // Log the transaction
-  await supabase.from("token_transactions").insert({
-    user_id: userId,
-    amount: tokens,
-    operation: "PURCHASE",
-    created_at: new Date().toISOString(),
-  }).catch(() => {
+  // Log the transaction (ignore errors if table doesn't exist)
+  try {
+    await supabase.from("token_transactions").insert({
+      user_id: userId,
+      amount: tokens,
+      operation: "PURCHASE",
+      created_at: new Date().toISOString(),
+    })
+  } catch {
     // Table may not exist yet, ignore
-  })
+  }
 }
 
 // Legacy function for backward compatibility
