@@ -10,6 +10,8 @@ export interface TierLimits {
   hasChatAssistant: boolean
   hasProspectFinder: boolean
   hasVOCoach: boolean
+  hasAffiliate: boolean
+  voCoachLimit: number // Monthly VO Coach message limit (-1 = unlimited)
   label: string
 }
 
@@ -21,6 +23,8 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     hasChatAssistant: false,
     hasProspectFinder: false,
     hasVOCoach: false,
+    hasAffiliate: false,
+    voCoachLimit: 0,
     label: "Free",
   },
   launch: {
@@ -30,6 +34,8 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     hasChatAssistant: false,
     hasProspectFinder: false,
     hasVOCoach: true, // Available at Launch+
+    hasAffiliate: false,
+    voCoachLimit: 10, // 10 messages/month
     label: "Launch",
   },
   momentum: {
@@ -39,6 +45,8 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     hasChatAssistant: false,
     hasProspectFinder: true,
     hasVOCoach: true,
+    hasAffiliate: true,
+    voCoachLimit: 50, // 50 messages/month
     label: "Momentum",
   },
   command: {
@@ -48,6 +56,8 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     hasChatAssistant: true,
     hasProspectFinder: true,
     hasVOCoach: true,
+    hasAffiliate: true,
+    voCoachLimit: -1, // unlimited
     label: "Command",
   },
 }
@@ -63,7 +73,10 @@ interface FeatureOverrides {
   hasChatAssistant?: boolean | null
   hasProspectFinder?: boolean | null
   hasVOCoach?: boolean | null
+  hasAffiliate?: boolean | null
+  voCoachLimit?: number | null // Monthly VO Coach message limit
   monthlyTokensOverride?: number | null
+  paymentBypass?: boolean // Skip Stripe payment validation
   disabled?: boolean
 }
 
@@ -101,6 +114,8 @@ export async function getUserAIAccess() {
     hasChatAssistant: overrides.hasChatAssistant ?? baseLimits.hasChatAssistant,
     hasProspectFinder: overrides.hasProspectFinder ?? baseLimits.hasProspectFinder,
     hasVOCoach: overrides.hasVOCoach ?? baseLimits.hasVOCoach,
+    hasAffiliate: overrides.hasAffiliate ?? baseLimits.hasAffiliate,
+    voCoachLimit: overrides.voCoachLimit ?? baseLimits.voCoachLimit,
     monthlyTokens: overrides.monthlyTokensOverride ?? baseLimits.monthlyTokens,
   }
   

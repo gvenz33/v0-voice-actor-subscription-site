@@ -29,6 +29,8 @@ export async function GET() {
     hasChatAssistant: access.limits.hasChatAssistant,
     hasProspectFinder: access.limits.hasProspectFinder,
     hasVOCoach: access.limits.hasVOCoach,
+    hasAffiliate: access.limits.hasAffiliate,
+    voCoachLimit: access.limits.voCoachLimit,
     tokenCosts: access.tokenCosts,
   })
 }
