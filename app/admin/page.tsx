@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, CreditCard, TrendingUp, AlertCircle } from "lucide-react"
+import { Users, CreditCard, TrendingUp, AlertCircle, MessageCircle } from "lucide-react"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
 
 async function getAdminStats() {
   const supabase = await createClient()
@@ -30,11 +32,18 @@ async function getAdminStats() {
     .select("*", { count: "exact", head: true })
     .gte("created_at", sevenDaysAgo.toISOString())
 
+  // Get escalated support conversations
+  const { count: escalatedSupport } = await supabase
+    .from("support_conversations")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "escalated")
+
   return {
     totalUsers: totalUsers || 0,
     tierCounts,
     recentSignups: recentSignups || 0,
     paidUsers: (tierCounts.launch || 0) + (tierCounts.momentum || 0) + (tierCounts.command || 0),
+    escalatedSupport: escalatedSupport || 0,
   }
 }
 
@@ -102,6 +111,26 @@ export default async function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Support Alert */}
+      {stats.escalatedSupport > 0 && (
+        <Card className="border-destructive bg-destructive/5">
+          <CardContent className="flex items-center justify-between py-4">
+            <div className="flex items-center gap-3">
+              <MessageCircle className="h-5 w-5 text-destructive" />
+              <div>
+                <p className="font-medium text-destructive">
+                  {stats.escalatedSupport} support conversation{stats.escalatedSupport > 1 ? "s" : ""} need{stats.escalatedSupport === 1 ? "s" : ""} attention
+                </p>
+                <p className="text-sm text-muted-foreground">Customers are waiting for human support</p>
+              </div>
+            </div>
+            <Link href="/admin/support">
+              <Button variant="destructive" size="sm">View Support</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Subscription Breakdown */}
       <Card>

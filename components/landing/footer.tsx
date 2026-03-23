@@ -28,6 +28,9 @@ export function Footer() {
             <Link href="/auth/login" className="text-sm text-muted-foreground hover:text-foreground">
               Sign In
             </Link>
+            <Link href="/contact" className="text-sm text-muted-foreground hover:text-foreground">
+              Contact Us
+            </Link>
           </nav>
         </div>
         <div className="mt-8 border-t border-border pt-8">

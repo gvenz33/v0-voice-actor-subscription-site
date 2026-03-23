@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter, Space_Grotesk } from 'next/font/google'
 import './globals.css'
+import { SupportChatWidget } from '@/components/support-chat-widget'
 
 const _inter = Inter({ subsets: ["latin"] })
 const _spaceGrotesk = Space_Grotesk({ subsets: ["latin"] })
@@ -72,6 +73,7 @@ export default function RootLayout({
     <html lang="en" className="bg-background">
       <body className="font-sans antialiased">
         {children}
+        <SupportChatWidget />
       </body>
     </html>
   )

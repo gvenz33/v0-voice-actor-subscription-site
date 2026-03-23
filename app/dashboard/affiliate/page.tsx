@@ -31,8 +31,6 @@ interface Referral {
   }
 }
 
-const ELIGIBLE_TIERS = ["momentum", "command"]
-
 export default function AffiliatePage() {
   const [stats, setStats] = useState<AffiliateStats | null>(null)
   const [referrals, setReferrals] = useState<Referral[]>([])
@@ -49,16 +47,22 @@ export default function AffiliatePage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Get user's affiliate code and subscription tier
+      // Get user's affiliate code, subscription tier, and feature overrides
       const { data: profile } = await supabase
         .from("profiles")
-        .select("affiliate_code, subscription_tier")
+        .select("affiliate_code, subscription_tier, feature_overrides")
         .eq("id", user.id)
         .single()
 
       const tier = profile?.subscription_tier || "free"
       setSubscriptionTier(tier)
-      setIsEligible(ELIGIBLE_TIERS.includes(tier))
+      
+      // Check eligibility: tier-based (momentum, command) OR admin override
+      const overrides = profile?.feature_overrides || {}
+      const tierEligible = ["momentum", "command"].includes(tier)
+      const hasOverride = overrides.hasAffiliate === true
+      const isDisabled = overrides.hasAffiliate === false
+      setIsEligible((tierEligible || hasOverride) && !isDisabled)
 
       // Get referrals
       const { data: referralData } = await supabase

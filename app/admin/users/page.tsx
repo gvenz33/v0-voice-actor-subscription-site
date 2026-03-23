@@ -37,14 +37,18 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
-import { Search, UserCog, Mail, RefreshCw, Shield, Loader2, Crown, Ban, Coins, Sparkles } from "lucide-react"
+import { Search, UserCog, Mail, RefreshCw, Shield, Loader2, Crown, Ban, Coins, Sparkles, UserPlus, Award, Gift, CreditCard } from "lucide-react"
 
 interface FeatureOverrides {
   hasFollowUpWriter?: boolean | null
   hasPitchGenerator?: boolean | null
   hasChatAssistant?: boolean | null
   hasProspectFinder?: boolean | null
+  hasVOCoach?: boolean | null
+  hasAffiliate?: boolean | null
+  voCoachLimit?: number | null
   monthlyTokensOverride?: number | null
+  paymentBypass?: boolean
   disabled?: boolean
 }
 
@@ -63,10 +67,10 @@ interface User {
 }
 
 const TIER_FEATURES = {
-  free: { hasFollowUpWriter: false, hasPitchGenerator: false, hasChatAssistant: false, hasProspectFinder: false, monthlyTokens: 0 },
-  launch: { hasFollowUpWriter: false, hasPitchGenerator: false, hasChatAssistant: false, hasProspectFinder: false, monthlyTokens: 25 },
-  momentum: { hasFollowUpWriter: true, hasPitchGenerator: true, hasChatAssistant: false, hasProspectFinder: true, monthlyTokens: 250 },
-  command: { hasFollowUpWriter: true, hasPitchGenerator: true, hasChatAssistant: true, hasProspectFinder: true, monthlyTokens: -1 },
+  free: { hasFollowUpWriter: false, hasPitchGenerator: false, hasChatAssistant: false, hasProspectFinder: false, hasVOCoach: false, hasAffiliate: false, voCoachLimit: 0, monthlyTokens: 0 },
+  launch: { hasFollowUpWriter: false, hasPitchGenerator: false, hasChatAssistant: false, hasProspectFinder: false, hasVOCoach: true, hasAffiliate: false, voCoachLimit: 10, monthlyTokens: 25 },
+  momentum: { hasFollowUpWriter: true, hasPitchGenerator: true, hasChatAssistant: false, hasProspectFinder: true, hasVOCoach: true, hasAffiliate: true, voCoachLimit: 50, monthlyTokens: 250 },
+  command: { hasFollowUpWriter: true, hasPitchGenerator: true, hasChatAssistant: true, hasProspectFinder: true, hasVOCoach: true, hasAffiliate: true, voCoachLimit: -1, monthlyTokens: -1 },
 }
 
 export default function AdminUsersPage() {
@@ -76,9 +80,17 @@ export default function AdminUsersPage() {
   const [filterTier, setFilterTier] = useState<string>("all")
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [addUserDialogOpen, setAddUserDialogOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState("")
   const [currentUserIsSuperadmin, setCurrentUserIsSuperadmin] = useState(false)
+  const [newUser, setNewUser] = useState({
+    email: "",
+    password: "",
+    firstName: "",
+    lastName: "",
+    tier: "free",
+  })
 
   const fetchUsers = async () => {
     setLoading(true)
@@ -130,6 +142,40 @@ export default function AdminUsersPage() {
     setSelectedUser({ ...user, feature_overrides: user.feature_overrides || {} })
     setEditDialogOpen(true)
     setMessage("")
+  }
+
+  const handleCreateUser = async () => {
+    if (!newUser.email || !newUser.password) {
+      setMessage("Email and password are required")
+      return
+    }
+    setSaving(true)
+    setMessage("")
+
+    try {
+      const response = await fetch("/api/admin/create-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newUser),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        setMessage(`Error: ${result.error || "Failed to create user"}`)
+      } else {
+        setMessage("User created successfully")
+        setNewUser({ email: "", password: "", firstName: "", lastName: "", tier: "free" })
+        fetchUsers()
+        setTimeout(() => {
+          setAddUserDialogOpen(false)
+          setMessage("")
+        }, 1500)
+      }
+    } catch (error) {
+      setMessage(`Error: ${error instanceof Error ? error.message : "Failed to create user"}`)
+    }
+    setSaving(false)
   }
 
   const handleSaveUser = async () => {
@@ -269,10 +315,16 @@ export default function AdminUsersPage() {
               <CardTitle>All Users</CardTitle>
               <CardDescription>{users.length} total users</CardDescription>
             </div>
-            <Button variant="outline" onClick={fetchUsers} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setAddUserDialogOpen(true)}>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Add User
+              </Button>
+              <Button variant="outline" onClick={fetchUsers} disabled={loading}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -642,6 +694,118 @@ export default function AdminUsersPage() {
                       description="Web research and lead discovery tool"
                     />
                   </div>
+                  <div className="p-4">
+                    <div className="flex items-center justify-between py-3">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <Label className="font-medium flex items-center gap-2">
+                            <Award className="h-4 w-4 text-purple-500" />
+                            VO Career Coach
+                          </Label>
+                          {(selectedUser.feature_overrides?.hasVOCoach !== null && selectedUser.feature_overrides?.hasVOCoach !== undefined) && (
+                            <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-500 border-amber-500/20">
+                              Override
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">AI coaching for voice acting career and business</p>
+                        <p className="text-xs text-muted-foreground">
+                          Tier default: <span className={TIER_FEATURES[selectedUser.subscription_tier as keyof typeof TIER_FEATURES]?.hasVOCoach ? "text-green-500" : "text-red-500"}>
+                            {TIER_FEATURES[selectedUser.subscription_tier as keyof typeof TIER_FEATURES]?.hasVOCoach ? "Enabled" : "Disabled"}
+                          </span>
+                        </p>
+                      </div>
+                      <Select
+                        value={selectedUser.feature_overrides?.hasVOCoach === null || selectedUser.feature_overrides?.hasVOCoach === undefined ? "default" : selectedUser.feature_overrides.hasVOCoach ? "enabled" : "disabled"}
+                        onValueChange={(val) => {
+                          if (val === "default") updateFeatureOverride("hasVOCoach", null)
+                          else updateFeatureOverride("hasVOCoach", val === "enabled")
+                        }}
+                      >
+                        <SelectTrigger className="w-[130px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="default">Use Default</SelectItem>
+                          <SelectItem value="enabled">Force Enable</SelectItem>
+                          <SelectItem value="disabled">Force Disable</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {/* VO Coach Monthly Limit */}
+                    <div className="mt-2 pt-2 border-t">
+                      <Label className="text-xs text-muted-foreground">Monthly VO Coach Message Limit</Label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Input
+                          type="number"
+                          placeholder={`Default: ${TIER_FEATURES[selectedUser.subscription_tier as keyof typeof TIER_FEATURES]?.voCoachLimit === -1 ? "Unlimited" : TIER_FEATURES[selectedUser.subscription_tier as keyof typeof TIER_FEATURES]?.voCoachLimit || 0}`}
+                          value={selectedUser.feature_overrides?.voCoachLimit ?? ""}
+                          onChange={(e) => updateFeatureOverride("voCoachLimit", e.target.value ? parseInt(e.target.value) : null)}
+                          className="w-24"
+                        />
+                        <span className="text-xs text-muted-foreground">(-1 for unlimited)</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <div className="flex items-center justify-between py-3">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <Label className="font-medium flex items-center gap-2">
+                            <Gift className="h-4 w-4 text-green-500" />
+                            Affiliate Program
+                          </Label>
+                          {(selectedUser.feature_overrides?.hasAffiliate !== null && selectedUser.feature_overrides?.hasAffiliate !== undefined) && (
+                            <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-500 border-amber-500/20">
+                              Override
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Access to affiliate referral program (20% commission)</p>
+                        <p className="text-xs text-muted-foreground">
+                          Tier default: <span className={TIER_FEATURES[selectedUser.subscription_tier as keyof typeof TIER_FEATURES]?.hasAffiliate ? "text-green-500" : "text-red-500"}>
+                            {TIER_FEATURES[selectedUser.subscription_tier as keyof typeof TIER_FEATURES]?.hasAffiliate ? "Enabled" : "Disabled"}
+                          </span>
+                        </p>
+                      </div>
+                      <Select
+                        value={selectedUser.feature_overrides?.hasAffiliate === null || selectedUser.feature_overrides?.hasAffiliate === undefined ? "default" : selectedUser.feature_overrides.hasAffiliate ? "enabled" : "disabled"}
+                        onValueChange={(val) => {
+                          if (val === "default") updateFeatureOverride("hasAffiliate", null)
+                          else updateFeatureOverride("hasAffiliate", val === "enabled")
+                        }}
+                      >
+                        <SelectTrigger className="w-[130px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="default">Use Default</SelectItem>
+                          <SelectItem value="enabled">Force Enable</SelectItem>
+                          <SelectItem value="disabled">Force Disable</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator className="my-4" />
+
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4 text-amber-500" />
+                        <Label className="font-medium">Payment Bypass</Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Skip Stripe payment validation - grant tier access without payment
+                      </p>
+                    </div>
+                    <Switch
+                      checked={selectedUser.feature_overrides?.paymentBypass || false}
+                      onCheckedChange={(checked) => updateFeatureOverride("paymentBypass", checked)}
+                    />
+                  </div>
                 </div>
               </TabsContent>
             </Tabs>
@@ -660,6 +824,94 @@ export default function AdminUsersPage() {
             <Button onClick={handleSaveUser} disabled={saving} className="flex-1">
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               {saving ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add User Dialog */}
+      <Dialog open={addUserDialogOpen} onOpenChange={setAddUserDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5" />
+              Add New User
+            </DialogTitle>
+            <DialogDescription>
+              Create a new user account manually
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="newEmail">Email Address *</Label>
+              <Input
+                id="newEmail"
+                type="email"
+                value={newUser.email}
+                onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                placeholder="user@example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">Password *</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={newUser.password}
+                onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                placeholder="Minimum 6 characters"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="newFirstName">First Name</Label>
+                <Input
+                  id="newFirstName"
+                  value={newUser.firstName}
+                  onChange={(e) => setNewUser({ ...newUser, firstName: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="newLastName">Last Name</Label>
+                <Input
+                  id="newLastName"
+                  value={newUser.lastName}
+                  onChange={(e) => setNewUser({ ...newUser, lastName: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newTier">Subscription Tier</Label>
+              <Select value={newUser.tier} onValueChange={(value) => setNewUser({ ...newUser, tier: value })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="free">Free</SelectItem>
+                  <SelectItem value="launch">Launch ($19/mo)</SelectItem>
+                  <SelectItem value="momentum">Momentum ($49/mo)</SelectItem>
+                  <SelectItem value="command">Command ($99/mo)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Enable "Payment Bypass" in Features tab after creation if granting paid tier without payment
+              </p>
+            </div>
+          </div>
+
+          {message && (
+            <p className={`text-sm ${message.includes("Error") ? "text-destructive" : "text-green-500"}`}>
+              {message}
+            </p>
+          )}
+
+          <div className="flex gap-2 pt-4 border-t">
+            <Button variant="outline" onClick={() => { setAddUserDialogOpen(false); setMessage("") }} className="flex-1">
+              Cancel
+            </Button>
+            <Button onClick={handleCreateUser} disabled={saving || !newUser.email || !newUser.password} className="flex-1">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <UserPlus className="h-4 w-4 mr-2" />}
+              {saving ? "Creating..." : "Create User"}
             </Button>
           </div>
         </DialogContent>
