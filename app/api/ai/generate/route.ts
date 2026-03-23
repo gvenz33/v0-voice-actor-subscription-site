@@ -109,14 +109,14 @@ export async function POST(req: Request) {
         bold_claim: 'a confident claim about your unique value as a voice actor'
       }
       
-      prompt = `Write a unique cold outreach email from a voice actor to a production company. Make this email COMPLETELY DIFFERENT from any template.
+      prompt = `You are writing a cold outreach email AS a freelance voice actor reaching out to a potential client. This is written in FIRST PERSON from the voice actor's perspective - YOU are the voice actor pitching YOUR services.
 
 Context:
-${context.companyName ? `Company: ${context.companyName}` : ''}
-${context.contactName ? `Contact: ${context.contactName}` : ''}
-${context.genre ? `Genre/Specialty: ${context.genre}` : ''}
-${context.tone ? `Requested tone: ${context.tone}` : ''}
-${context.customNotes ? `Additional context: ${context.customNotes}` : ''}
+${context.companyName ? `Company you're reaching out to: ${context.companyName}` : ''}
+${context.contactName ? `Contact person: ${context.contactName}` : ''}
+${context.genre ? `Type of voice work you specialize in: ${context.genre}` : ''}
+${context.tone ? `Requested email tone: ${context.tone}` : ''}
+${context.customNotes ? `Additional notes: ${context.customNotes}` : ''}
 
 CREATIVE DIRECTION (seed ${randomSeed}):
 1. OPENING: Start with ${openingInstructions[randomOpening]}
@@ -124,11 +124,18 @@ CREATIVE DIRECTION (seed ${randomSeed}):
 3. CLOSING: End with a ${randomClosing} call-to-action
 4. LENGTH: Approximately ${wordCount} words
 
+IMPORTANT - THIS IS WRITTEN AS THE VOICE ACTOR:
+- Write in first person ("I", "my", "me")
+- YOU are a voice actor pitching YOUR talent and services
+- Talk about YOUR experience, YOUR voice, YOUR demos
+- You're trying to get hired for voice work
+- You are NOT an agency, NOT a production company, NOT a talent rep
+- Sign off with [Your Name] only (no signature block)
+
 STRICT RULES:
 - NO generic phrases like "I hope this email finds you well", "I came across", "I wanted to reach out"
 - Each sentence should feel fresh and specific
-- Include ONE memorable detail or hook
-- Sign off with [Your Name] only (no signature block)
+- Include ONE memorable detail or hook about your voice or experience
 
 OUTPUT FORMAT (follow exactly):
 SUBJECT: [Write a compelling, specific subject line - 5-10 words]
