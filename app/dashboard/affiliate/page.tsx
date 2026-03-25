@@ -53,15 +53,22 @@ export default function AffiliatePage() {
     async function loadAffiliateData() {
       const supabase = createClient()
       
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) {
+        console.log("[v0] Auth error or no user:", userError)
+        setLoading(false)
+        return
+      }
 
       // Get user's affiliate code, subscription tier, feature overrides, and stripe account
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("affiliate_code, subscription_tier, feature_overrides, stripe_connect_account_id")
         .eq("id", user.id)
         .single()
+
+      console.log("[v0] Profile data:", JSON.stringify(profile, null, 2))
+      console.log("[v0] Profile error:", profileError)
 
       // Check if user has connected Stripe account
       if (profile?.stripe_connect_account_id) {
@@ -71,13 +78,33 @@ export default function AffiliatePage() {
 
       const tier = profile?.subscription_tier || "free"
       setSubscriptionTier(tier)
+      console.log("[v0] Subscription tier:", tier)
       
       // Check eligibility: tier-based (momentum, command) OR admin override
-      const overrides = profile?.feature_overrides || {}
+      // Parse feature_overrides - it may come as string or object depending on DB
+      let overrides: Record<string, unknown> = {}
+      if (profile?.feature_overrides) {
+        if (typeof profile.feature_overrides === "string") {
+          try {
+            overrides = JSON.parse(profile.feature_overrides)
+          } catch {
+            overrides = {}
+          }
+        } else {
+          overrides = profile.feature_overrides as Record<string, unknown>
+        }
+      }
+      
+      console.log("[v0] Feature overrides:", JSON.stringify(overrides, null, 2))
+      
       const tierEligible = ["momentum", "command"].includes(tier)
       const hasOverride = overrides.hasAffiliate === true
       const isDisabled = overrides.hasAffiliate === false
-      setIsEligible((tierEligible || hasOverride) && !isDisabled)
+      const eligible = (tierEligible || hasOverride) && !isDisabled
+      
+      console.log("[v0] Tier eligible:", tierEligible, "| Override:", hasOverride, "| Disabled:", isDisabled, "| Final eligible:", eligible)
+      
+      setIsEligible(eligible)
 
       // Get referrals
       const { data: referralData } = await supabase
