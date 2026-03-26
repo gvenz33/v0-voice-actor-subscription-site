@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Copy, Check, Users, DollarSign, TrendingUp, Share2, Crown, Lock } from "lucide-react"
+import { Copy, Check, Users, DollarSign, TrendingUp, Share2, Crown, Lock, CreditCard, Wallet, ArrowRight, Loader2 } from "lucide-react"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Label } from "@/components/ui/label"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { createClient } from "@/lib/supabase/client"
 import Link from "next/link"
 
@@ -39,30 +42,69 @@ export default function AffiliatePage() {
   const [copiedLink, setCopiedLink] = useState(false)
   const [subscriptionTier, setSubscriptionTier] = useState<string>("free")
   const [isEligible, setIsEligible] = useState(false)
+  const [payoutDialogOpen, setPayoutDialogOpen] = useState(false)
+  const [payoutMethod, setPayoutMethod] = useState<"stripe" | "credit">("stripe")
+  const [requestingPayout, setRequestingPayout] = useState(false)
+  const [payoutMessage, setPayoutMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [stripeConnected, setStripeConnected] = useState(false)
+  const [stripeAccountId, setStripeAccountId] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadAffiliateData() {
       const supabase = createClient()
       
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) {
+        console.log("[v0] Auth error or no user:", userError)
+        setLoading(false)
+        return
+      }
 
-      // Get user's affiliate code, subscription tier, and feature overrides
-      const { data: profile } = await supabase
+      // Get user's affiliate code, subscription tier, feature overrides, and stripe account
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("affiliate_code, subscription_tier, feature_overrides")
+        .select("affiliate_code, subscription_tier, feature_overrides, stripe_connect_account_id")
         .eq("id", user.id)
         .single()
 
+      console.log("[v0] Profile data:", JSON.stringify(profile, null, 2))
+      console.log("[v0] Profile error:", profileError)
+
+      // Check if user has connected Stripe account
+      if (profile?.stripe_connect_account_id) {
+        setStripeConnected(true)
+        setStripeAccountId(profile.stripe_connect_account_id)
+      }
+
       const tier = profile?.subscription_tier || "free"
       setSubscriptionTier(tier)
+      console.log("[v0] Subscription tier:", tier)
       
       // Check eligibility: tier-based (momentum, command) OR admin override
-      const overrides = profile?.feature_overrides || {}
+      // Parse feature_overrides - it may come as string or object depending on DB
+      let overrides: Record<string, unknown> = {}
+      if (profile?.feature_overrides) {
+        if (typeof profile.feature_overrides === "string") {
+          try {
+            overrides = JSON.parse(profile.feature_overrides)
+          } catch {
+            overrides = {}
+          }
+        } else {
+          overrides = profile.feature_overrides as Record<string, unknown>
+        }
+      }
+      
+      console.log("[v0] Feature overrides:", JSON.stringify(overrides, null, 2))
+      
       const tierEligible = ["momentum", "command"].includes(tier)
       const hasOverride = overrides.hasAffiliate === true
       const isDisabled = overrides.hasAffiliate === false
-      setIsEligible((tierEligible || hasOverride) && !isDisabled)
+      const eligible = (tierEligible || hasOverride) && !isDisabled
+      
+      console.log("[v0] Tier eligible:", tierEligible, "| Override:", hasOverride, "| Disabled:", isDisabled, "| Final eligible:", eligible)
+      
+      setIsEligible(eligible)
 
       // Get referrals
       const { data: referralData } = await supabase
@@ -144,6 +186,70 @@ export default function AffiliatePage() {
       case "momentum": return "Momentum"
       case "command": return "Command"
       default: return tier
+    }
+  }
+
+  const handleRequestPayout = async () => {
+    if (!stats?.pendingEarnings || stats.pendingEarnings <= 0) {
+      setPayoutMessage({ type: "error", text: "No pending earnings to withdraw" })
+      return
+    }
+
+    setRequestingPayout(true)
+    setPayoutMessage(null)
+
+    try {
+      const response = await fetch("/api/affiliate/payout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: stats.pendingEarnings,
+          method: payoutMethod,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to request payout")
+      }
+
+      setPayoutMessage({ 
+        type: "success", 
+        text: payoutMethod === "credit" 
+          ? `$${stats.pendingEarnings.toFixed(2)} has been applied as credit to your subscription!`
+          : `Payout of $${stats.pendingEarnings.toFixed(2)} has been initiated to your Stripe account!`
+      })
+
+      // Refresh stats
+      setStats(prev => prev ? { ...prev, pendingEarnings: 0, totalEarned: prev.totalEarned + prev.pendingEarnings } : null)
+      
+      setTimeout(() => {
+        setPayoutDialogOpen(false)
+        setPayoutMessage(null)
+      }, 3000)
+    } catch (error) {
+      setPayoutMessage({ 
+        type: "error", 
+        text: error instanceof Error ? error.message : "Failed to request payout" 
+      })
+    } finally {
+      setRequestingPayout(false)
+    }
+  }
+
+  const handleConnectStripe = async () => {
+    try {
+      const response = await fetch("/api/affiliate/connect-stripe", {
+        method: "POST",
+      })
+      const result = await response.json()
+      
+      if (result.url) {
+        window.location.href = result.url
+      }
+    } catch (error) {
+      console.error("Failed to connect Stripe:", error)
     }
   }
 
@@ -371,6 +477,126 @@ export default function AffiliatePage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Payout Options */}
+      {(stats?.pendingEarnings || 0) > 0 && (
+        <Card className="border-green-500/30 bg-gradient-to-r from-green-500/5 to-transparent">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-green-500" />
+              Withdraw Your Earnings
+            </CardTitle>
+            <CardDescription>
+              You have ${(stats?.pendingEarnings || 0).toFixed(2)} available for withdrawal
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Dialog open={payoutDialogOpen} onOpenChange={setPayoutDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-green-600 hover:bg-green-500">
+                  <DollarSign className="mr-2 h-4 w-4" />
+                  Request Payout
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Withdraw Earnings</DialogTitle>
+                  <DialogDescription>
+                    Choose how you would like to receive your ${(stats?.pendingEarnings || 0).toFixed(2)} in earnings
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-6 py-4">
+                  <RadioGroup value={payoutMethod} onValueChange={(v) => setPayoutMethod(v as "stripe" | "credit")}>
+                    <div className={`flex items-start gap-4 rounded-lg border p-4 cursor-pointer transition-colors ${payoutMethod === "stripe" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground"}`}
+                      onClick={() => setPayoutMethod("stripe")}>
+                      <RadioGroupItem value="stripe" id="stripe" className="mt-1" />
+                      <div className="flex-1">
+                        <Label htmlFor="stripe" className="flex items-center gap-2 cursor-pointer font-medium">
+                          <CreditCard className="h-4 w-4" />
+                          Send to Bank Account
+                        </Label>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Transfer to your connected Stripe account. Funds typically arrive within 2-3 business days.
+                        </p>
+                        {!stripeConnected && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="mt-2"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleConnectStripe()
+                            }}
+                          >
+                            Connect Stripe Account
+                          </Button>
+                        )}
+                        {stripeConnected && (
+                          <p className="mt-2 text-xs text-green-500 flex items-center gap-1">
+                            <Check className="h-3 w-3" /> Stripe account connected
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className={`flex items-start gap-4 rounded-lg border p-4 cursor-pointer transition-colors ${payoutMethod === "credit" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground"}`}
+                      onClick={() => setPayoutMethod("credit")}>
+                      <RadioGroupItem value="credit" id="credit" className="mt-1" />
+                      <div className="flex-1">
+                        <Label htmlFor="credit" className="flex items-center gap-2 cursor-pointer font-medium">
+                          <Wallet className="h-4 w-4" />
+                          Apply as Subscription Credit
+                        </Label>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Use your earnings to pay for your VO Biz Suite subscription. Credit is applied immediately.
+                        </p>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Current balance: ${(stats?.pendingEarnings || 0).toFixed(2)} covers ~{Math.floor((stats?.pendingEarnings || 0) / 49)} months of Momentum
+                        </p>
+                      </div>
+                    </div>
+                  </RadioGroup>
+
+                  {payoutMessage && (
+                    <div className={`rounded-lg p-3 text-sm ${payoutMessage.type === "success" ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"}`}>
+                      {payoutMessage.text}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setPayoutDialogOpen(false)} 
+                    className="flex-1"
+                    disabled={requestingPayout}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleRequestPayout} 
+                    className="flex-1 bg-green-600 hover:bg-green-500"
+                    disabled={requestingPayout || (payoutMethod === "stripe" && !stripeConnected)}
+                  >
+                    {requestingPayout ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        Confirm Payout
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Commission Info */}
       <Card>
