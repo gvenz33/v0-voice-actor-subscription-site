@@ -196,7 +196,7 @@ export async function createPortalSession() {
   return session.url
 }
 
-export async function startTokenCheckoutSession(packageId: string) {
+export async function startTokenCheckoutSession(packageId: string): Promise<string> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   
@@ -234,8 +234,13 @@ export async function startTokenCheckoutSession(packageId: string) {
       user_id: user.id,
       package_id: packageId,
       tokens: tokenPackage.tokens.toString(),
+      type: 'token_purchase',
     },
   })
+
+  if (!session.client_secret) {
+    throw new Error('Failed to create checkout session - no client secret returned')
+  }
 
   return session.client_secret
 }
