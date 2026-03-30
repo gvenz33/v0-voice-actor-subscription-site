@@ -27,9 +27,30 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Search, Building2, Mail, Phone, Globe, Trash2, Pencil, Upload, Download } from "lucide-react"
+import { 
+  Plus, Search, Building2, Mail, Phone, Globe, Trash2, Pencil, 
+  Upload, Download, LayoutGrid, List, ArrowUpDown, ArrowUpAZ, 
+  ArrowDownAZ, Calendar, Clock
+} from "lucide-react"
 import { ContactsImportExport } from "@/components/contacts-import-export"
 
 interface Contact {
@@ -77,6 +98,9 @@ const STATUSES = [
   { value: "cold", label: "Cold" },
 ]
 
+type SortOption = "name_asc" | "name_desc" | "category" | "status" | "last_contacted" | "date_added"
+type ViewMode = "tile" | "list"
+
 function statusColor(status: string) {
   switch (status) {
     case "active": return "bg-violet-500/10 text-violet-700 dark:text-violet-400"
@@ -88,10 +112,58 @@ function statusColor(status: string) {
   }
 }
 
+function sortContacts(contacts: Contact[], sortBy: SortOption): Contact[] {
+  const sorted = [...contacts]
+  
+  switch (sortBy) {
+    case "name_asc":
+      return sorted.sort((a, b) => a.company_name.localeCompare(b.company_name))
+    case "name_desc":
+      return sorted.sort((a, b) => b.company_name.localeCompare(a.company_name))
+    case "category":
+      return sorted.sort((a, b) => {
+        const catA = a.category || "zzz" // Put null categories at the end
+        const catB = b.category || "zzz"
+        return catA.localeCompare(catB)
+      })
+    case "status":
+      const statusOrder = ["active", "pitched", "prospect", "past_client", "cold"]
+      return sorted.sort((a, b) => {
+        const indexA = statusOrder.indexOf(a.status) 
+        const indexB = statusOrder.indexOf(b.status)
+        return indexA - indexB
+      })
+    case "last_contacted":
+      return sorted.sort((a, b) => {
+        if (!a.last_contacted_at && !b.last_contacted_at) return 0
+        if (!a.last_contacted_at) return 1
+        if (!b.last_contacted_at) return -1
+        return new Date(b.last_contacted_at).getTime() - new Date(a.last_contacted_at).getTime()
+      })
+    case "date_added":
+    default:
+      return sorted.sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )
+  }
+}
+
+const SORT_OPTIONS = [
+  { value: "name_asc", label: "Company Name (A-Z)", icon: ArrowUpAZ },
+  { value: "name_desc", label: "Company Name (Z-A)", icon: ArrowDownAZ },
+  { value: "category", label: "Category", icon: Building2 },
+  { value: "status", label: "Status", icon: ArrowUpDown },
+  { value: "last_contacted", label: "Last Contacted", icon: Clock },
+  { value: "date_added", label: "Date Added", icon: Calendar },
+]
+
 export default function ClientHub() {
   const { data: contacts, isLoading } = useSWR("contacts", fetchContacts)
   const [search, setSearch] = useState("")
   const [filterStatus, setFilterStatus] = useState<string>("all")
+  const [filterCategory, setFilterCategory] = useState<string>("all")
+  const [sortBy, setSortBy] = useState<SortOption>("date_added")
+  const [viewMode, setViewMode] = useState<ViewMode>("tile")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
   const [importOpen, setImportOpen] = useState(false)
@@ -103,8 +175,11 @@ export default function ClientHub() {
       (c.contact_name?.toLowerCase().includes(search.toLowerCase()) ?? false) ||
       (c.email?.toLowerCase().includes(search.toLowerCase()) ?? false)
     const matchStatus = filterStatus === "all" || c.status === filterStatus
-    return matchSearch && matchStatus
+    const matchCategory = filterCategory === "all" || c.category === filterCategory
+    return matchSearch && matchStatus && matchCategory
   }) || []
+
+  const sortedContacts = sortContacts(filtered, sortBy)
 
   const handleSave = async (formData: FormData) => {
     const supabase = createClient()
@@ -140,6 +215,15 @@ export default function ClientHub() {
     await supabase.from("contacts").delete().eq("id", id)
     mutate("contacts")
     mutate("dashboard-stats")
+  }
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "-"
+    return new Date(dateString).toLocaleDateString("en-US", { 
+      month: "short", 
+      day: "numeric", 
+      year: "numeric" 
+    })
   }
 
   return (
@@ -254,7 +338,8 @@ export default function ClientHub() {
         contacts={contacts}
       />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      {/* Filters, Sort, and View Toggle Row */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -264,29 +349,113 @@ export default function ClientHub() {
             className="min-h-[44px] pl-9"
           />
         </div>
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="min-h-[44px] w-full sm:w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            {STATUSES.map((s) => (
-              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Status Filter */}
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="min-h-[44px] w-full sm:w-36">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              {STATUSES.map((s) => (
+                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Category Filter */}
+          <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <SelectTrigger className="min-h-[44px] w-full sm:w-40">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {CATEGORIES.map((c) => (
+                <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Sort Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="min-h-[44px] gap-2">
+                <ArrowUpDown className="size-4" />
+                <span className="hidden sm:inline">Sort</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuRadioGroup value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+                {SORT_OPTIONS.map((option) => (
+                  <DropdownMenuRadioItem key={option.value} value={option.value} className="gap-2">
+                    <option.icon className="size-4 text-muted-foreground" />
+                    {option.label}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* View Toggle */}
+          <div className="flex items-center rounded-lg border border-border bg-muted/30 p-1">
+            <Button
+              variant={viewMode === "tile" ? "secondary" : "ghost"}
+              size="sm"
+              className="min-h-[36px] min-w-[36px] px-2"
+              onClick={() => setViewMode("tile")}
+              aria-label="Tile view"
+            >
+              <LayoutGrid className="size-4" />
+            </Button>
+            <Button
+              variant={viewMode === "list" ? "secondary" : "ghost"}
+              size="sm"
+              className="min-h-[36px] min-w-[36px] px-2"
+              onClick={() => setViewMode("list")}
+              aria-label="List view"
+            >
+              <List className="size-4" />
+            </Button>
+          </div>
+        </div>
       </div>
 
+      {/* Results Count */}
+      {contacts && contacts.length > 0 && (
+        <p className="text-sm text-muted-foreground">
+          Showing {sortedContacts.length} of {contacts.length} contacts
+          {sortBy !== "date_added" && (
+            <span className="ml-1">
+              (sorted by {SORT_OPTIONS.find(o => o.value === sortBy)?.label.toLowerCase()})
+            </span>
+          )}
+        </p>
+      )}
+
       {isLoading ? (
-        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader><div className="h-5 w-32 rounded bg-muted" /></CardHeader>
-              <CardContent><div className="h-4 w-48 rounded bg-muted" /></CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
+        viewMode === "tile" ? (
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <Card key={i} className="animate-pulse">
+                <CardHeader><div className="h-5 w-32 rounded bg-muted" /></CardHeader>
+                <CardContent><div className="h-4 w-48 rounded bg-muted" /></CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card className="animate-pulse">
+            <CardContent className="p-6">
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-12 rounded bg-muted" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )
+      ) : sortedContacts.length === 0 ? (
         <Card className="flex flex-col items-center justify-center p-8 text-center">
           <Building2 className="size-10 text-muted-foreground mb-3" />
           <CardTitle className="text-lg mb-1">No contacts yet</CardTitle>
@@ -297,9 +466,10 @@ export default function ClientHub() {
             <Plus className="size-4" /> Add Your First Contact
           </Button>
         </Card>
-      ) : (
+      ) : viewMode === "tile" ? (
+        /* Tile View */
         <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((contact) => (
+          {sortedContacts.map((contact) => (
             <Card key={contact.id} className="relative group">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
@@ -360,6 +530,80 @@ export default function ClientHub() {
             </Card>
           ))}
         </div>
+      ) : (
+        /* List View */
+        <Card>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="min-w-[180px]">Company</TableHead>
+                  <TableHead className="min-w-[140px]">Contact</TableHead>
+                  <TableHead className="min-w-[180px]">Email</TableHead>
+                  <TableHead className="min-w-[120px]">Phone</TableHead>
+                  <TableHead className="min-w-[120px]">Category</TableHead>
+                  <TableHead className="min-w-[100px]">Status</TableHead>
+                  <TableHead className="min-w-[100px]">Last Contact</TableHead>
+                  <TableHead className="w-[100px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedContacts.map((contact) => (
+                  <TableRow key={contact.id}>
+                    <TableCell className="font-medium">{contact.company_name}</TableCell>
+                    <TableCell className="text-muted-foreground">{contact.contact_name || "-"}</TableCell>
+                    <TableCell>
+                      {contact.email ? (
+                        <a 
+                          href={`mailto:${contact.email}`} 
+                          className="text-primary hover:underline truncate block max-w-[180px]"
+                        >
+                          {contact.email}
+                        </a>
+                      ) : "-"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{contact.phone || "-"}</TableCell>
+                    <TableCell>
+                      {contact.category ? (
+                        <Badge variant="outline" className="text-[10px]">
+                          {CATEGORIES.find((c) => c.value === contact.category)?.label}
+                        </Badge>
+                      ) : "-"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className={statusColor(contact.status)}>
+                        {STATUSES.find((s) => s.value === contact.status)?.label || contact.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {formatDate(contact.last_contacted_at)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="min-h-[36px] min-w-[36px] p-0"
+                          onClick={() => { setEditingContact(contact); setDialogOpen(true) }}
+                        >
+                          <Pencil className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="min-h-[36px] min-w-[36px] p-0 text-destructive hover:text-destructive"
+                          onClick={() => handleDelete(contact.id)}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
       )}
     </div>
   )
