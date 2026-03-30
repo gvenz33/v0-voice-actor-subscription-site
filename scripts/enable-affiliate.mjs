@@ -43,7 +43,7 @@ async function enableAffiliate() {
   
   // Remove hasAffiliate: false from feature_overrides if it exists
   const currentOverrides = profile.feature_overrides || {}
-  const { hasAffiliate, ...restOverrides } = currentOverrides as { hasAffiliate?: boolean; [key: string]: unknown }
+  const { hasAffiliate, ...restOverrides } = currentOverrides
   
   console.log("Current overrides:", currentOverrides)
   console.log("hasAffiliate override value:", hasAffiliate)
