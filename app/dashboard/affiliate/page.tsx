@@ -78,9 +78,9 @@ export default function AffiliatePage() {
           .eq("id", user.id)
           .single()
         affiliateCode = affiliateData?.affiliate_code || ""
-      } catch {
+      } catch (e) {
         // affiliate_code column doesn't exist yet - that's okay
-        console.log("affiliate_code column not available")
+        void e // suppress unused variable warning
       }
 
       // Check if user has connected Stripe account
@@ -93,7 +93,7 @@ export default function AffiliatePage() {
       setSubscriptionTier(tier)
       
       // Check eligibility: tier-based (momentum, command) OR admin override
-      const overrides = profile?.feature_overrides || {}
+      const overrides = (profile?.feature_overrides || {}) as { hasAffiliate?: boolean }
       const tierEligible = ["momentum", "command"].includes(tier)
       const hasOverride = overrides.hasAffiliate === true
       const isDisabled = overrides.hasAffiliate === false
