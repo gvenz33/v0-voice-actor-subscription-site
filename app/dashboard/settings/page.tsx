@@ -15,7 +15,8 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
-import { User, CreditCard, Shield, Mail, Check, AlertCircle, Loader2, Unlink, FileSignature, Save } from "lucide-react"
+import { User, CreditCard, Shield, Mail, Check, AlertCircle, Loader2, Unlink, FileSignature, Save, ExternalLink } from "lucide-react"
+import { createPortalSession } from "@/app/actions/stripe"
 import Link from "next/link"
 
 interface Profile {
@@ -64,6 +65,20 @@ export default function SettingsPage() {
   const [signatureLoading, setSignatureLoading] = useState(true)
   const [signatureSaving, setSignatureSaving] = useState(false)
   const [signatureMessage, setSignatureMessage] = useState("")
+  const [portalLoading, setPortalLoading] = useState(false)
+
+  const handleManageSubscription = async () => {
+    setPortalLoading(true)
+    try {
+      const url = await createPortalSession()
+      window.location.href = url
+    } catch (error) {
+      console.error("Failed to open billing portal:", error)
+      setMessage("Unable to open billing portal. Please try again.")
+    } finally {
+      setPortalLoading(false)
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -277,6 +292,22 @@ export default function SettingsPage() {
             <Button asChild variant="outline" size="lg" className="min-h-[44px]">
               <Link href="/#pricing">View Plans</Link>
             </Button>
+            {profile?.subscription_tier && profile.subscription_tier !== "free" && (
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="min-h-[44px]"
+                onClick={handleManageSubscription}
+                disabled={portalLoading}
+              >
+                {portalLoading ? (
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <ExternalLink className="mr-2 size-4" />
+                )}
+                Manage Billing
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
