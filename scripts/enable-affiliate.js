@@ -1,5 +1,4 @@
 // Script to enable affiliate for gvenz33@gmail.com
-// Run this with: npx tsx scripts/enable-affiliate.ts
 
 import { createClient } from "@supabase/supabase-js"
 
@@ -11,52 +10,74 @@ if (!supabaseUrl || !supabaseServiceKey) {
   process.exit(1)
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+})
 
 async function enableAffiliate() {
   const targetEmail = "gvenz33@gmail.com"
   
   console.log(`Looking for user: ${targetEmail}`)
   
-  // Find the user by email
+  // Use auth admin API to find user by email
+  const { data: authData, error: authError } = await supabase.auth.admin.listUsers()
+  
+  if (authError) {
+    console.error("Error listing users:", authError.message)
+    process.exit(1)
+  }
+  
+  const authUser = authData.users.find(u => u.email === targetEmail)
+  
+  if (!authUser) {
+    console.error("User not found in auth.users")
+    process.exit(1)
+  }
+  
+  console.log("Found auth user with ID:", authUser.id)
+  
+  // Get profile for this user - only select columns that exist
   const { data: profile, error: findError } = await supabase
     .from("profiles")
-    .select("id, email, subscription_tier, affiliate_code, feature_overrides")
-    .eq("email", targetEmail)
+    .select("id, subscription_tier, feature_overrides")
+    .eq("id", authUser.id)
     .single()
   
   if (findError) {
-    console.error("Error finding user:", findError.message)
+    console.error("Error finding profile:", findError.message)
     process.exit(1)
   }
   
   if (!profile) {
-    console.error("User not found")
+    console.error("Profile not found")
     process.exit(1)
   }
   
-  console.log("Found user:", profile)
-  
-  // Generate affiliate code if not exists
-  const affiliateCode = profile.affiliate_code || 
-    `VOB${Math.random().toString(36).substring(2, 10).toUpperCase()}`
+  console.log("Found profile:", profile)
+  console.log("Current subscription_tier:", profile.subscription_tier)
+  console.log("Current feature_overrides:", profile.feature_overrides)
   
   // Remove hasAffiliate: false from feature_overrides if it exists
   const currentOverrides = profile.feature_overrides || {}
   const { hasAffiliate, ...restOverrides } = currentOverrides
   
-  console.log("Current overrides:", currentOverrides)
   console.log("hasAffiliate override value:", hasAffiliate)
   
-  // Update the profile
+  // Update the profile - set tier to command and clear any hasAffiliate:false override
+  const updateData = {
+    subscription_tier: "command",
+    feature_overrides: Object.keys(restOverrides).length > 0 ? restOverrides : null,
+    updated_at: new Date().toISOString(),
+  }
+  
+  console.log("Updating profile with:", updateData)
+  
   const { error: updateError } = await supabase
     .from("profiles")
-    .update({
-      subscription_tier: "command",
-      affiliate_code: affiliateCode,
-      feature_overrides: Object.keys(restOverrides).length > 0 ? restOverrides : null,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updateData)
     .eq("id", profile.id)
   
   if (updateError) {
@@ -64,10 +85,11 @@ async function enableAffiliate() {
     process.exit(1)
   }
   
-  console.log(`✅ Successfully enabled affiliate for ${targetEmail}`)
+  console.log(`Successfully enabled affiliate for ${targetEmail}`)
   console.log(`   - Subscription tier: command`)
-  console.log(`   - Affiliate code: ${affiliateCode}`)
   console.log(`   - Removed hasAffiliate override (if any)`)
+  console.log("")
+  console.log("The user should now see the affiliate dashboard enabled.")
 }
 
 enableAffiliate()

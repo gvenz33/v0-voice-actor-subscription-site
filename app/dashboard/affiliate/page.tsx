@@ -56,12 +56,32 @@ export default function AffiliatePage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Get user's affiliate code, subscription tier, feature overrides, and stripe account
-      const { data: profile } = await supabase
+      // Get user's subscription tier and feature overrides (always exist)
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("affiliate_code, subscription_tier, feature_overrides, stripe_connect_account_id")
+        .select("subscription_tier, feature_overrides, stripe_connect_account_id")
         .eq("id", user.id)
         .single()
+
+      if (profileError) {
+        console.error("Error loading profile:", profileError)
+        setLoading(false)
+        return
+      }
+
+      // Try to get affiliate_code separately (may not exist if migration hasn't run)
+      let affiliateCode = ""
+      try {
+        const { data: affiliateData } = await supabase
+          .from("profiles")
+          .select("affiliate_code")
+          .eq("id", user.id)
+          .single()
+        affiliateCode = affiliateData?.affiliate_code || ""
+      } catch {
+        // affiliate_code column doesn't exist yet - that's okay
+        console.log("affiliate_code column not available")
+      }
 
       // Check if user has connected Stripe account
       if (profile?.stripe_connect_account_id) {
@@ -98,7 +118,7 @@ export default function AffiliatePage() {
       const pendingEarnings = referralData?.filter(r => r.status === "active").reduce((sum, r) => sum + (r.total_earned || 0), 0) || 0
 
       setStats({
-        affiliateCode: profile?.affiliate_code || "",
+        affiliateCode: affiliateCode,
         totalReferrals,
         activeReferrals,
         totalEarned,
