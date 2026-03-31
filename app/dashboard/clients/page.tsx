@@ -51,6 +51,7 @@ import {
   Upload, Download, LayoutGrid, List, ArrowUpDown, ArrowUpAZ, 
   ArrowDownAZ, Calendar, Clock
 } from "lucide-react"
+import { Plus, Search, Building2, Mail, Phone, Globe, Trash2, Pencil, Upload, Download, LayoutGrid, List } from "lucide-react"
 import { ContactsImportExport } from "@/components/contacts-import-export"
 
 interface Contact {
@@ -101,6 +102,19 @@ const STATUSES = [
 type SortOption = "name_asc" | "name_desc" | "category" | "status" | "last_contacted" | "date_added"
 type ViewMode = "tile" | "list"
 
+const SORT_OPTIONS = [
+  { value: "newest", label: "Recently Added" },
+  { value: "oldest", label: "Oldest First" },
+  { value: "company_asc", label: "Company A-Z" },
+  { value: "company_desc", label: "Company Z-A" },
+  { value: "category_asc", label: "Category A-Z" },
+  { value: "category_desc", label: "Category Z-A" },
+  { value: "status_asc", label: "Status A-Z" },
+  { value: "last_contacted_desc", label: "Last Contacted (Newest)" },
+] as const
+
+type SortOption = (typeof SORT_OPTIONS)[number]["value"]
+type ViewMode = "tile" | "list"
 function statusColor(status: string) {
   switch (status) {
     case "active": return "bg-violet-500/10 text-violet-700 dark:text-violet-400"
@@ -163,6 +177,7 @@ export default function ClientHub() {
   const [filterStatus, setFilterStatus] = useState<string>("all")
   const [filterCategory, setFilterCategory] = useState<string>("all")
   const [sortBy, setSortBy] = useState<SortOption>("date_added")
+  const [sortBy, setSortBy] = useState<SortOption>("newest")
   const [viewMode, setViewMode] = useState<ViewMode>("tile")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
@@ -181,6 +196,38 @@ export default function ClientHub() {
 
   const sortedContacts = sortContacts(filtered, sortBy)
 
+  const sorted = [...filtered].sort((a, b) => {
+    const companyA = a.company_name.toLowerCase()
+    const companyB = b.company_name.toLowerCase()
+    const categoryA = (a.category || "").toLowerCase()
+    const categoryB = (b.category || "").toLowerCase()
+    const statusA = a.status.toLowerCase()
+    const statusB = b.status.toLowerCase()
+    const createdAtA = new Date(a.created_at).getTime()
+    const createdAtB = new Date(b.created_at).getTime()
+    const lastContactedA = a.last_contacted_at ? new Date(a.last_contacted_at).getTime() : 0
+    const lastContactedB = b.last_contacted_at ? new Date(b.last_contacted_at).getTime() : 0
+
+    switch (sortBy) {
+      case "company_asc":
+        return companyA.localeCompare(companyB)
+      case "company_desc":
+        return companyB.localeCompare(companyA)
+      case "category_asc":
+        return categoryA.localeCompare(categoryB) || companyA.localeCompare(companyB)
+      case "category_desc":
+        return categoryB.localeCompare(categoryA) || companyA.localeCompare(companyB)
+      case "status_asc":
+        return statusA.localeCompare(statusB) || companyA.localeCompare(companyB)
+      case "oldest":
+        return createdAtA - createdAtB
+      case "last_contacted_desc":
+        return lastContactedB - lastContactedA || companyA.localeCompare(companyB)
+      case "newest":
+      default:
+        return createdAtB - createdAtA
+    }
+  })
   const handleSave = async (formData: FormData) => {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()

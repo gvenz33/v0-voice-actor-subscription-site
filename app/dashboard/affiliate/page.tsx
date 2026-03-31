@@ -53,8 +53,12 @@ export default function AffiliatePage() {
     async function loadAffiliateData() {
       const supabase = createClient()
       
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) {
+        console.log("[v0] Auth error or no user:", userError)
+        setLoading(false)
+        return
+      }
 
       // Get user's subscription tier and feature overrides (always exist)
       const { data: profile, error: profileError } = await supabase
@@ -91,13 +95,18 @@ export default function AffiliatePage() {
 
       const tier = profile?.subscription_tier || "free"
       setSubscriptionTier(tier)
+      console.log("[v0] Subscription tier:", tier)
       
       // Check eligibility: tier-based (momentum, command) OR admin override
       const overrides = (profile?.feature_overrides || {}) as { hasAffiliate?: boolean }
       const tierEligible = ["momentum", "command"].includes(tier)
       const hasOverride = overrides.hasAffiliate === true
       const isDisabled = overrides.hasAffiliate === false
-      setIsEligible((tierEligible || hasOverride) && !isDisabled)
+      const eligible = (tierEligible || hasOverride) && !isDisabled
+      
+      console.log("[v0] Tier eligible:", tierEligible, "| Override:", hasOverride, "| Disabled:", isDisabled, "| Final eligible:", eligible)
+      
+      setIsEligible(eligible)
 
       // Get referrals
       const { data: referralData } = await supabase
