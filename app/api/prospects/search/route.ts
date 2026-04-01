@@ -72,6 +72,61 @@ async function googleSearch(query: string) {
 }
 
 async function fallbackSearch(query: string) {
+  const bingRssRes = await fetch(
+    `https://www.bing.com/search?format=rss&q=${encodeURIComponent(query)}`,
+    {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept: "application/rss+xml,application/xml,text/xml",
+      },
+      redirect: "follow",
+    }
+  )
+
+  if (bingRssRes.ok) {
+    const rssXml = await bingRssRes.text()
+    const itemPattern =
+      /<item>\s*<title><!\[CDATA\[(.*?)\]\]><\/title>\s*<link>(.*?)<\/link>[\s\S]*?<description><!\[CDATA\[(.*?)\]\]><\/description>[\s\S]*?<\/item>/g
+    const items = [...rssXml.matchAll(itemPattern)]
+    const rssResults: Array<{
+      title: string
+      link: string
+      snippet: string
+      displayLink: string
+    }> = []
+
+    for (const item of items) {
+      const link = item[2]?.trim() || ""
+      if (!link.startsWith("http")) continue
+      if (
+        /wikipedia\.org|youtube\.com|reddit\.com|facebook\.com|twitter\.com|x\.com|tiktok\.com/i.test(
+          link
+        )
+      ) {
+        continue
+      }
+
+      let displayLink = ""
+      try {
+        displayLink = new URL(link).hostname.replace("www.", "")
+      } catch {
+        displayLink = link
+      }
+
+      rssResults.push({
+        title: (item[1] || "Untitled").replace(/\s+/g, " ").trim(),
+        link,
+        snippet: (item[3] || "").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim(),
+        displayLink,
+      })
+    }
+
+    if (rssResults.length > 0) {
+      return NextResponse.json({ results: rssResults, source: "bing-rss" })
+    }
+  }
+
   const ddgUrls = [
     `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`,
     `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
