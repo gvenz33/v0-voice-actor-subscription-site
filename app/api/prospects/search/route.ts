@@ -3,9 +3,22 @@ import { createClient } from "@/lib/supabase/server"
 
 const GOOGLE_API_KEY = process.env.GOOGLE_SEARCH_API_KEY
 const GOOGLE_CX = process.env.GOOGLE_SEARCH_CX
+const BRAVE_SEARCH_API_KEY = process.env.BRAVE_SEARCH_API_KEY
 
 /** Google allows 10 per request; we page twice, then merge Bing RSS + DDG. */
 const MAX_RESULTS = 25
+
+const BRAVE_WEB_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
+
+type BraveWebSearchJson = {
+  web?: {
+    results?: Array<{
+      title?: string
+      url?: string
+      description?: string
+    }>
+  }
+}
 
 /** Down-rank obvious non-prospect URLs (help docs, aggregators that dominate generic queries). */
 const BLOCKED_HOST_SUBSTRINGS = [
@@ -101,6 +114,7 @@ function createAggregator() {
 async function combinedSearch(query: string) {
   const { aggregated, sources, pushResult } = createAggregator()
 
+  await appendBraveResults(query, pushResult)
   await appendGoogleResults(query, pushResult)
   await appendBingRss(query, pushResult)
   await appendDuckDuckGo(query, pushResult)
@@ -116,6 +130,75 @@ async function combinedSearch(query: string) {
     results: aggregated.slice(0, MAX_RESULTS),
     source: [...sources].sort().join("+") || "mixed",
   })
+}
+
+/**
+ * Brave Search API — independent index, closest to brave.com results.
+ * @see https://api-dashboard.search.brave.com/documentation/quickstart
+ */
+async function appendBraveResults(
+  query: string,
+  pushResult: (item: SearchHit, source: string) => void
+) {
+  if (!BRAVE_SEARCH_API_KEY) return
+
+  const q = query.trim().slice(0, 400)
+  if (!q) return
+
+  for (const offset of [0, 1] as const) {
+    const url = new URL(BRAVE_WEB_SEARCH_URL)
+    url.searchParams.set("q", q)
+    url.searchParams.set("count", "20")
+    url.searchParams.set("offset", String(offset))
+    url.searchParams.set("result_filter", "web")
+    url.searchParams.set("country", "US")
+    url.searchParams.set("search_lang", "en")
+    url.searchParams.set("text_decorations", "false")
+
+    const res = await fetch(url.toString(), {
+      headers: {
+        Accept: "application/json",
+        "X-Subscription-Token": BRAVE_SEARCH_API_KEY,
+      },
+    })
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "")
+      console.error("[v0] Brave search error:", res.status, body.slice(0, 500))
+      break
+    }
+
+    const data = (await res.json()) as BraveWebSearchJson
+    const rows = data.web?.results ?? []
+    if (rows.length === 0) break
+
+    for (const row of rows) {
+      const link = (row.url || "").trim()
+      if (!link.startsWith("http")) continue
+
+      let displayLink = ""
+      try {
+        displayLink = new URL(link).hostname.replace("www.", "")
+      } catch {
+        displayLink = link
+      }
+
+      const snippet = (row.description || "")
+        .replace(/\u0001|\u0002|\u0003/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+
+      pushResult(
+        {
+          title: (row.title || "Untitled").replace(/\s+/g, " ").trim(),
+          link,
+          snippet,
+          displayLink,
+        },
+        "brave"
+      )
+    }
+  }
 }
 
 /** Up to 20 Google results (2 pages x 10) when API is configured. */
