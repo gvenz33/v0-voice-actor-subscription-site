@@ -12,6 +12,7 @@ export default function HomePage() {
     <div className="min-h-svh">
       <Navbar />
       <main>
+        <div className="sr-only">Deploy check: 2026-04-01</div>
         <Hero />
         <Features />
         <HowItWorks />
