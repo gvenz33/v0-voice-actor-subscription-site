@@ -221,7 +221,9 @@ export default function ProspectFinder() {
           Prospect Finder
         </h2>
         <p className="text-sm text-muted-foreground">
-          Search for production companies, studios, and agencies. AI will scan
+          Search for production companies, studios, and agencies. Use a{" "}
+          <span className="font-medium text-foreground/90">city + service type</span>{" "}
+          (for example podcast studios in NYC) for tighter matches. AI will scan
           their websites to extract contact information.
         </p>
       </div>
@@ -239,7 +241,7 @@ export default function ProspectFinder() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder='Try "animation studios Los Angeles" or "e-learning production companies"...'
+                placeholder='Try "podcast production studio New York City" or "commercial VO production Los Angeles"...'
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="min-h-[48px] pl-10 text-base"
@@ -264,12 +266,12 @@ export default function ProspectFinder() {
           <div className="mt-3 flex flex-wrap gap-2">
             <span className="text-xs text-muted-foreground">Try:</span>
             {[
-              "commercial voice over production companies Los Angeles",
-              "animation studios hiring voice actors",
-              "e-learning narration production companies",
-              "podcast production agencies New York",
-              "audiobook publishers accepting narrator submissions",
-              "video game voice acting studios",
+              "commercial voice over production studio Los Angeles",
+              "animation production studio Los Angeles",
+              "corporate e-learning video production companies",
+              "podcast production studio New York City",
+              "audiobook publishers narrator submissions",
+              "video game audio production studios",
             ].map((suggestion) => (
               <button
                 key={suggestion}

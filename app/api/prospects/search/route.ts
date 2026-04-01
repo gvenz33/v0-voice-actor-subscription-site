@@ -7,6 +7,19 @@ const GOOGLE_CX = process.env.GOOGLE_SEARCH_CX
 /** Google allows 10 per request; we page twice, then merge Bing RSS + DDG. */
 const MAX_RESULTS = 25
 
+/** Down-rank obvious non-prospect URLs (help docs, aggregators that dominate generic queries). */
+const BLOCKED_HOST_SUBSTRINGS = [
+  "support.google.com",
+  "help.google.com",
+  "notebook.google.com",
+  "policies.google.com",
+  "accounts.google.com",
+  "stackoverflow.com",
+  "quora.com",
+]
+
+const JUNK_TITLE_PATTERN = /\b(google help|notebooklm)\b/i
+
 type SearchHit = {
   title: string
   link: string
@@ -29,7 +42,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    return await combinedSearch(query)
+    return await combinedSearch(enhanceProspectQuery(query))
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error)
     console.error("[v0] Search error:", errMsg)
@@ -40,6 +53,33 @@ export async function POST(req: NextRequest) {
   }
 }
 
+/** Bias results toward real business sites; Bing/Google often surface help/docs for loose queries. */
+function enhanceProspectQuery(raw: string): string {
+  const base = raw.trim().replace(/\s+/g, " ")
+  if (!base) return base
+  const negatives = [
+    "-site:support.google.com",
+    "-site:help.google.com",
+    "-site:notebook.google.com",
+    "-site:policies.google.com",
+  ]
+  const alreadyHasSite = /\bsite:/i.test(base)
+  if (alreadyHasSite) return base
+  return `${base} ${negatives.join(" ")}`.slice(0, 1900)
+}
+
+function isBlockedProspectUrl(url: string): boolean {
+  const lower = url.toLowerCase()
+  if (
+    /wikipedia\.org|youtube\.com|reddit\.com|facebook\.com|twitter\.com|x\.com|tiktok\.com/i.test(
+      lower
+    )
+  ) {
+    return true
+  }
+  return BLOCKED_HOST_SUBSTRINGS.some((h) => lower.includes(h))
+}
+
 function createAggregator() {
   const seen = new Set<string>()
   const aggregated: SearchHit[] = []
@@ -48,13 +88,8 @@ function createAggregator() {
   const pushResult = (item: SearchHit, source: string) => {
     const normalized = item.link.trim().toLowerCase()
     if (!normalized || seen.has(normalized)) return
-    if (
-      /wikipedia\.org|youtube\.com|reddit\.com|facebook\.com|twitter\.com|x\.com|tiktok\.com/i.test(
-        normalized
-      )
-    ) {
-      return
-    }
+    if (isBlockedProspectUrl(normalized)) return
+    if (JUNK_TITLE_PATTERN.test(item.title)) return
     seen.add(normalized)
     aggregated.push(item)
     sources.add(source)
