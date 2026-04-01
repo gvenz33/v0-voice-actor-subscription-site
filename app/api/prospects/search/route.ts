@@ -4,6 +4,16 @@ import { createClient } from "@/lib/supabase/server"
 const GOOGLE_API_KEY = process.env.GOOGLE_SEARCH_API_KEY
 const GOOGLE_CX = process.env.GOOGLE_SEARCH_CX
 
+/** Google allows 10 per request; we page twice, then merge Bing RSS + DDG. */
+const MAX_RESULTS = 25
+
+type SearchHit = {
+  title: string
+  link: string
+  snippet: string
+  displayLink: string
+}
+
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const {
@@ -19,11 +29,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    if (GOOGLE_API_KEY && GOOGLE_CX) {
-      return await googleSearch(query)
-    }
-
-    return await fallbackSearch(query)
+    return await combinedSearch(query)
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error)
     console.error("[v0] Search error:", errMsg)
@@ -34,44 +40,106 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function googleSearch(query: string) {
-  const googleRes = await fetch(
-    `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(
-      GOOGLE_API_KEY as string
-    )}&cx=${encodeURIComponent(GOOGLE_CX as string)}&q=${encodeURIComponent(query)}`,
-    { headers: { Accept: "application/json" } }
-  )
+function createAggregator() {
+  const seen = new Set<string>()
+  const aggregated: SearchHit[] = []
+  const sources = new Set<string>()
 
-  if (!googleRes.ok) {
-    // If Google is configured but fails, still try free fallback
-    return await fallbackSearch(query)
+  const pushResult = (item: SearchHit, source: string) => {
+    const normalized = item.link.trim().toLowerCase()
+    if (!normalized || seen.has(normalized)) return
+    if (
+      /wikipedia\.org|youtube\.com|reddit\.com|facebook\.com|twitter\.com|x\.com|tiktok\.com/i.test(
+        normalized
+      )
+    ) {
+      return
+    }
+    seen.add(normalized)
+    aggregated.push(item)
+    sources.add(source)
   }
 
-  const data = (await googleRes.json()) as {
-    items?: Array<{ title?: string; link?: string; snippet?: string; displayLink?: string }>
-  }
+  return { aggregated, sources, pushResult }
+}
 
-  const results =
-    data.items
-      ?.filter((item) => item.link?.startsWith("http"))
-      .map((item) => ({
-        title: item.title || "Untitled",
-        link: item.link || "",
-        snippet: item.snippet || "",
-        displayLink: item.displayLink || "",
-      })) || []
+async function combinedSearch(query: string) {
+  const { aggregated, sources, pushResult } = createAggregator()
 
-  if (results.length === 0) {
+  await appendGoogleResults(query, pushResult)
+  await appendBingRss(query, pushResult)
+  await appendDuckDuckGo(query, pushResult)
+
+  if (aggregated.length === 0) {
     return NextResponse.json(
       { error: "No results found. Try more specific keywords." },
       { status: 404 }
     )
   }
 
-  return NextResponse.json({ results, source: "google" })
+  return NextResponse.json({
+    results: aggregated.slice(0, MAX_RESULTS),
+    source: [...sources].sort().join("+") || "mixed",
+  })
 }
 
-async function fallbackSearch(query: string) {
+/** Up to 20 Google results (2 pages x 10) when API is configured. */
+async function appendGoogleResults(
+  query: string,
+  pushResult: (item: SearchHit, source: string) => void
+) {
+  if (!GOOGLE_API_KEY || !GOOGLE_CX) return
+
+  for (const start of [1, 11]) {
+    const googleRes = await fetch(
+      `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(
+        GOOGLE_API_KEY
+      )}&cx=${encodeURIComponent(GOOGLE_CX)}&q=${encodeURIComponent(
+        query
+      )}&num=10&start=${start}`,
+      { headers: { Accept: "application/json" } }
+    )
+
+    if (!googleRes.ok) break
+
+    const data = (await googleRes.json()) as {
+      items?: Array<{
+        title?: string
+        link?: string
+        snippet?: string
+        displayLink?: string
+      }>
+    }
+
+    const items =
+      data.items?.filter((item) => item.link?.startsWith("http")) || []
+    if (items.length === 0) break
+
+    for (const item of items) {
+      const link = item.link || ""
+      let displayLink = ""
+      try {
+        displayLink = new URL(link).hostname.replace("www.", "")
+      } catch {
+        displayLink = item.displayLink || link
+      }
+      pushResult(
+        {
+          title: item.title || "Untitled",
+          link,
+          snippet: item.snippet || "",
+          displayLink: item.displayLink || displayLink,
+        },
+        "google"
+      )
+    }
+  }
+}
+
+async function appendBingRss(
+  query: string,
+  pushResult: (item: SearchHit, source: string) => void
+) {
   const bingRssRes = await fetch(
     `https://www.bing.com/search?format=rss&q=${encodeURIComponent(query)}`,
     {
@@ -84,49 +152,59 @@ async function fallbackSearch(query: string) {
     }
   )
 
-  if (bingRssRes.ok) {
-    const rssXml = await bingRssRes.text()
-    const itemPattern =
-      /<item>\s*<title><!\[CDATA\[(.*?)\]\]><\/title>\s*<link>(.*?)<\/link>[\s\S]*?<description><!\[CDATA\[(.*?)\]\]><\/description>[\s\S]*?<\/item>/g
-    const items = [...rssXml.matchAll(itemPattern)]
-    const rssResults: Array<{
-      title: string
-      link: string
-      snippet: string
-      displayLink: string
-    }> = []
+  if (!bingRssRes.ok) return
 
-    for (const item of items) {
-      const link = item[2]?.trim() || ""
-      if (!link.startsWith("http")) continue
-      if (
-        /wikipedia\.org|youtube\.com|reddit\.com|facebook\.com|twitter\.com|x\.com|tiktok\.com/i.test(
-          link
-        )
-      ) {
-        continue
-      }
+  const rssXml = await bingRssRes.text()
+  const itemBlocks = [...rssXml.matchAll(/<item>([\s\S]*?)<\/item>/g)]
 
-      let displayLink = ""
-      try {
-        displayLink = new URL(link).hostname.replace("www.", "")
-      } catch {
-        displayLink = link
-      }
+  for (const block of itemBlocks) {
+    const itemXml = block[1] || ""
+    const titleMatch = itemXml.match(
+      /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i
+    )
+    const linkMatch = itemXml.match(/<link>([\s\S]*?)<\/link>/i)
+    const descMatch = itemXml.match(
+      /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i
+    )
 
-      rssResults.push({
-        title: (item[1] || "Untitled").replace(/\s+/g, " ").trim(),
+    const link = (linkMatch?.[1] || "").trim()
+    if (!link.startsWith("http")) continue
+
+    let displayLink = ""
+    try {
+      displayLink = new URL(link).hostname.replace("www.", "")
+    } catch {
+      displayLink = link
+    }
+
+    pushResult(
+      {
+        title: (titleMatch?.[1] || "Untitled")
+          .replace(/<[^>]*>/g, "")
+          .replace(/&amp;/g, "&")
+          .replace(/&#x27;/g, "'")
+          .replace(/&quot;/g, '"')
+          .replace(/\s+/g, " ")
+          .trim(),
         link,
-        snippet: (item[3] || "").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim(),
+        snippet: (descMatch?.[1] || "")
+          .replace(/<[^>]*>/g, "")
+          .replace(/&amp;/g, "&")
+          .replace(/&#x27;/g, "'")
+          .replace(/&quot;/g, '"')
+          .replace(/\s+/g, " ")
+          .trim(),
         displayLink,
-      })
-    }
-
-    if (rssResults.length > 0) {
-      return NextResponse.json({ results: rssResults, source: "bing-rss" })
-    }
+      },
+      "bing-rss"
+    )
   }
+}
 
+async function appendDuckDuckGo(
+  query: string,
+  pushResult: (item: SearchHit, source: string) => void
+) {
   const ddgUrls = [
     `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`,
     `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
@@ -146,57 +224,45 @@ async function fallbackSearch(query: string) {
 
     if (!ddgRes.ok) continue
     html = await ddgRes.text()
+    if (/Unfortunately, bots use DuckDuckGo too/i.test(html)) {
+      html = ""
+      continue
+    }
     if (html.length > 0) break
   }
 
-  if (!html) {
-    return NextResponse.json(
-      { error: "Search service temporarily unavailable." },
-      { status: 502 }
-    )
-  }
+  if (!html) return
 
-  // Parse result links
   const liteLinkPattern =
     /rel="nofollow"\s+href="[^"]*uddg=([^&"]+)[^"]*"\s+class='result-link'>([^<]+)/g
   const liteSnippetPattern = /class='result-snippet'>\s*([\s\S]*?)<\/td>/g
 
-  const htmlLinkPattern = /<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g
-  const htmlSnippetPattern = /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g
+  const htmlLinkPattern =
+    /<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g
+  const htmlSnippetPattern =
+    /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g
 
   const liteLinkMatches = [...html.matchAll(liteLinkPattern)]
   const liteSnippetMatches = [...html.matchAll(liteSnippetPattern)]
   const htmlLinkMatches = [...html.matchAll(htmlLinkPattern)]
   const htmlSnippetMatches = [...html.matchAll(htmlSnippetPattern)]
 
-  const linkMatches = liteLinkMatches.length > 0 ? liteLinkMatches : htmlLinkMatches
-  const snippetMatches = liteSnippetMatches.length > 0 ? liteSnippetMatches : htmlSnippetMatches
-
-  const results: Array<{
-    title: string
-    link: string
-    snippet: string
-    displayLink: string
-  }> = []
+  const linkMatches =
+    liteLinkMatches.length > 0 ? liteLinkMatches : htmlLinkMatches
+  const snippetMatches =
+    liteSnippetMatches.length > 0 ? liteSnippetMatches : htmlSnippetMatches
 
   for (let i = 0; i < linkMatches.length; i++) {
-    let url: string
+    let urlStr: string
     try {
       const rawUrl = linkMatches[i][1]
-      url =
+      urlStr =
         liteLinkMatches.length > 0 ? decodeURIComponent(rawUrl) : rawUrl
     } catch {
       continue
     }
 
-    if (!url.startsWith("http")) continue
-    if (
-      /wikipedia\.org|youtube\.com|reddit\.com|facebook\.com|twitter\.com|tiktok\.com/i.test(
-        url
-      )
-    ) {
-      continue
-    }
+    if (!urlStr.startsWith("http")) continue
 
     const title = linkMatches[i][2]
       .replace(/<[^>]*>/g, "")
@@ -217,20 +283,11 @@ async function fallbackSearch(query: string) {
 
     let displayLink = ""
     try {
-      displayLink = new URL(url).hostname.replace("www.", "")
+      displayLink = new URL(urlStr).hostname.replace("www.", "")
     } catch {
-      displayLink = url
+      displayLink = urlStr
     }
 
-    results.push({ title, link: url, snippet, displayLink })
+    pushResult({ title, link: urlStr, snippet, displayLink }, "duckduckgo")
   }
-
-  if (results.length === 0) {
-    return NextResponse.json(
-      { error: "No results found. Try more specific keywords." },
-      { status: 404 }
-    )
-  }
-
-  return NextResponse.json({ results, source: "duckduckgo" })
 }
