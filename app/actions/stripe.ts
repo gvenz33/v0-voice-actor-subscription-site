@@ -11,12 +11,24 @@ export async function startCheckoutSession(productId: string, billingInterval: '
     throw new Error(`Product with id "${productId}" not found`)
   }
 
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Not authenticated')
+  }
+
   const priceInCents = getProductPrice(product, billingInterval)
   const intervalLabel = billingInterval === 'year' ? 'Annual' : 'Monthly'
 
   const session = await stripe.checkout.sessions.create({
     ui_mode: 'embedded',
     redirect_on_completion: 'never',
+    metadata: {
+      user_id: user.id,
+      product_id: product.id,
+      tier: product.tier,
+    },
     line_items: [
       {
         price_data: {

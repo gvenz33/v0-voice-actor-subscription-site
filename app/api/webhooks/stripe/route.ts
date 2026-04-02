@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { addPurchasedTokens } from '@/lib/ai-limits'
 import Stripe from 'stripe'
+import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
   const body = await request.text()
@@ -46,6 +47,25 @@ export async function POST(request: NextRequest) {
             console.log(`Added ${tokens} tokens to user ${userId}`)
           } catch (error) {
             console.error('Failed to add tokens:', error)
+            // Don't return error - Stripe will retry
+          }
+        }
+      }
+
+      // Check if this is a subscription purchase (has tier + user_id in metadata)
+      if (session.metadata?.tier && session.metadata?.user_id) {
+        const userId = session.metadata.user_id
+        const tier = session.metadata.tier
+
+        if (userId && tier) {
+          try {
+            const supabase = await createClient()
+            await supabase
+              .from('profiles')
+              .update({ subscription_tier: tier })
+              .eq('id', userId)
+          } catch (error) {
+            console.error('Failed to update subscription tier:', error)
             // Don't return error - Stripe will retry
           }
         }
