@@ -5,17 +5,14 @@ import { PRODUCTS, getProductPrice } from '@/lib/products'
 import { TOKEN_PACKAGES } from '@/lib/token-products'
 import { createClient } from '@/lib/supabase/server'
 
-export async function startCheckoutSession(productId: string, billingInterval: 'month' | 'year' = 'month') {
+export async function startCheckoutSession(
+  productId: string,
+  billingInterval: 'month' | 'year' = 'month',
+  userId?: string | null,
+) {
   const product = PRODUCTS.find((p) => p.id === productId)
   if (!product) {
     throw new Error(`Product with id "${productId}" not found`)
-  }
-
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Not authenticated')
   }
 
   const priceInCents = getProductPrice(product, billingInterval)
@@ -25,7 +22,7 @@ export async function startCheckoutSession(productId: string, billingInterval: '
     ui_mode: 'embedded',
     redirect_on_completion: 'never',
     metadata: {
-      user_id: user.id,
+      ...(userId ? { user_id: userId } : {}),
       product_id: product.id,
       tier: product.tier,
     },
