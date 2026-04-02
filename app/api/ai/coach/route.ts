@@ -1,4 +1,4 @@
-import { streamText, convertToModelMessages, type UIMessage } from "ai"
+import { generateText, convertToModelMessages, type UIMessage } from "ai"
 import { createOpenAI } from "@ai-sdk/openai"
 import { createClient } from "@/lib/supabase/server"
 
@@ -124,13 +124,16 @@ export async function POST(req: Request) {
     const openai = createOpenAI({ apiKey })
     const modelMessages = await convertToModelMessages(messages)
 
-    const result = streamText({
+    const result = await generateText({
       model: openai(COACH_MODEL),
       system: COACH_SYSTEM_PROMPT,
       messages: modelMessages,
     })
 
-    return result.toTextStreamResponse()
+    // Plain text response so the dashboard hook can display it reliably.
+    return new Response(result.text, {
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error("[v0] Coach error:", message)
