@@ -1,6 +1,10 @@
-import { streamText } from "ai"
-import { gateway } from "@ai-sdk/gateway"
+import { streamText, convertToModelMessages, type UIMessage } from "ai"
+import { createOpenAI } from "@ai-sdk/openai"
 import { createClient } from "@/lib/supabase/server"
+
+export const maxDuration = 30
+
+const COACH_MODEL = "gpt-4o-mini"
 
 const COACH_SYSTEM_PROMPT = `You are Coach V, an elite Voice Over Career Coach with over 25 years of experience in the voice over industry. You've done it all:
 
@@ -73,37 +77,63 @@ const COACH_SYSTEM_PROMPT = `You are Coach V, an elite Voice Over Career Coach w
 You're not just giving information - you're coaching. Make them feel seen, understood, and motivated to take action.`
 
 export async function POST(req: Request) {
-  const supabase = await createClient()
+  try {
+    const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-  if (!user) {
-    return new Response("Unauthorized", { status: 401 })
+    if (!user) {
+      return Response.json({ error: "Not authenticated" }, { status: 401 })
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("subscription_tier")
+      .eq("id", user.id)
+      .single()
+
+    const tier = profile?.subscription_tier || "free"
+    const hasCoachAccess = tier !== "free"
+
+    if (!hasCoachAccess) {
+      return Response.json(
+        {
+          error: "upgrade_required",
+          feature: "VO Coach",
+          message: "VO Coach requires Launch plan or higher",
+        },
+        { status: 403 }
+      )
+    }
+
+    const apiKey = (process.env.OPENAI_API_KEY || "").trim()
+    if (!apiKey) {
+      return Response.json(
+        { error: "OPENAI_API_KEY is not configured" },
+        { status: 503 }
+      )
+    }
+
+    const { messages } = (await req.json()) as { messages: UIMessage[] }
+    if (!messages || !Array.isArray(messages)) {
+      return Response.json({ error: "messages array required" }, { status: 400 })
+    }
+
+    const openai = createOpenAI({ apiKey })
+    const modelMessages = await convertToModelMessages(messages)
+
+    const result = streamText({
+      model: openai(COACH_MODEL),
+      system: COACH_SYSTEM_PROMPT,
+      messages: modelMessages,
+    })
+
+    return result.toTextStreamResponse()
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error("[v0] Coach error:", message)
+    return Response.json({ error: message }, { status: 500 })
   }
-
-  // Check if user has access to the coach (Launch+ tier)
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("subscription_tier")
-    .eq("id", user.id)
-    .single()
-
-  const tier = profile?.subscription_tier || "free"
-  const hasCoachAccess = tier !== "free" // Launch, Momentum, or Command
-
-  if (!hasCoachAccess) {
-    return new Response("VO Coach requires Launch plan or higher", { status: 403 })
-  }
-
-  const { messages } = await req.json()
-
-  const result = streamText({
-    model: gateway("groq/llama-3.3-70b-versatile"),
-    system: COACH_SYSTEM_PROMPT,
-    messages,
-  })
-
-  return result.toDataStreamResponse()
 }
