@@ -337,6 +337,7 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
       onSuccess={() => {
         setShowPurchaseModal(false)
         setError("")
+        refreshUsage()
       }}
     />
     <div className="grid gap-6 lg:grid-cols-2">
