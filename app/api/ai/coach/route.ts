@@ -121,13 +121,19 @@ export async function POST(req: Request) {
       return Response.json({ error: "messages array required" }, { status: 400 })
     }
 
+    // Cap history to reduce token usage and avoid burning quota.
+    const recentMessages = messages.slice(-8)
+
     const openai = createOpenAI({ apiKey })
-    const modelMessages = await convertToModelMessages(messages)
+    const modelMessages = await convertToModelMessages(recentMessages)
 
     const result = await generateText({
       model: openai(COACH_MODEL),
       system: COACH_SYSTEM_PROMPT,
       messages: modelMessages,
+      maxOutputTokens: 600,
+      // If the key is out of quota, retries just burn more quota.
+      maxRetries: 0,
     })
 
     // Plain text response so the dashboard hook can display it reliably.

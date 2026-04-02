@@ -53,13 +53,19 @@ export async function POST(req: Request) {
 
     await consumeTokens(access.userId, TOKEN_COSTS.CHAT_MESSAGE, "CHAT_MESSAGE")
 
+    // Cap history to reduce token usage and avoid burning quota.
+    const recentMessages = messages.slice(-8)
+
     const openai = createOpenAI({ apiKey })
-    const modelMessages = await convertToModelMessages(messages)
+    const modelMessages = await convertToModelMessages(recentMessages)
 
     const result = await generateText({
       model: openai(CHAT_MODEL),
       system: SYSTEM_PROMPT,
       messages: modelMessages,
+      maxOutputTokens: 600,
+      // If the key is out of quota, retries just burn more quota.
+      maxRetries: 0,
     })
 
     // Plain text response so the dashboard hook can display it reliably.
