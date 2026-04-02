@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Search, MessageSquare, Trash2, Pencil, Mail, Phone, Linkedin, Video, Globe } from "lucide-react"
+import { fetchContactsPicker } from "@/lib/fetch-contacts-picker"
 
 interface Touchpoint {
   id: string
@@ -65,6 +66,7 @@ function touchStatusColor(status: string) {
 
 export default function TouchpointsPage() {
   const { data: touchpoints, isLoading } = useSWR("touchpoints", fetchTouchpoints)
+  const { data: contactOptions } = useSWR("contact-picker", fetchContactsPicker)
   const [search, setSearch] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -80,6 +82,7 @@ export default function TouchpointsPage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    const contactRaw = formData.get("contact_id") as string
     const payload = {
       user_id: user.id,
       type: (formData.get("type") as string) || "email",
@@ -89,6 +92,7 @@ export default function TouchpointsPage() {
       status: (formData.get("status") as string) || "planned",
       scheduled_at: (formData.get("scheduled_at") as string) || null,
       notes: (formData.get("notes") as string) || null,
+      contact_id: contactRaw && contactRaw !== "none" ? contactRaw : null,
     }
     if (editing) {
       await supabase.from("touchpoints").update(payload).eq("id", editing.id)
@@ -122,6 +126,23 @@ export default function TouchpointsPage() {
               <DialogDescription>Record an outreach or follow-up interaction.</DialogDescription>
             </DialogHeader>
             <form onSubmit={(e) => { e.preventDefault(); handleSave(new FormData(e.currentTarget)) }} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="contact_id">Client (optional)</Label>
+                <Select name="contact_id" defaultValue={editing?.contact_id || "none"}>
+                  <SelectTrigger id="contact_id" className="min-h-[44px]">
+                    <SelectValue placeholder="Link to Client Hub…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No client linked</SelectItem>
+                    {(contactOptions || []).map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.company_name}
+                        {c.contact_name ? ` — ${c.contact_name}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2"><Label htmlFor="type">Type</Label><Select name="type" defaultValue={editing?.type || "email"}><SelectTrigger className="min-h-[44px]"><SelectValue /></SelectTrigger><SelectContent>{TOUCH_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent></Select></div>
                 <div className="flex flex-col gap-2"><Label htmlFor="direction">Direction</Label><Select name="direction" defaultValue={editing?.direction || "outbound"}><SelectTrigger className="min-h-[44px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="outbound">Outbound</SelectItem><SelectItem value="inbound">Inbound</SelectItem></SelectContent></Select></div>

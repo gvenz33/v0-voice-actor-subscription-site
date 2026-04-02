@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Plus, Search, Receipt, Trash2, Pencil, DollarSign, Send, Loader2 } from "lucide-react"
+import { fetchContactsPicker } from "@/lib/fetch-contacts-picker"
 
 interface Invoice {
   id: string
@@ -27,6 +28,7 @@ interface Invoice {
   // Optional fields may exist depending on your Supabase schema.
   word_count?: number | null
   client_email?: string | null
+  contact_id?: string | null
 }
 
 async function fetchInvoices() {
@@ -191,6 +193,7 @@ function formatHours(durationHours: number) {
 
 export default function BillingDesk() {
   const { data: invoices, isLoading } = useSWR("invoices", fetchInvoices)
+  const { data: contactOptions } = useSWR("contact-picker", fetchContactsPicker)
   const [search, setSearch] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -209,6 +212,7 @@ export default function BillingDesk() {
     rateTemplate: RateTemplate
     wpm: string
     clientEmail: string
+    contactId: string
   }>({
     invoiceNumber: "",
     status: "draft",
@@ -219,6 +223,7 @@ export default function BillingDesk() {
     rateTemplate: "cat1",
     wpm: String(DEFAULT_WPM),
     clientEmail: "",
+    contactId: "none",
   })
 
   const computed = useMemo(() => {
@@ -253,6 +258,7 @@ export default function BillingDesk() {
         rateTemplate,
         wpm: String(wpmVal),
         clientEmail: meta.clientEmail || "",
+        contactId: editing.contact_id || "none",
       })
       setFormError(null)
       return
@@ -268,6 +274,7 @@ export default function BillingDesk() {
       rateTemplate: "cat1",
       wpm: String(DEFAULT_WPM),
       clientEmail: "",
+      contactId: "none",
     })
     setFormError(null)
   }, [dialogOpen, editing])
@@ -311,6 +318,7 @@ export default function BillingDesk() {
       due_date: form.dueDate ? form.dueDate : null,
       description: form.description ? form.description : null,
       notes,
+      contact_id: form.contactId !== "none" ? form.contactId : null,
     }
 
     if (editing) {
@@ -550,6 +558,36 @@ export default function BillingDesk() {
                     )}
                   </div>
                 </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="invoice_contact_id">Link to client (optional)</Label>
+                <Select
+                  value={form.contactId}
+                  onValueChange={(v) => {
+                    setForm((f) => {
+                      const next = { ...f, contactId: v }
+                      if (v !== "none") {
+                        const c = contactOptions?.find((x) => x.id === v)
+                        if (c?.email) next.clientEmail = c.email
+                      }
+                      return next
+                    })
+                  }}
+                >
+                  <SelectTrigger id="invoice_contact_id" className="min-h-[44px]">
+                    <SelectValue placeholder="Choose from Client Hub…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No client linked</SelectItem>
+                    {(contactOptions || []).map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.company_name}
+                        {c.contact_name ? ` — ${c.contact_name}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="flex flex-col gap-2">

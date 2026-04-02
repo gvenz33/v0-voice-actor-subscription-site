@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Search, CalendarCheck, Trash2, Pencil } from "lucide-react"
+import { fetchContactsPicker } from "@/lib/fetch-contacts-picker"
 
 interface Booking {
   id: string
@@ -24,6 +25,7 @@ interface Booking {
   usage_rights: string | null
   notes: string | null
   created_at: string
+  contact_id?: string | null
 }
 
 async function fetchBookings() {
@@ -65,6 +67,7 @@ function bookingStatusColor(status: string) {
 
 export default function BookingsPage() {
   const { data: bookings, isLoading } = useSWR("bookings", fetchBookings)
+  const { data: contactOptions } = useSWR("contact-picker", fetchContactsPicker)
   const [search, setSearch] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -80,6 +83,7 @@ export default function BookingsPage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    const contactRaw = formData.get("contact_id") as string
     const payload = {
       user_id: user.id,
       project_title: formData.get("project_title") as string,
@@ -90,6 +94,7 @@ export default function BookingsPage() {
       session_date: (formData.get("session_date") as string) || null,
       usage_rights: (formData.get("usage_rights") as string) || null,
       notes: (formData.get("notes") as string) || null,
+      contact_id: contactRaw && contactRaw !== "none" ? contactRaw : null,
     }
     if (editing) {
       await supabase.from("bookings").update(payload).eq("id", editing.id)
@@ -126,6 +131,23 @@ export default function BookingsPage() {
               <div className="flex flex-col gap-2">
                 <Label htmlFor="project_title">Project Title *</Label>
                 <Input id="project_title" name="project_title" required defaultValue={editing?.project_title || ""} className="min-h-[44px]" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="contact_id">Client (optional)</Label>
+                <Select name="contact_id" defaultValue={editing?.contact_id || "none"}>
+                  <SelectTrigger id="contact_id" className="min-h-[44px]">
+                    <SelectValue placeholder="Link to Client Hub…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No client linked</SelectItem>
+                    {(contactOptions || []).map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.company_name}
+                        {c.contact_name ? ` — ${c.contact_name}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">

@@ -29,7 +29,8 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Search, Building2, Mail, Phone, Globe, Trash2, Pencil, Upload, Download, LayoutGrid, List } from "lucide-react"
+import Link from "next/link"
+import { Plus, Search, Building2, Mail, Phone, Globe, Trash2, Pencil, Upload, Download, LayoutGrid, List, UserRound } from "lucide-react"
 import { ContactsImportExport } from "@/components/contacts-import-export"
 
 interface Contact {
@@ -432,6 +433,12 @@ export default function ClientHub() {
                   </Badge>
                 )}
                 <div className="flex items-center gap-2 mt-2">
+                  <Button variant="outline" size="sm" className="min-h-[44px]" asChild>
+                    <Link href={`/dashboard/clients/${contact.id}`}>
+                      <UserRound className="size-3.5" />
+                      <span className="ml-1.5">Client view</span>
+                    </Link>
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -491,6 +498,12 @@ export default function ClientHub() {
                   </div>
 
                   <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" className="min-h-[44px]" asChild>
+                      <Link href={`/dashboard/clients/${contact.id}`}>
+                        <UserRound className="size-3.5" />
+                        <span className="ml-1.5">Client view</span>
+                      </Link>
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"
