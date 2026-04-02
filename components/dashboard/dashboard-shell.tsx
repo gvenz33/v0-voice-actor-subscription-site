@@ -20,6 +20,7 @@ import {
   Coins,
   Shield,
   Gift,
+  BookText,
 } from "lucide-react"
 import {
   SidebarProvider,
@@ -76,6 +77,11 @@ const NAV_ITEMS = [
     title: "Billing Desk",
     href: "/dashboard/billing",
     icon: Receipt,
+  },
+  {
+    title: "Voice Over Rate Guide",
+    href: "/dashboard/rate-guide",
+    icon: BookText,
   },
   {
     title: "Touchpoints",

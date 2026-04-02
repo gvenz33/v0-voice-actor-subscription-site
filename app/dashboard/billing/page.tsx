@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import useSWR, { mutate } from "swr"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardTitle } from "@/components/ui/card"
@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Search, Receipt, Trash2, Pencil, DollarSign } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Plus, Search, Receipt, Trash2, Pencil, DollarSign, Send, Loader2 } from "lucide-react"
 
 interface Invoice {
   id: string
@@ -23,6 +24,9 @@ interface Invoice {
   description: string | null
   notes: string | null
   created_at: string
+  // Optional fields may exist depending on your Supabase schema.
+  word_count?: number | null
+  client_email?: string | null
 }
 
 async function fetchInvoices() {
@@ -53,12 +57,220 @@ function invStatusColor(status: string) {
   }
 }
 
+type RateTemplate = "cat1" | "cat2"
+
+const DEFAULT_WPM = 150
+const ADDITIONAL_HALF_HOUR = 148
+const FIRST_HOUR_BILLED_HALF_HOURS = 2
+
+const BASE_RATES: Record<RateTemplate, number> = {
+  cat1: 505,
+  cat2: 563,
+}
+
+const META_MARKER = "VOBizSuite Invoice Meta:"
+
+function splitNotesAndMeta(notes: string | null | undefined) {
+  const notesStr = notes ?? ""
+  const idx = notesStr.indexOf(META_MARKER)
+  if (idx === -1) {
+    return { userNotes: notesStr.trim(), metaBlock: "" }
+  }
+  return {
+    userNotes: notesStr.slice(0, idx).trim(),
+    metaBlock: notesStr.slice(idx).trim(),
+  }
+}
+
+function parseInvoiceMeta(notes: string | null | undefined): {
+  userNotes: string
+  clientEmail: string
+  wordCount: number | null
+  rateTemplate: RateTemplate
+  wpm: number
+} {
+  const { userNotes, metaBlock } = splitNotesAndMeta(notes)
+  const clientEmail = metaBlock.match(/Client email:\s*([^\n\r]+)/i)?.[1]?.trim() || ""
+
+  const wordCount = (() => {
+    const m = metaBlock.match(/Word count:\s*(\d+)/i)
+    return m ? Number(m[1]) : null
+  })()
+
+  const rateTemplateRaw = metaBlock.match(/Rate template:\s*(cat1|cat2)/i)?.[1]
+  const rateTemplate = (rateTemplateRaw === "cat2" ? "cat2" : "cat1") as RateTemplate
+
+  const wpmMatch = metaBlock.match(/WPM:\s*(\d+)/i)?.[1]
+  const wpm = wpmMatch ? Number(wpmMatch) : DEFAULT_WPM
+
+  return { userNotes, clientEmail, wordCount, rateTemplate, wpm }
+}
+
+function buildInvoiceNotes(params: {
+  userNotes: string
+  clientEmail: string
+  wordCount: number
+  rateTemplate: RateTemplate
+  wpm: number
+}) {
+  const { userNotes, clientEmail, wordCount, rateTemplate, wpm } = params
+
+  const metaLines = [
+    META_MARKER,
+    `Client email: ${clientEmail || ""}`,
+    `Word count: ${Math.max(0, Math.floor(wordCount))}`,
+    `Rate template: ${rateTemplate}`,
+    `WPM: ${Math.max(0, Math.floor(wpm))}`,
+  ]
+
+  const metaBlock = metaLines.join("\n")
+  if (!userNotes) return metaBlock
+  return `${userNotes.trim()}\n\n${metaBlock}`
+}
+
+function computeInvoiceAmount(wordCount: number, wpm: number, rateTemplate: RateTemplate) {
+  if (!Number.isFinite(wordCount) || wordCount <= 0) return null
+  if (!Number.isFinite(wpm) || wpm <= 0) return null
+
+  // Convert words -> billed time using a configurable estimator (WPM).
+  const wordsPerHour = wpm * 60
+  const durationHours = wordCount / wordsPerHour
+
+  // Billing model (SAG-AFTRA Corporate/Educational - Non-Broadcast table):
+  // - Base first hour at selected Cat rate.
+  // - Additional time billed at $148 per additional half-hour increment.
+  const billedHalfHours = Math.max(FIRST_HOUR_BILLED_HALF_HOURS, Math.ceil(durationHours * 2))
+  const additionalHalfHours = Math.max(0, billedHalfHours - FIRST_HOUR_BILLED_HALF_HOURS)
+  const amount = BASE_RATES[rateTemplate] + additionalHalfHours * ADDITIONAL_HALF_HOUR
+
+  return {
+    amount: Number(amount.toFixed(2)),
+    durationHours,
+    billedHalfHours,
+    additionalHalfHours,
+  }
+}
+
+function estimateWordCountFromAmount(amount: number, rateTemplate: RateTemplate, wpm: number) {
+  if (!Number.isFinite(amount) || amount < 0) return 0
+  if (!Number.isFinite(wpm) || wpm <= 0) return 0
+
+  const base = BASE_RATES[rateTemplate]
+  if (amount <= base) {
+    const estimatedHours = 1
+    return Math.round(estimatedHours * wpm * 60)
+  }
+
+  const extra = amount - base
+  const extraHalfHours = Math.ceil(extra / ADDITIONAL_HALF_HOUR)
+  const billedHalfHours = FIRST_HOUR_BILLED_HALF_HOURS + extraHalfHours
+  const estimatedHours = billedHalfHours / 2
+  return Math.round(estimatedHours * wpm * 60)
+}
+
+function inferRateTemplateFromAmount(amount: number): RateTemplate {
+  const diff1 = Math.abs(amount - BASE_RATES.cat1)
+  const diff2 = Math.abs(amount - BASE_RATES.cat2)
+  return diff2 < diff1 ? "cat2" : "cat1"
+}
+
+function toDateInputValue(dueDate: string | null | undefined) {
+  if (!dueDate) return ""
+  return dueDate.includes("T") ? dueDate.split("T")[0] : dueDate
+}
+
+function formatHours(durationHours: number) {
+  if (!Number.isFinite(durationHours) || durationHours < 0) return "0h"
+  const totalMinutes = Math.round(durationHours * 60)
+  const h = Math.floor(totalMinutes / 60)
+  const m = totalMinutes % 60
+  if (h <= 0) return `${m}m`
+  if (m === 0) return `${h}h`
+  return `${h}h ${m}m`
+}
+
 export default function BillingDesk() {
   const { data: invoices, isLoading } = useSWR("invoices", fetchInvoices)
   const [search, setSearch] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Invoice | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [sending, setSending] = useState(false)
+
+  const [form, setForm] = useState<{
+    invoiceNumber: string
+    status: string
+    dueDate: string
+    description: string
+    notes: string
+    wordCount: string
+    rateTemplate: RateTemplate
+    wpm: string
+    clientEmail: string
+  }>({
+    invoiceNumber: "",
+    status: "draft",
+    dueDate: "",
+    description: "",
+    notes: "",
+    wordCount: "",
+    rateTemplate: "cat1",
+    wpm: String(DEFAULT_WPM),
+    clientEmail: "",
+  })
+
+  const computed = useMemo(() => {
+    if (!form.wordCount || !form.wpm) return null
+    const wordCountNum = Number(form.wordCount)
+    const wpmNum = Number(form.wpm)
+    if (!Number.isFinite(wordCountNum) || wordCountNum <= 0) return null
+    if (!Number.isFinite(wpmNum) || wpmNum <= 0) return null
+    return computeInvoiceAmount(wordCountNum, wpmNum, form.rateTemplate)
+  }, [form.wordCount, form.wpm, form.rateTemplate])
+
+  useEffect(() => {
+    if (!dialogOpen) return
+
+    if (editing) {
+      const meta = parseInvoiceMeta(editing.notes)
+      const wpmVal = meta.wpm || DEFAULT_WPM
+      const rateTemplate = meta.wordCount ? meta.rateTemplate : inferRateTemplateFromAmount(editing.amount)
+
+      const inferredWordCount =
+        meta.wordCount && meta.wordCount > 0
+          ? meta.wordCount
+          : estimateWordCountFromAmount(editing.amount, rateTemplate, wpmVal)
+
+      setForm({
+        invoiceNumber: editing.invoice_number || "",
+        status: editing.status || "draft",
+        dueDate: toDateInputValue(editing.due_date),
+        description: editing.description || "",
+        notes: meta.userNotes || "",
+        wordCount: inferredWordCount ? String(inferredWordCount) : "",
+        rateTemplate,
+        wpm: String(wpmVal),
+        clientEmail: meta.clientEmail || "",
+      })
+      setFormError(null)
+      return
+    }
+
+    setForm({
+      invoiceNumber: "",
+      status: "draft",
+      dueDate: "",
+      description: "",
+      notes: "",
+      wordCount: "",
+      rateTemplate: "cat1",
+      wpm: String(DEFAULT_WPM),
+      clientEmail: "",
+    })
+    setFormError(null)
+  }, [dialogOpen, editing])
 
   const filtered = invoices?.filter((inv) => {
     const matchSearch = inv.invoice_number.toLowerCase().includes(search.toLowerCase()) || (inv.description?.toLowerCase().includes(search.toLowerCase()) ?? false)
@@ -69,26 +281,126 @@ export default function BillingDesk() {
   const totalPaid = invoices?.filter((i) => i.status === "paid").reduce((s, i) => s + Number(i.amount), 0) || 0
   const totalPending = invoices?.filter((i) => i.status === "sent" || i.status === "overdue").reduce((s, i) => s + Number(i.amount), 0) || 0
 
-  const handleSave = async (formData: FormData) => {
+  const upsertInvoice = async (statusOverride?: string) => {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user) throw new Error("Not authenticated")
+
+    if (!form.invoiceNumber) throw new Error("Invoice # is required.")
+    const billedInfo = computed
+    if (!billedInfo) throw new Error("Could not calculate invoice amount. Check your inputs.")
+
+    const wordCountNum = Number(form.wordCount)
+    const wpmNum = Number(form.wpm)
+    if (!Number.isFinite(wordCountNum) || wordCountNum <= 0) throw new Error("Please enter a valid word count.")
+    if (!Number.isFinite(wpmNum) || wpmNum <= 0) throw new Error("Please enter a valid WPM value.")
+
+    const notes = buildInvoiceNotes({
+      userNotes: form.notes || "",
+      clientEmail: form.clientEmail || "",
+      wordCount: wordCountNum,
+      rateTemplate: form.rateTemplate,
+      wpm: wpmNum,
+    })
+
     const payload = {
       user_id: user.id,
-      invoice_number: formData.get("invoice_number") as string,
-      amount: Number(formData.get("amount")),
-      status: (formData.get("status") as string) || "draft",
-      due_date: (formData.get("due_date") as string) || null,
-      description: (formData.get("description") as string) || null,
-      notes: (formData.get("notes") as string) || null,
+      invoice_number: form.invoiceNumber,
+      amount: billedInfo.amount,
+      status: statusOverride ?? form.status ?? "draft",
+      due_date: form.dueDate ? form.dueDate : null,
+      description: form.description ? form.description : null,
+      notes,
     }
+
     if (editing) {
       await supabase.from("invoices").update(payload).eq("id", editing.id)
-    } else {
-      await supabase.from("invoices").insert(payload)
+      return editing.id
     }
-    setDialogOpen(false); setEditing(null)
-    mutate("invoices"); mutate("dashboard-stats")
+
+    const { data, error } = await supabase
+      .from("invoices")
+      .insert(payload)
+      .select("id")
+      .single()
+    if (error) throw error
+    return data.id as string
+  }
+
+  const handleSave = async () => {
+    setFormError(null)
+    setSaving(true)
+    try {
+      await upsertInvoice()
+      setDialogOpen(false)
+      setEditing(null)
+      mutate("invoices")
+      mutate("dashboard-stats")
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Failed to save invoice")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSendInvoice = async () => {
+    setFormError(null)
+    setSending(true)
+    try {
+      if (!form.clientEmail) throw new Error("Client email is required to send the invoice.")
+
+      // Ensure invoice exists/updated, but don't mark it as sent until email succeeds.
+      const invoiceId = await upsertInvoice("draft")
+
+      const billedInfo = computed
+      const subject = `Invoice ${form.invoiceNumber || ""} from VOBizSuite`.trim()
+      const body = [
+        "Hello,",
+        "",
+        "Please find your invoice below:",
+        "",
+        `Invoice #: ${form.invoiceNumber}`,
+        `Due date: ${form.dueDate || "(not set)"}`,
+        `Description: ${form.description || "(none)"}`,
+        "",
+        `Word count: ${form.wordCount}`,
+        `Rate template: ${form.rateTemplate.toUpperCase()}`,
+        `Words per minute (WPM): ${form.wpm}`,
+        `Estimated billed time: ${billedInfo ? formatHours(billedInfo.durationHours) : "(unknown)"}`,
+        "",
+        `Total due: $${billedInfo ? billedInfo.amount.toFixed(2) : "0.00"}`,
+        "",
+        "Thank you,",
+        "VOBizSuite",
+      ].join("\n")
+
+      const res = await fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: form.clientEmail,
+          subject,
+          body,
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to send invoice email")
+      }
+
+      const supabase = createClient()
+      await supabase.from("invoices").update({ status: "sent" }).eq("id", invoiceId)
+
+      setDialogOpen(false)
+      setEditing(null)
+      mutate("invoices")
+      mutate("dashboard-stats")
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Failed to send invoice")
+    } finally {
+      setSending(false)
+    }
   }
 
   const handleDelete = async (id: string) => {
@@ -104,7 +416,7 @@ export default function BillingDesk() {
           <h2 className="font-[family-name:var(--font-heading)] text-2xl font-bold tracking-tight text-foreground">Billing Desk</h2>
           <p className="text-sm text-muted-foreground">Track invoices, payments, and your VO revenue.</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditing(null) }}>
+        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditing(null); setFormError(null) } }}>
           <DialogTrigger asChild>
             <Button size="lg" className="min-h-[44px]"><Plus className="size-4" /> Create Invoice</Button>
           </DialogTrigger>
@@ -113,18 +425,213 @@ export default function BillingDesk() {
               <DialogTitle>{editing ? "Edit Invoice" : "Create Invoice"}</DialogTitle>
               <DialogDescription>Track a new invoice for a voice job.</DialogDescription>
             </DialogHeader>
-            <form onSubmit={(e) => { e.preventDefault(); handleSave(new FormData(e.currentTarget)) }} className="flex flex-col gap-4">
+            <form onSubmit={(e) => { e.preventDefault(); handleSave() }} className="flex flex-col gap-4">
+              {formError && (
+                <Alert variant="destructive">
+                  <AlertTitle>Action failed</AlertTitle>
+                  <AlertDescription>{formError}</AlertDescription>
+                </Alert>
+              )}
+
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="flex flex-col gap-2"><Label htmlFor="invoice_number">Invoice # *</Label><Input id="invoice_number" name="invoice_number" required defaultValue={editing?.invoice_number || ""} className="min-h-[44px]" placeholder="INV-001" /></div>
-                <div className="flex flex-col gap-2"><Label htmlFor="amount">Amount ($) *</Label><Input id="amount" name="amount" type="number" step="0.01" required defaultValue={editing?.amount || ""} className="min-h-[44px]" /></div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="invoice_number">Invoice # *</Label>
+                  <Input
+                    id="invoice_number"
+                    name="invoice_number"
+                    required
+                    value={form.invoiceNumber}
+                    onChange={(e) => setForm((f) => ({ ...f, invoiceNumber: e.target.value }))}
+                    className="min-h-[44px]"
+                    placeholder="INV-001"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label>Calculated Total ($)</Label>
+                  <div className="min-h-[44px] flex items-center rounded-md border border-input bg-muted/30 px-3">
+                    <span className="font-semibold">
+                      ${computed?.amount?.toFixed(2) ?? "0.00"}
+                    </span>
+                  </div>
+                </div>
               </div>
+
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="flex flex-col gap-2"><Label htmlFor="status">Status</Label><Select name="status" defaultValue={editing?.status || "draft"}><SelectTrigger className="min-h-[44px]"><SelectValue /></SelectTrigger><SelectContent>{INV_STATUSES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent></Select></div>
-                <div className="flex flex-col gap-2"><Label htmlFor="due_date">Due Date</Label><Input id="due_date" name="due_date" type="date" defaultValue={editing?.due_date?.split("T")[0] || ""} className="min-h-[44px]" /></div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={form.status}
+                    onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}
+                  >
+                    <SelectTrigger id="status" className="min-h-[44px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {INV_STATUSES.map((s) => (
+                        <SelectItem key={s.value} value={s.value}>
+                          {s.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="due_date">Due Date</Label>
+                  <Input
+                    id="due_date"
+                    name="due_date"
+                    type="date"
+                    value={form.dueDate}
+                    onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
+                    className="min-h-[44px]"
+                  />
+                </div>
               </div>
-              <div className="flex flex-col gap-2"><Label htmlFor="description">Description</Label><Input id="description" name="description" defaultValue={editing?.description || ""} className="min-h-[44px]" placeholder="Commercial spot - Brand X" /></div>
-              <div className="flex flex-col gap-2"><Label htmlFor="notes">Notes</Label><Textarea id="notes" name="notes" rows={3} defaultValue={editing?.notes || ""} /></div>
-              <Button type="submit" size="lg" className="min-h-[44px]">{editing ? "Update" : "Save Invoice"}</Button>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="word_count">Word count *</Label>
+                  <Input
+                    id="word_count"
+                    name="word_count"
+                    type="number"
+                    step="1"
+                    min={0}
+                    required
+                    value={form.wordCount}
+                    onChange={(e) => setForm((f) => ({ ...f, wordCount: e.target.value }))}
+                    className="min-h-[44px]"
+                    placeholder="e.g. 2500"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="rate_template">Rate template *</Label>
+                  <Select
+                    value={form.rateTemplate}
+                    onValueChange={(v) => setForm((f) => ({ ...f, rateTemplate: v as RateTemplate }))}
+                  >
+                    <SelectTrigger id="rate_template" className="min-h-[44px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cat1">Cat 1 (First hour: $505)</SelectItem>
+                      <SelectItem value="cat2">Cat 2 (First hour: $563)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="wpm">Words per minute (WPM) *</Label>
+                  <Input
+                    id="wpm"
+                    name="wpm"
+                    type="number"
+                    step="1"
+                    min={1}
+                    required
+                    value={form.wpm}
+                    onChange={(e) => setForm((f) => ({ ...f, wpm: e.target.value }))}
+                    className="min-h-[44px]"
+                    placeholder="150"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label>Estimated billed time</Label>
+                  <div className="min-h-[44px] flex items-center rounded-md border border-input bg-muted/30 px-3 text-sm text-muted-foreground">
+                    {computed ? (
+                      <span>
+                        {formatHours(computed.durationHours)} ({computed.billedHalfHours / 2} hour[s])
+                      </span>
+                    ) : (
+                      "Enter word count + WPM"
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="client_email">Client email (required to send)</Label>
+                <Input
+                  id="client_email"
+                  name="client_email"
+                  type="email"
+                  value={form.clientEmail}
+                  onChange={(e) => setForm((f) => ({ ...f, clientEmail: e.target.value }))}
+                  className="min-h-[44px]"
+                  placeholder="client@example.com"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="description">Description</Label>
+                <Input
+                  id="description"
+                  name="description"
+                  value={form.description}
+                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  className="min-h-[44px]"
+                  placeholder="Commercial spot - Brand X"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  name="notes"
+                  rows={3}
+                  value={form.notes}
+                  onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                />
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <Button type="submit" size="lg" className="min-h-[44px]" disabled={saving || sending}>
+                  {saving ? (
+                    <>
+                      <Loader2 className="mr-2 size-4 animate-spin" /> Saving...
+                    </>
+                  ) : editing ? (
+                    "Update"
+                  ) : (
+                    "Save Invoice"
+                  )}
+                </Button>
+
+                <Button
+                  type="button"
+                  size="lg"
+                  className="min-h-[44px]"
+                  variant="secondary"
+                  onClick={handleSendInvoice}
+                  disabled={sending || saving}
+                >
+                  {sending ? (
+                    <>
+                      <Loader2 className="mr-2 size-4 animate-spin" /> Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="mr-2 size-4" /> Send to Client
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              <div className="text-xs text-muted-foreground">
+                Rate assumptions (Billing Desk): First hour billed at the selected Cat rate; additional time billed at $148 per extra half-hour. Uses WPM to convert your word count to billed time. Source:{" "}
+                <a
+                  href="https://voiceoverresourceguide.com/voice-over-rates/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline"
+                >
+                  voiceoverresourceguide.com
+                </a>
+                .
+              </div>
             </form>
           </DialogContent>
         </Dialog>
@@ -171,7 +678,17 @@ export default function BillingDesk() {
                   </div>
                   <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
                     <span className="text-base font-bold text-foreground">${Number(inv.amount).toFixed(2)}</span>
+                    {(() => {
+                      const meta = parseInvoiceMeta(inv.notes)
+                      if (!meta.wordCount) return null
+                      return <span>Words: {meta.wordCount.toLocaleString("en-US")}</span>
+                    })()}
                     {inv.description && <span>{inv.description}</span>}
+                    {(() => {
+                      const meta = parseInvoiceMeta(inv.notes)
+                      if (!meta.clientEmail) return null
+                      return <span>To: {meta.clientEmail}</span>
+                    })()}
                     {inv.due_date && <span>Due: {new Date(inv.due_date).toLocaleDateString()}</span>}
                   </div>
                 </div>
