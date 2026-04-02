@@ -6,7 +6,10 @@ export default function RateGuidePage() {
     <div className="flex flex-col gap-6">
       <div>
         <h2 className="font-[family-name:var(--font-heading)] text-2xl font-bold tracking-tight text-foreground">Voice Over Rate Guide</h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="mt-3 rounded-md border border-border bg-muted/40 px-4 py-3 text-sm text-foreground leading-relaxed">
+          <span className="font-medium">Disclaimer:</span> The figures below are reference points only. Rates are negotiable and not fixed—actual compensation is whatever the voice actor and production company (or client) agree to in writing. That applies to both union and non-union work.
+        </p>
+        <p className="mt-3 text-sm text-muted-foreground">
           Reference tables for billing estimates. Source:{" "}
           <a
             href="https://voiceoverresourceguide.com/voice-over-rates/"
