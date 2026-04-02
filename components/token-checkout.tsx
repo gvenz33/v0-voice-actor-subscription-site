@@ -22,7 +22,7 @@ export default function TokenCheckout({ packageId, onComplete }: { packageId: st
       <EmbeddedCheckoutProvider
         stripe={stripePromise}
         options={{ 
-          clientSecret: fetchClientSecret,
+          fetchClientSecret,
           onComplete: onComplete,
         }}
       >

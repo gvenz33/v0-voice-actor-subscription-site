@@ -20,7 +20,7 @@ export default function Checkout({ productId, billingInterval = 'month' }: { pro
     <div id="checkout">
       <EmbeddedCheckoutProvider
         stripe={stripePromise}
-        options={{ clientSecret: fetchClientSecret }}
+        options={{ fetchClientSecret }}
       >
         <EmbeddedCheckout />
       </EmbeddedCheckoutProvider>
