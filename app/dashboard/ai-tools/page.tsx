@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
-import { useChat } from "@ai-sdk/react"
-import { DefaultChatTransport } from "ai"
+import { useDashboardStreamChat } from "@/hooks/use-dashboard-stream-chat"
 import useSWR from "swr"
 import {
   Card,
@@ -44,6 +43,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { TokenPurchaseModal } from "@/components/token-purchase-modal"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -61,14 +61,6 @@ interface UsageData {
   hasPitchGenerator: boolean
   hasChatAssistant: boolean
   hasVOCoach: boolean
-}
-
-function getUIMessageText(msg: { parts?: Array<{ type: string; text?: string }> }): string {
-  if (!msg.parts || !Array.isArray(msg.parts)) return ""
-  return msg.parts
-    .filter((p): p is { type: "text"; text: string } => p.type === "text")
-    .map((p) => p.text)
-    .join("")
 }
 
 // --- Usage Meter ---
@@ -345,6 +337,7 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
       onSuccess={() => {
         setShowPurchaseModal(false)
         setError("")
+        onGenerated()
       }}
     />
     <div className="grid gap-6 lg:grid-cols-2">
@@ -788,11 +781,8 @@ function PitchGenerator({ usage, onGenerated }: { usage: UsageData; onGenerated:
 // --- VO Business Chat Assistant ---
 function VOAssistant({ usage }: { usage: UsageData }) {
   const [input, setInput] = useState("")
-  const { messages, sendMessage, status } = useChat({
-    transport: new DefaultChatTransport({ api: "/api/ai/chat" }),
-  })
-
-  const isLoading = status === "streaming" || status === "submitted"
+  const { messages, sendText, isLoading, error, clearError } =
+    useDashboardStreamChat("/api/ai/chat")
 
   if (!usage.hasChatAssistant) {
     return <LockedFeature featureName="VO Business Assistant" requiredTier="Command" requiredTierId="command" />
@@ -805,6 +795,21 @@ function VOAssistant({ usage }: { usage: UsageData }) {
         <CardDescription>Ask anything about marketing your VO business, rate negotiation, outreach strategies, or industry best practices.</CardDescription>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
+        {error && (
+          <Alert variant="destructive" className="shrink-0">
+            <AlertTitle className="text-sm">Could not get a response</AlertTitle>
+            <AlertDescription className="text-xs">
+              {error}
+              <button
+                type="button"
+                className="ml-2 underline underline-offset-2"
+                onClick={() => clearError()}
+              >
+                Dismiss
+              </button>
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="flex-1 overflow-y-auto rounded-lg border border-border bg-muted/30 p-4">
           {messages.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-center">
@@ -812,7 +817,7 @@ function VOAssistant({ usage }: { usage: UsageData }) {
               <p className="text-sm font-medium text-muted-foreground">How can I help your VO business today?</p>
               <div className="mt-4 flex flex-wrap justify-center gap-2">
                 {["How do I price my first commercial gig?", "Write a LinkedIn summary for my VO profile", "Tips for cold emailing production companies", "What are typical usage rights terms?"].map((suggestion) => (
-                  <button key={suggestion} onClick={() => { sendMessage({ text: suggestion }) }} className="rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-[oklch(0.60_0.22_295)] hover:text-foreground">{suggestion}</button>
+                  <button key={suggestion} type="button" onClick={() => { void sendText(suggestion) }} disabled={isLoading} className="rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-[oklch(0.60_0.22_295)] hover:text-foreground disabled:opacity-50">{suggestion}</button>
                 ))}
               </div>
             </div>
@@ -821,17 +826,20 @@ function VOAssistant({ usage }: { usage: UsageData }) {
               {messages.map((message) => (
                 <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${message.role === "user" ? "bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground" : "border border-border bg-card text-card-foreground"}`}>
-                    <div className="whitespace-pre-wrap">{getUIMessageText(message)}</div>
+                    <div className="whitespace-pre-wrap">
+                      {message.role === "assistant" && message.content === "" && isLoading ? (
+                        <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                      ) : (
+                        message.content
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
-              {isLoading && messages[messages.length - 1]?.role === "user" && (
-                <div className="flex justify-start"><div className="rounded-2xl border border-border bg-card px-4 py-2.5"><Loader2 className="size-4 animate-spin text-muted-foreground" /></div></div>
-              )}
             </div>
           )}
         </div>
-        <form className="flex shrink-0 gap-2" onSubmit={(e) => { e.preventDefault(); if (!input.trim() || isLoading) return; sendMessage({ text: input }); setInput("") }}>
+        <form className="flex shrink-0 gap-2" onSubmit={(e) => { e.preventDefault(); if (!input.trim() || isLoading) return; void sendText(input); setInput("") }}>
           <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask about rates, outreach, marketing, industry tips..." disabled={isLoading} className="min-h-[48px] text-base" />
           <Button type="submit" disabled={!input.trim() || isLoading} className="min-h-[48px] bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90">
             <Send className="size-4" /><span className="sr-only">Send message</span>
@@ -845,11 +853,8 @@ function VOAssistant({ usage }: { usage: UsageData }) {
 // --- VO Coach ---
 function VOCoach({ usage }: { usage: UsageData }) {
   const [input, setInput] = useState("")
-  const { messages, sendMessage, status } = useChat({
-    transport: new DefaultChatTransport({ api: "/api/ai/coach" }),
-  })
-
-  const isLoading = status === "streaming" || status === "submitted"
+  const { messages, sendText, isLoading, error, clearError } =
+    useDashboardStreamChat("/api/ai/coach")
 
   if (!usage.hasVOCoach) {
     return <LockedFeature featureName="VO Career Coach" requiredTier="Launch" requiredTierId="launch" />
@@ -867,6 +872,21 @@ function VOCoach({ usage }: { usage: UsageData }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
+        {error && (
+          <Alert variant="destructive" className="shrink-0">
+            <AlertTitle className="text-sm">Could not get a response</AlertTitle>
+            <AlertDescription className="text-xs">
+              {error}
+              <button
+                type="button"
+                className="ml-2 underline underline-offset-2"
+                onClick={() => clearError()}
+              >
+                Dismiss
+              </button>
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="flex-1 overflow-y-auto rounded-lg border border-border bg-muted/30 p-4">
           {messages.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-center">
@@ -885,8 +905,10 @@ function VOCoach({ usage }: { usage: UsageData }) {
                 ].map((suggestion) => (
                   <button
                     key={suggestion}
-                    onClick={() => sendMessage({ text: suggestion })}
-                    className="rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-[oklch(0.60_0.22_295)] hover:text-foreground"
+                    type="button"
+                    onClick={() => { void sendText(suggestion) }}
+                    disabled={isLoading}
+                    className="rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-[oklch(0.60_0.22_295)] hover:text-foreground disabled:opacity-50"
                   >
                     {suggestion}
                   </button>
@@ -907,17 +929,16 @@ function VOCoach({ usage }: { usage: UsageData }) {
                         : "border border-border bg-card text-card-foreground"
                     }`}
                   >
-                    <div className="whitespace-pre-wrap">{getUIMessageText(message)}</div>
+                    <div className="whitespace-pre-wrap">
+                      {message.role === "assistant" && message.content === "" && isLoading ? (
+                        <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                      ) : (
+                        message.content
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
-              {isLoading && messages[messages.length - 1]?.role === "user" && (
-                <div className="flex justify-start">
-                  <div className="rounded-2xl border border-border bg-card px-4 py-2.5">
-                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -926,7 +947,7 @@ function VOCoach({ usage }: { usage: UsageData }) {
           onSubmit={(e) => {
             e.preventDefault()
             if (!input.trim() || isLoading) return
-            sendMessage({ text: input })
+            void sendText(input)
             setInput("")
           }}
         >

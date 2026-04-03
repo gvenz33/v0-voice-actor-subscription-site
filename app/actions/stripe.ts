@@ -1,11 +1,15 @@
 'use server'
 
-import { stripe } from '@/lib/stripe'
+import { getStripe } from '@/lib/stripe'
 import { PRODUCTS, getProductPrice } from '@/lib/products'
 import { TOKEN_PACKAGES } from '@/lib/token-products'
 import { createClient } from '@/lib/supabase/server'
 
-export async function startCheckoutSession(productId: string, billingInterval: 'month' | 'year' = 'month') {
+export async function startCheckoutSession(
+  productId: string,
+  billingInterval: 'month' | 'year' = 'month',
+  userId?: string | null,
+) {
   const product = PRODUCTS.find((p) => p.id === productId)
   if (!product) {
     throw new Error(`Product with id "${productId}" not found`)
@@ -14,9 +18,14 @@ export async function startCheckoutSession(productId: string, billingInterval: '
   const priceInCents = getProductPrice(product, billingInterval)
   const intervalLabel = billingInterval === 'year' ? 'Annual' : 'Monthly'
 
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     ui_mode: 'embedded',
     redirect_on_completion: 'never',
+    metadata: {
+      ...(userId ? { user_id: userId } : {}),
+      product_id: product.id,
+      tier: product.tier,
+    },
     line_items: [
       {
         price_data: {
@@ -52,7 +61,7 @@ export async function startTokenCheckoutSession(packageId: string) {
     throw new Error(`Package with id "${packageId}" not found`)
   }
 
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     ui_mode: 'embedded',
     redirect_on_completion: 'never',
     line_items: [

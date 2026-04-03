@@ -20,6 +20,10 @@ import {
   Coins,
   Shield,
   Gift,
+  BookText,
+  Mail,
+  Calendar,
+  FileText,
 } from "lucide-react"
 import {
   SidebarProvider,
@@ -58,6 +62,21 @@ const NAV_ITEMS = [
     icon: LayoutDashboard,
   },
   {
+    title: "Inbox",
+    href: "/dashboard/inbox",
+    icon: Mail,
+  },
+  {
+    title: "Calendar",
+    href: "/dashboard/calendar",
+    icon: Calendar,
+  },
+  {
+    title: "Script counter",
+    href: "/dashboard/script-tools",
+    icon: FileText,
+  },
+  {
     title: "Client Hub",
     href: "/dashboard/clients",
     icon: Users,
@@ -76,6 +95,11 @@ const NAV_ITEMS = [
     title: "Billing Desk",
     href: "/dashboard/billing",
     icon: Receipt,
+  },
+  {
+    title: "Voice Over Rate Guide",
+    href: "/dashboard/rate-guide",
+    icon: BookText,
   },
   {
     title: "Touchpoints",

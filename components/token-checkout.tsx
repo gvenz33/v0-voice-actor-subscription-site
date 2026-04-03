@@ -12,17 +12,20 @@ import { startTokenCheckoutSession } from '@/app/actions/stripe'
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
 export default function TokenCheckout({ packageId, onComplete }: { packageId: string; onComplete?: () => void }) {
-  const fetchClientSecret = useCallback(
-    () => startTokenCheckoutSession(packageId),
-    [packageId],
-  )
+  const fetchClientSecret = useCallback(async () => {
+    const secret = await startTokenCheckoutSession(packageId)
+    if (secret == null) {
+      throw new Error("Checkout session missing client secret")
+    }
+    return secret
+  }, [packageId])
 
   return (
     <div id="checkout" className="w-full">
       <EmbeddedCheckoutProvider
         stripe={stripePromise}
         options={{ 
-          clientSecret: fetchClientSecret,
+          fetchClientSecret,
           onComplete: onComplete,
         }}
       >

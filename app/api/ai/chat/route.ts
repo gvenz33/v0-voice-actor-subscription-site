@@ -1,9 +1,11 @@
-import { streamText } from "ai"
-import { gateway } from "@ai-sdk/gateway"
-import { getUserAIAccess, consumeTokens } from '@/lib/ai-limits'
-import { TOKEN_COSTS } from '@/lib/token-products'
+import { generateText, convertToModelMessages, type UIMessage } from "ai"
+import { createOpenAI } from "@ai-sdk/openai"
+import { getUserAIAccess, consumeTokens } from "@/lib/ai-limits"
+import { TOKEN_COSTS } from "@/lib/token-products"
 
 export const maxDuration = 30
+
+const CHAT_MODEL = "gpt-4o-mini"
 
 const SYSTEM_PROMPT = `You are the VO Biz Suite AI Assistant — a knowledgeable, encouraging business coach for voice actors.
 
@@ -22,27 +24,54 @@ export async function POST(req: Request) {
     const access = await getUserAIAccess()
 
     if (!access) {
-      return Response.json({ error: 'Not authenticated' }, { status: 401 })
+      return Response.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     if (!access.limits.hasChatAssistant) {
       return Response.json(
-        { error: 'upgrade_required', feature: 'VO Business Assistant', requiredTier: 'Command' },
+        {
+          error: "upgrade_required",
+          feature: "VO Business Assistant",
+          requiredTier: "Command",
+        },
         { status: 403 }
       )
     }
 
-    const { messages } = await req.json()
+    const apiKey = (process.env.OPENAI_API_KEY || "").trim()
+    if (!apiKey) {
+      return Response.json(
+        { error: "OPENAI_API_KEY is not configured" },
+        { status: 503 }
+      )
+    }
+
+    const { messages } = (await req.json()) as { messages: UIMessage[] }
+    if (!messages || !Array.isArray(messages)) {
+      return Response.json({ error: "messages array required" }, { status: 400 })
+    }
 
     await consumeTokens(access.userId, TOKEN_COSTS.CHAT_MESSAGE, "CHAT_MESSAGE")
 
-    const result = streamText({
-      model: gateway("groq/llama-3.3-70b-versatile"),
+    // Cap history to reduce token usage and avoid burning quota.
+    const recentMessages = messages.slice(-8)
+
+    const openai = createOpenAI({ apiKey })
+    const modelMessages = await convertToModelMessages(recentMessages)
+
+    const result = await generateText({
+      model: openai(CHAT_MODEL),
       system: SYSTEM_PROMPT,
-      messages,
+      messages: modelMessages,
+      maxOutputTokens: 600,
+      // If the key is out of quota, retries just burn more quota.
+      maxRetries: 0,
     })
 
-    return result.toDataStreamResponse()
+    // Plain text response so the dashboard hook can display it reliably.
+    return new Response(result.text, {
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error("[v0] Chat error:", message)

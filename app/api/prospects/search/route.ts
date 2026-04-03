@@ -3,6 +3,42 @@ import { createClient } from "@/lib/supabase/server"
 
 const GOOGLE_API_KEY = process.env.GOOGLE_SEARCH_API_KEY
 const GOOGLE_CX = process.env.GOOGLE_SEARCH_CX
+const BRAVE_SEARCH_API_KEY = process.env.BRAVE_SEARCH_API_KEY
+
+/** Google allows 10 per request; we page twice, then merge Bing RSS + DDG. */
+const MAX_RESULTS = 25
+
+const BRAVE_WEB_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
+
+type BraveWebSearchJson = {
+  web?: {
+    results?: Array<{
+      title?: string
+      url?: string
+      description?: string
+    }>
+  }
+}
+
+/** Down-rank obvious non-prospect URLs (help docs, aggregators that dominate generic queries). */
+const BLOCKED_HOST_SUBSTRINGS = [
+  "support.google.com",
+  "help.google.com",
+  "notebook.google.com",
+  "policies.google.com",
+  "accounts.google.com",
+  "stackoverflow.com",
+  "quora.com",
+]
+
+const JUNK_TITLE_PATTERN = /\b(google help|notebooklm)\b/i
+
+type SearchHit = {
+  title: string
+  link: string
+  snippet: string
+  displayLink: string
+}
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -19,9 +55,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Always use DuckDuckGo - more reliable and doesn't require API configuration
-    // Google Custom Search API has strict configuration requirements
-    return await fallbackSearch(query)
+    return await combinedSearch(enhanceProspectQuery(query))
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error)
     console.error("[v0] Search error:", errMsg)
@@ -32,59 +66,321 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function fallbackSearch(query: string) {
-  // Use DuckDuckGo Lite - free, no API key, returns real results
-  const ddgRes = await fetch(
-    `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`,
+/** Bias results toward real business sites; Bing/Google often surface help/docs for loose queries. */
+function enhanceProspectQuery(raw: string): string {
+  const base = raw.trim().replace(/\s+/g, " ")
+  if (!base) return base
+  const negatives = [
+    "-site:support.google.com",
+    "-site:help.google.com",
+    "-site:notebook.google.com",
+    "-site:policies.google.com",
+  ]
+  const alreadyHasSite = /\bsite:/i.test(base)
+  if (alreadyHasSite) return base
+  return `${base} ${negatives.join(" ")}`.slice(0, 1900)
+}
+
+function isBlockedProspectUrl(url: string): boolean {
+  const lower = url.toLowerCase()
+  if (
+    /wikipedia\.org|youtube\.com|reddit\.com|facebook\.com|twitter\.com|x\.com|tiktok\.com/i.test(
+      lower
+    )
+  ) {
+    return true
+  }
+  return BLOCKED_HOST_SUBSTRINGS.some((h) => lower.includes(h))
+}
+
+function createAggregator() {
+  const seen = new Set<string>()
+  const aggregated: SearchHit[] = []
+  const sources = new Set<string>()
+
+  const pushResult = (item: SearchHit, source: string) => {
+    const normalized = item.link.trim().toLowerCase()
+    if (!normalized || seen.has(normalized)) return
+    if (isBlockedProspectUrl(normalized)) return
+    if (JUNK_TITLE_PATTERN.test(item.title)) return
+    seen.add(normalized)
+    aggregated.push(item)
+    sources.add(source)
+  }
+
+  return { aggregated, sources, pushResult }
+}
+
+async function combinedSearch(query: string) {
+  const { aggregated, sources, pushResult } = createAggregator()
+
+  await appendBraveResults(query, pushResult)
+  await appendGoogleResults(query, pushResult)
+  await appendBingRss(query, pushResult)
+  await appendDuckDuckGo(query, pushResult)
+
+  if (aggregated.length === 0) {
+    return NextResponse.json(
+      { error: "No results found. Try more specific keywords." },
+      { status: 404 }
+    )
+  }
+
+  return NextResponse.json({
+    results: aggregated.slice(0, MAX_RESULTS),
+    source: [...sources].sort().join("+") || "mixed",
+  })
+}
+
+/**
+ * Brave Search API — independent index, closest to brave.com results.
+ * @see https://api-dashboard.search.brave.com/documentation/quickstart
+ */
+async function appendBraveResults(
+  query: string,
+  pushResult: (item: SearchHit, source: string) => void
+) {
+  if (!BRAVE_SEARCH_API_KEY) return
+
+  const q = query.trim().slice(0, 400)
+  if (!q) return
+
+  for (const offset of [0, 1] as const) {
+    const url = new URL(BRAVE_WEB_SEARCH_URL)
+    url.searchParams.set("q", q)
+    url.searchParams.set("count", "20")
+    url.searchParams.set("offset", String(offset))
+    url.searchParams.set("result_filter", "web")
+    url.searchParams.set("country", "US")
+    url.searchParams.set("search_lang", "en")
+    url.searchParams.set("text_decorations", "false")
+
+    const res = await fetch(url.toString(), {
+      headers: {
+        Accept: "application/json",
+        "X-Subscription-Token": BRAVE_SEARCH_API_KEY,
+      },
+    })
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "")
+      console.error("[v0] Brave search error:", res.status, body.slice(0, 500))
+      break
+    }
+
+    const data = (await res.json()) as BraveWebSearchJson
+    const rows = data.web?.results ?? []
+    if (rows.length === 0) break
+
+    for (const row of rows) {
+      const link = (row.url || "").trim()
+      if (!link.startsWith("http")) continue
+
+      let displayLink = ""
+      try {
+        displayLink = new URL(link).hostname.replace("www.", "")
+      } catch {
+        displayLink = link
+      }
+
+      const snippet = (row.description || "")
+        .replace(/\u0001|\u0002|\u0003/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+
+      pushResult(
+        {
+          title: (row.title || "Untitled").replace(/\s+/g, " ").trim(),
+          link,
+          snippet,
+          displayLink,
+        },
+        "brave"
+      )
+    }
+  }
+}
+
+/** Up to 20 Google results (2 pages x 10) when API is configured. */
+async function appendGoogleResults(
+  query: string,
+  pushResult: (item: SearchHit, source: string) => void
+) {
+  if (!GOOGLE_API_KEY || !GOOGLE_CX) return
+
+  for (const start of [1, 11]) {
+    const googleRes = await fetch(
+      `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(
+        GOOGLE_API_KEY
+      )}&cx=${encodeURIComponent(GOOGLE_CX)}&q=${encodeURIComponent(
+        query
+      )}&num=10&start=${start}`,
+      { headers: { Accept: "application/json" } }
+    )
+
+    if (!googleRes.ok) break
+
+    const data = (await googleRes.json()) as {
+      items?: Array<{
+        title?: string
+        link?: string
+        snippet?: string
+        displayLink?: string
+      }>
+    }
+
+    const items =
+      data.items?.filter((item) => item.link?.startsWith("http")) || []
+    if (items.length === 0) break
+
+    for (const item of items) {
+      const link = item.link || ""
+      let displayLink = ""
+      try {
+        displayLink = new URL(link).hostname.replace("www.", "")
+      } catch {
+        displayLink = item.displayLink || link
+      }
+      pushResult(
+        {
+          title: item.title || "Untitled",
+          link,
+          snippet: item.snippet || "",
+          displayLink: item.displayLink || displayLink,
+        },
+        "google"
+      )
+    }
+  }
+}
+
+async function appendBingRss(
+  query: string,
+  pushResult: (item: SearchHit, source: string) => void
+) {
+  const bingRssRes = await fetch(
+    `https://www.bing.com/search?format=rss&q=${encodeURIComponent(query)}`,
     {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Accept: "text/html",
+        Accept: "application/rss+xml,application/xml,text/xml",
       },
+      redirect: "follow",
     }
   )
 
-  if (!ddgRes.ok) {
-    return NextResponse.json(
-      { error: "Search service temporarily unavailable." },
-      { status: 502 }
+  if (!bingRssRes.ok) return
+
+  const rssXml = await bingRssRes.text()
+  const itemBlocks = [...rssXml.matchAll(/<item>([\s\S]*?)<\/item>/g)]
+
+  for (const block of itemBlocks) {
+    const itemXml = block[1] || ""
+    const titleMatch = itemXml.match(
+      /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i
+    )
+    const linkMatch = itemXml.match(/<link>([\s\S]*?)<\/link>/i)
+    const descMatch = itemXml.match(
+      /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i
+    )
+
+    const link = (linkMatch?.[1] || "").trim()
+    if (!link.startsWith("http")) continue
+
+    let displayLink = ""
+    try {
+      displayLink = new URL(link).hostname.replace("www.", "")
+    } catch {
+      displayLink = link
+    }
+
+    pushResult(
+      {
+        title: (titleMatch?.[1] || "Untitled")
+          .replace(/<[^>]*>/g, "")
+          .replace(/&amp;/g, "&")
+          .replace(/&#x27;/g, "'")
+          .replace(/&quot;/g, '"')
+          .replace(/\s+/g, " ")
+          .trim(),
+        link,
+        snippet: (descMatch?.[1] || "")
+          .replace(/<[^>]*>/g, "")
+          .replace(/&amp;/g, "&")
+          .replace(/&#x27;/g, "'")
+          .replace(/&quot;/g, '"')
+          .replace(/\s+/g, " ")
+          .trim(),
+        displayLink,
+      },
+      "bing-rss"
     )
   }
+}
 
-  const html = await ddgRes.text()
+async function appendDuckDuckGo(
+  query: string,
+  pushResult: (item: SearchHit, source: string) => void
+) {
+  const ddgUrls = [
+    `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`,
+    `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
+  ]
 
-  // Parse result links
-  const linkPattern =
+  let html = ""
+  for (const url of ddgUrls) {
+    const ddgRes = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+      redirect: "follow",
+    })
+
+    if (!ddgRes.ok) continue
+    html = await ddgRes.text()
+    if (/Unfortunately, bots use DuckDuckGo too/i.test(html)) {
+      html = ""
+      continue
+    }
+    if (html.length > 0) break
+  }
+
+  if (!html) return
+
+  const liteLinkPattern =
     /rel="nofollow"\s+href="[^"]*uddg=([^&"]+)[^"]*"\s+class='result-link'>([^<]+)/g
-  const linkMatches = [...html.matchAll(linkPattern)]
+  const liteSnippetPattern = /class='result-snippet'>\s*([\s\S]*?)<\/td>/g
 
-  const snippetPattern = /class='result-snippet'>\s*([\s\S]*?)<\/td>/g
-  const snippetMatches = [...html.matchAll(snippetPattern)]
+  const htmlLinkPattern =
+    /<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g
+  const htmlSnippetPattern =
+    /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g
 
-  const results: Array<{
-    title: string
-    link: string
-    snippet: string
-    displayLink: string
-  }> = []
+  const liteLinkMatches = [...html.matchAll(liteLinkPattern)]
+  const liteSnippetMatches = [...html.matchAll(liteSnippetPattern)]
+  const htmlLinkMatches = [...html.matchAll(htmlLinkPattern)]
+  const htmlSnippetMatches = [...html.matchAll(htmlSnippetPattern)]
+
+  const linkMatches =
+    liteLinkMatches.length > 0 ? liteLinkMatches : htmlLinkMatches
+  const snippetMatches =
+    liteSnippetMatches.length > 0 ? liteSnippetMatches : htmlSnippetMatches
 
   for (let i = 0; i < linkMatches.length; i++) {
-    let url: string
+    let urlStr: string
     try {
-      url = decodeURIComponent(linkMatches[i][1])
+      const rawUrl = linkMatches[i][1]
+      urlStr =
+        liteLinkMatches.length > 0 ? decodeURIComponent(rawUrl) : rawUrl
     } catch {
       continue
     }
 
-    if (!url.startsWith("http")) continue
-    if (
-      /wikipedia\.org|youtube\.com|reddit\.com|facebook\.com|twitter\.com|tiktok\.com/i.test(
-        url
-      )
-    ) {
-      continue
-    }
+    if (!urlStr.startsWith("http")) continue
 
     const title = linkMatches[i][2]
       .replace(/<[^>]*>/g, "")
@@ -105,20 +401,11 @@ async function fallbackSearch(query: string) {
 
     let displayLink = ""
     try {
-      displayLink = new URL(url).hostname.replace("www.", "")
+      displayLink = new URL(urlStr).hostname.replace("www.", "")
     } catch {
-      displayLink = url
+      displayLink = urlStr
     }
 
-    results.push({ title, link: url, snippet, displayLink })
+    pushResult({ title, link: urlStr, snippet, displayLink }, "duckduckgo")
   }
-
-  if (results.length === 0) {
-    return NextResponse.json(
-      { error: "No results found. Try more specific keywords." },
-      { status: 404 }
-    )
-  }
-
-  return NextResponse.json({ results, source: "duckduckgo" })
 }

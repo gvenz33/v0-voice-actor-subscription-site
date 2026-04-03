@@ -15,6 +15,8 @@ export async function GET() {
     "email",
     "offline_access",
     "https://graph.microsoft.com/Mail.Send",
+    "https://graph.microsoft.com/Mail.Read",
+    "https://graph.microsoft.com/Calendars.Read",
   ].join(" ")
 
   const authUrl = new URL("https://login.microsoftonline.com/common/oauth2/v2.0/authorize")

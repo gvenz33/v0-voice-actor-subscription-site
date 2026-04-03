@@ -4,15 +4,41 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Menu, X } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+  const router = useRouter()
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        setUserEmail(data.user?.email ?? null)
+      })
+      .catch(() => {
+        setUserEmail(null)
+      })
+  }, [])
+
+  const handleSignOut = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    setUserEmail(null)
+    router.push('/')
+  }
+
+  const isAuthed = !!userEmail
+  const logoHref = isAuthed ? '/dashboard' : '/'
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-2">
-        <Link href="/" className="flex items-center">
+        <Link href={logoHref} className="flex items-center">
           <Image 
             src="/images/vobizsuite-logo-cropped.png" 
             alt="VOBizSuite" 
@@ -39,12 +65,25 @@ export function Navbar() {
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
-          <Button variant="ghost" asChild>
-            <Link href="/auth/login">Sign In</Link>
-          </Button>
-          <Button asChild>
-            <Link href="/auth/sign-up">Start Free Trial</Link>
-          </Button>
+          {isAuthed ? (
+            <>
+              <Button variant="ghost" asChild>
+                <Link href="/dashboard">Dashboard</Link>
+              </Button>
+              <Button onClick={handleSignOut} variant="outline">
+                Sign Out
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" asChild>
+                <Link href="/auth/login">Sign In</Link>
+              </Button>
+              <Button asChild>
+                <Link href="/auth/sign-up">Start Free Trial</Link>
+              </Button>
+            </>
+          )}
         </div>
 
         <button
@@ -76,12 +115,31 @@ export function Navbar() {
               Contact Us
             </Link>
             <div className="flex flex-col gap-2 pt-2">
-              <Button variant="ghost" asChild>
-                <Link href="/auth/login">Sign In</Link>
-              </Button>
-              <Button asChild>
-                <Link href="/auth/sign-up">Start Free Trial</Link>
-              </Button>
+              {isAuthed ? (
+                <>
+                  <Button variant="ghost" asChild>
+                    <Link href="/dashboard" onClick={() => setMobileOpen(false)}>Dashboard</Link>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setMobileOpen(false)
+                      void handleSignOut()
+                    }}
+                  >
+                    Sign Out
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="ghost" asChild>
+                    <Link href="/auth/login" onClick={() => setMobileOpen(false)}>Sign In</Link>
+                  </Button>
+                  <Button asChild>
+                    <Link href="/auth/sign-up" onClick={() => setMobileOpen(false)}>Start Free Trial</Link>
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>

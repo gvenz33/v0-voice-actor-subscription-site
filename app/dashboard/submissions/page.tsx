@@ -18,6 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Search, Send, Trash2, Pencil } from "lucide-react"
+import { fetchContactsPicker } from "@/lib/fetch-contacts-picker"
 
 interface Submission {
   id: string
@@ -80,6 +81,7 @@ function subStatusColor(status: string) {
 
 export default function SubmissionsPage() {
   const { data: submissions, isLoading } = useSWR("submissions", fetchSubmissions)
+  const { data: contactOptions } = useSWR("contact-picker", fetchContactsPicker)
   const [search, setSearch] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -96,6 +98,7 @@ export default function SubmissionsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
+    const contactRaw = formData.get("contact_id") as string
     const payload = {
       user_id: user.id,
       project_title: formData.get("project_title") as string,
@@ -105,6 +108,7 @@ export default function SubmissionsPage() {
       rate_quoted: formData.get("rate_quoted") ? Number(formData.get("rate_quoted")) : null,
       notes: (formData.get("notes") as string) || null,
       follow_up_date: (formData.get("follow_up_date") as string) || null,
+      contact_id: contactRaw && contactRaw !== "none" ? contactRaw : null,
     }
 
     if (editing) {
@@ -146,6 +150,23 @@ export default function SubmissionsPage() {
               <div className="flex flex-col gap-2">
                 <Label htmlFor="project_title">Project Title *</Label>
                 <Input id="project_title" name="project_title" required defaultValue={editing?.project_title || ""} className="min-h-[44px]" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="contact_id">Client (optional)</Label>
+                <Select name="contact_id" defaultValue={editing?.contact_id || "none"}>
+                  <SelectTrigger id="contact_id" className="min-h-[44px]">
+                    <SelectValue placeholder="Link to Client Hub…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No client linked</SelectItem>
+                    {(contactOptions || []).map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.company_name}
+                        {c.contact_name ? ` — ${c.contact_name}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
