@@ -14,6 +14,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Plus, Search, Receipt, Trash2, Pencil, DollarSign, Send, Loader2 } from "lucide-react"
 import { fetchContactsPicker } from "@/lib/fetch-contacts-picker"
+import {
+  BILLING_WORD_COUNT_SESSION_KEY,
+  DEFAULT_WPM,
+} from "@/lib/script-word-count"
 
 interface Invoice {
   id: string
@@ -61,7 +65,6 @@ function invStatusColor(status: string) {
 
 type RateTemplate = "cat1" | "cat2"
 
-const DEFAULT_WPM = 150
 const ADDITIONAL_HALF_HOUR = 148
 const FIRST_HOUR_BILLED_HALF_HOURS = 2
 
@@ -202,6 +205,22 @@ export default function BillingDesk() {
   const [saving, setSaving] = useState(false)
   const [sending, setSending] = useState(false)
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const q = params.get("wordCount")
+    if (!q) return
+    const n = Number(q)
+    if (!Number.isFinite(n) || n <= 0) return
+    try {
+      sessionStorage.setItem(BILLING_WORD_COUNT_SESSION_KEY, String(Math.floor(n)))
+    } catch {
+      /* ignore */
+    }
+    const url = new URL(window.location.href)
+    url.searchParams.delete("wordCount")
+    window.history.replaceState({}, "", url.pathname + url.search)
+  }, [])
+
   const [form, setForm] = useState<{
     invoiceNumber: string
     status: string
@@ -264,13 +283,24 @@ export default function BillingDesk() {
       return
     }
 
+    let prefillWords = ""
+    try {
+      const s = sessionStorage.getItem(BILLING_WORD_COUNT_SESSION_KEY)
+      if (s) {
+        const n = Number(s)
+        if (Number.isFinite(n) && n > 0) prefillWords = String(Math.floor(n))
+        sessionStorage.removeItem(BILLING_WORD_COUNT_SESSION_KEY)
+      }
+    } catch {
+      /* ignore */
+    }
     setForm({
       invoiceNumber: "",
       status: "draft",
       dueDate: "",
       description: "",
       notes: "",
-      wordCount: "",
+      wordCount: prefillWords,
       rateTemplate: "cat1",
       wpm: String(DEFAULT_WPM),
       clientEmail: "",

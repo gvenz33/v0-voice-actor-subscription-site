@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET
-const REDIRECT_URI = process.env.NEXT_PUBLIC_APP_URL 
+const REDIRECT_URI = process.env.NEXT_PUBLIC_APP_URL
   ? `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/gmail/callback`
   : "http://localhost:3000/api/auth/gmail/callback"
 
@@ -17,7 +17,6 @@ export async function GET(req: Request) {
   }
 
   try {
-    // Exchange code for tokens
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -30,22 +29,30 @@ export async function GET(req: Request) {
       }),
     })
 
-    const tokens = await tokenRes.json()
+    const tokens = (await tokenRes.json()) as {
+      access_token?: string
+      refresh_token?: string
+      expires_in?: number
+    }
 
     if (!tokenRes.ok || !tokens.access_token) {
       console.error("Gmail token exchange failed:", tokens)
       return NextResponse.redirect(new URL("/dashboard/settings?error=gmail_token_failed", req.url))
     }
 
-    // Get user's email
     const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
     })
-    const userInfo = await userInfoRes.json()
+    const userInfo = (await userInfoRes.json()) as { email?: string }
+    const oauthEmail = userInfo.email
+    if (!oauthEmail) {
+      return NextResponse.redirect(new URL("/dashboard/settings?error=gmail_save_failed", req.url))
+    }
 
-    // Save to database
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
     if (!user) {
       return NextResponse.redirect(new URL("/login?error=not_authenticated", req.url))
@@ -53,19 +60,55 @@ export async function GET(req: Request) {
 
     const expiresAt = new Date(Date.now() + (tokens.expires_in || 3600) * 1000)
 
-    const { error: dbError } = await supabase.from("email_config").upsert({
-      user_id: user.id,
-      provider: "gmail",
-      oauth_access_token: tokens.access_token,
-      oauth_refresh_token: tokens.refresh_token,
-      oauth_expires_at: expiresAt.toISOString(),
-      oauth_email: userInfo.email,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "user_id" })
+    const { data: existing } = await supabase
+      .from("email_accounts")
+      .select("id, oauth_refresh_token")
+      .eq("user_id", user.id)
+      .eq("provider", "gmail")
+      .eq("oauth_email", oauthEmail)
+      .maybeSingle()
 
-    if (dbError) {
-      console.error("Failed to save Gmail tokens:", dbError)
-      return NextResponse.redirect(new URL("/dashboard/settings?error=gmail_save_failed", req.url))
+    const { data: defaultHolder } = await supabase
+      .from("email_accounts")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("is_default_for_send", true)
+      .maybeSingle()
+
+    const refreshToken =
+      tokens.refresh_token ?? existing?.oauth_refresh_token ?? null
+
+    const baseUpdate = {
+      oauth_access_token: tokens.access_token,
+      oauth_refresh_token: refreshToken,
+      oauth_expires_at: expiresAt.toISOString(),
+      oauth_email: oauthEmail,
+      provider: "gmail" as const,
+      updated_at: new Date().toISOString(),
+    }
+
+    if (existing?.id) {
+      const { error: dbError } = await supabase
+        .from("email_accounts")
+        .update(baseUpdate)
+        .eq("id", existing.id)
+        .eq("user_id", user.id)
+
+      if (dbError) {
+        console.error("Failed to save Gmail tokens:", dbError)
+        return NextResponse.redirect(new URL("/dashboard/settings?error=gmail_save_failed", req.url))
+      }
+    } else {
+      const { error: dbError } = await supabase.from("email_accounts").insert({
+        user_id: user.id,
+        ...baseUpdate,
+        is_default_for_send: !defaultHolder,
+      })
+
+      if (dbError) {
+        console.error("Failed to save Gmail tokens:", dbError)
+        return NextResponse.redirect(new URL("/dashboard/settings?error=gmail_save_failed", req.url))
+      }
     }
 
     return NextResponse.redirect(new URL("/dashboard/settings?success=gmail_connected", req.url))

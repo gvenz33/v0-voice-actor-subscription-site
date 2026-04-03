@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
-import { User, CreditCard, Shield, Mail, Check, AlertCircle, Loader2, Unlink, FileSignature, Save } from "lucide-react"
+import { User, CreditCard, Shield, Mail, Check, AlertCircle, Loader2, Unlink, FileSignature, Save, Calendar } from "lucide-react"
 import Link from "next/link"
 
 interface Profile {
@@ -36,6 +36,28 @@ interface EmailConfig {
   bcc_self?: boolean
 }
 
+interface EmailAccountRow {
+  id: string
+  provider: string | null
+  label: string | null
+  oauth_email: string | null
+  smtp_host: string | null
+  smtp_from_email: string | null
+  smtp_from_name: string | null
+  bcc_self?: boolean
+  is_default_for_send?: boolean
+  imap_host?: string | null
+  imap_port?: number | null
+  imap_username?: string | null
+}
+
+interface CalendarSourceRow {
+  id: string
+  display_name: string | null
+  caldav_url: string
+  caldav_username: string
+}
+
 export default function SettingsPage() {
   const searchParams = useSearchParams()
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -45,6 +67,8 @@ export default function SettingsPage() {
   
   // Email config state
   const [emailConfig, setEmailConfig] = useState<EmailConfig | null>(null)
+  const [emailAccounts, setEmailAccounts] = useState<EmailAccountRow[]>([])
+  const [calendarSources, setCalendarSources] = useState<CalendarSourceRow[]>([])
   const [emailConfigLoading, setEmailConfigLoading] = useState(true)
   const [emailTableNotCreated, setEmailTableNotCreated] = useState(false)
   const [smtpForm, setSmtpForm] = useState({
@@ -55,9 +79,24 @@ export default function SettingsPage() {
     smtp_from_email: "",
     smtp_from_name: "",
     smtp_use_tls: true,
+    imap_host: "",
+    imap_port: "993",
+    imap_username: "",
+    imap_password: "",
+    imap_use_tls: true,
+    smtp_account_id: "" as string,
   })
   const [smtpSaving, setSmtpSaving] = useState(false)
   const [emailMessage, setEmailMessage] = useState("")
+
+  const [caldavForm, setCaldavForm] = useState({
+    display_name: "iCloud",
+    caldav_url: "https://caldav.icloud.com",
+    caldav_username: "",
+    caldav_password: "",
+    source_id: "",
+  })
+  const [caldavSaving, setCaldavSaving] = useState(false)
   
   // Signature state
   const [signature, setSignature] = useState("")
@@ -84,8 +123,35 @@ export default function SettingsPage() {
         const res = await fetch("/api/email-config")
         const data = await res.json()
         setEmailConfig(data.config)
+        setEmailAccounts(data.accounts ?? [])
+        setCalendarSources(data.calendarSources ?? [])
         if (data.tableNotCreated) {
           setEmailTableNotCreated(true)
+        }
+        const smtpAcc = (data.accounts ?? []).find(
+          (a: EmailAccountRow) => a.provider === "smtp"
+        )
+        if (smtpAcc) {
+          setSmtpForm((f) => ({
+            ...f,
+            smtp_account_id: smtpAcc.id,
+            smtp_host: smtpAcc.smtp_host ?? "",
+            smtp_from_email: smtpAcc.smtp_from_email ?? "",
+            smtp_from_name: smtpAcc.smtp_from_name ?? "",
+            imap_host: smtpAcc.imap_host ?? "",
+            imap_port: smtpAcc.imap_port ? String(smtpAcc.imap_port) : "993",
+            imap_username: smtpAcc.imap_username ?? "",
+          }))
+        }
+        const cal = (data.calendarSources ?? [])[0] as CalendarSourceRow | undefined
+        if (cal) {
+          setCaldavForm((f) => ({
+            ...f,
+            source_id: cal.id,
+            display_name: cal.display_name || "iCloud",
+            caldav_url: cal.caldav_url,
+            caldav_username: cal.caldav_username,
+          }))
         }
       } catch {
         console.error("Failed to load email config")
@@ -108,11 +174,20 @@ export default function SettingsPage() {
     const error = searchParams.get("error")
     if (success === "gmail_connected") {
       setEmailMessage("Gmail connected successfully!")
-      // Reload email config
-      fetch("/api/email-config").then(res => res.json()).then(data => setEmailConfig(data.config))
+      fetch("/api/email-config")
+        .then((res) => res.json())
+        .then((data) => {
+          setEmailConfig(data.config)
+          setEmailAccounts(data.accounts ?? [])
+        })
     } else if (success === "outlook_connected") {
       setEmailMessage("Outlook connected successfully!")
-      fetch("/api/email-config").then(res => res.json()).then(data => setEmailConfig(data.config))
+      fetch("/api/email-config")
+        .then((res) => res.json())
+        .then((data) => {
+          setEmailConfig(data.config)
+          setEmailAccounts(data.accounts ?? [])
+        })
     } else if (error) {
       setEmailMessage(`Connection failed: ${error.replace(/_/g, " ")}`)
     }
@@ -125,13 +200,29 @@ export default function SettingsPage() {
       const res = await fetch("/api/email-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "save_smtp", ...smtpForm }),
+        body: JSON.stringify({
+          action: "save_smtp",
+          smtp_host: smtpForm.smtp_host,
+          smtp_port: smtpForm.smtp_port,
+          smtp_username: smtpForm.smtp_username,
+          smtp_password: smtpForm.smtp_password,
+          smtp_from_email: smtpForm.smtp_from_email,
+          smtp_from_name: smtpForm.smtp_from_name,
+          smtp_use_tls: smtpForm.smtp_use_tls,
+          imap_host: smtpForm.imap_host,
+          imap_port: smtpForm.imap_port,
+          imap_username: smtpForm.imap_username || smtpForm.smtp_username,
+          imap_password: smtpForm.imap_password || smtpForm.smtp_password,
+          imap_use_tls: smtpForm.imap_use_tls,
+          account_id: smtpForm.smtp_account_id || undefined,
+        }),
       })
       if (res.ok) {
         setEmailMessage("SMTP settings saved successfully!")
         const configRes = await fetch("/api/email-config")
         const data = await configRes.json()
         setEmailConfig(data.config)
+        setEmailAccounts(data.accounts ?? [])
       } else {
         setEmailMessage("Failed to save SMTP settings.")
       }
@@ -141,17 +232,97 @@ export default function SettingsPage() {
     setSmtpSaving(false)
   }
 
-  const handleDisconnect = async () => {
+  const handleDisconnect = async (accountId: string) => {
     try {
       await fetch("/api/email-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "disconnect" }),
+        body: JSON.stringify({ action: "disconnect", account_id: accountId }),
       })
-      setEmailConfig(null)
-      setEmailMessage("Email account disconnected.")
+      const configRes = await fetch("/api/email-config")
+      const data = await configRes.json()
+      setEmailConfig(data.config)
+      setEmailAccounts(data.accounts ?? [])
+      setEmailMessage("Account disconnected.")
     } catch {
       setEmailMessage("Failed to disconnect.")
+    }
+  }
+
+  const handleSaveCaldav = async () => {
+    if (!caldavForm.caldav_username.trim() || !caldavForm.caldav_password.trim()) {
+      setEmailMessage("CalDAV username and password are required.")
+      return
+    }
+    setCaldavSaving(true)
+    setEmailMessage("")
+    try {
+      const res = await fetch("/api/email-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save_caldav",
+          display_name: caldavForm.display_name,
+          caldav_url: caldavForm.caldav_url,
+          caldav_username: caldavForm.caldav_username,
+          caldav_password: caldavForm.caldav_password,
+          source_id: caldavForm.source_id || undefined,
+        }),
+      })
+      if (res.ok) {
+        setEmailMessage("Calendar connection saved.")
+        const configRes = await fetch("/api/email-config")
+        const data = await configRes.json()
+        setCalendarSources(data.calendarSources ?? [])
+        const cal = (data.calendarSources ?? [])[0] as CalendarSourceRow | undefined
+        if (cal) {
+          setCaldavForm((f) => ({ ...f, source_id: cal.id }))
+        }
+      } else {
+        setEmailMessage("Failed to save calendar connection.")
+      }
+    } catch {
+      setEmailMessage("Failed to save calendar connection.")
+    }
+    setCaldavSaving(false)
+  }
+
+  const handleDeleteCaldav = async (id: string) => {
+    try {
+      await fetch("/api/email-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete_caldav", source_id: id }),
+      })
+      const configRes = await fetch("/api/email-config")
+      const data = await configRes.json()
+      setCalendarSources(data.calendarSources ?? [])
+      setCaldavForm({
+        display_name: "iCloud",
+        caldav_url: "https://caldav.icloud.com",
+        caldav_username: "",
+        caldav_password: "",
+        source_id: "",
+      })
+      setEmailMessage("Calendar connection removed.")
+    } catch {
+      setEmailMessage("Failed to remove calendar.")
+    }
+  }
+
+  const handleSetDefault = async (accountId: string) => {
+    try {
+      await fetch("/api/email-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set_default", account_id: accountId }),
+      })
+      const configRes = await fetch("/api/email-config")
+      const data = await configRes.json()
+      setEmailAccounts(data.accounts ?? [])
+      setEmailConfig(data.config)
+    } catch {
+      setEmailMessage("Failed to set default account.")
     }
   }
 
@@ -303,93 +474,288 @@ export default function SettingsPage() {
               <p className="text-sm text-muted-foreground">
                 The email configuration table needs to be created in your Supabase database. Please run the following SQL in your Supabase SQL Editor:
               </p>
-              <pre className="overflow-x-auto rounded bg-muted p-3 text-xs">
-{`create table if not exists public.email_config (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade unique,
-  provider text,
-  oauth_access_token text,
-  oauth_refresh_token text,
-  oauth_expires_at timestamptz,
-  oauth_email text,
-  smtp_host text,
-  smtp_port int,
-  smtp_username text,
-  smtp_password text,
-  smtp_from_email text,
-  smtp_from_name text,
-  smtp_use_tls boolean default true,
-  bcc_self boolean default false,
-  signature_text text,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
-
-alter table public.email_config enable row level security;
-
-create policy "email_config_select_own" on public.email_config 
-  for select using (auth.uid() = user_id);
-create policy "email_config_insert_own" on public.email_config 
-  for insert with check (auth.uid() = user_id);
-create policy "email_config_update_own" on public.email_config 
-  for update using (auth.uid() = user_id);
-create policy "email_config_delete_own" on public.email_config 
-  for delete using (auth.uid() = user_id);`}
-              </pre>
               <p className="text-sm text-muted-foreground">
-                After running the migration, refresh this page. In the meantime, you can still use the "Open in Mail App" option.
+                Run <code className="rounded bg-muted px-1">scripts/email-accounts-and-calendar-sources.sql</code> in the Supabase SQL Editor, then refresh this page.
               </p>
             </div>
-          ) : emailConfig?.provider ? (
+          ) : emailAccounts.length > 0 ? (
             <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-full bg-green-500/20">
-                    <Check className="size-5 text-green-500" />
+              {emailAccounts.map((acc) => (
+                <div
+                  key={acc.id}
+                  className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-10 items-center justify-center rounded-full bg-green-500/20">
+                        <Check className="size-5 text-green-500" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground">
+                          {acc.provider === "gmail"
+                            ? "Gmail"
+                            : acc.provider === "outlook"
+                              ? "Outlook"
+                              : "SMTP"}
+                          {acc.is_default_for_send && (
+                            <Badge variant="secondary" className="ml-2 text-xs">
+                              Default send
+                            </Badge>
+                          )}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {acc.oauth_email || acc.smtp_from_email}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {!acc.is_default_for_send && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleSetDefault(acc.id)}
+                        >
+                          Set default
+                        </Button>
+                      )}
+                      <Button variant="outline" size="sm" onClick={() => handleDisconnect(acc.id)}>
+                        <Unlink className="mr-1.5 size-3.5" />
+                        Disconnect
+                      </Button>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-foreground">
-                      {emailConfig.provider === "gmail" ? "Gmail" : emailConfig.provider === "outlook" ? "Outlook" : "SMTP"} Connected
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {emailConfig.oauth_email || emailConfig.smtp_from_email}
-                    </p>
+                  <div className="flex items-center justify-between border-t border-border pt-3">
+                    <div className="flex flex-col gap-1">
+                      <Label htmlFor={`bcc-${acc.id}`}>BCC myself (this account)</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Copy sent mail to your address when sending from this account.
+                      </p>
+                    </div>
+                    <Switch
+                      id={`bcc-${acc.id}`}
+                      checked={acc.bcc_self === true}
+                      onCheckedChange={async (checked) => {
+                        try {
+                          await fetch("/api/email-config", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              action: "toggle_bcc",
+                              account_id: acc.id,
+                              bcc_self: checked,
+                            }),
+                          })
+                          setEmailAccounts((prev) =>
+                            prev.map((a) =>
+                              a.id === acc.id ? { ...a, bcc_self: checked } : a
+                            )
+                          )
+                          setEmailMessage(
+                            checked
+                              ? "BCC enabled for this account."
+                              : "BCC disabled for this account."
+                          )
+                        } catch {
+                          setEmailMessage("Failed to update BCC setting.")
+                        }
+                      }}
+                    />
                   </div>
                 </div>
-                <Button variant="outline" size="sm" onClick={handleDisconnect}>
-                  <Unlink className="mr-1.5 size-3.5" />
-                  Disconnect
-                </Button>
-              </div>
-              
+              ))}
+
               <Separator />
-              
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col gap-1">
-                  <Label htmlFor="bcc-self">BCC myself on all outgoing emails</Label>
+
+              <p className="text-sm font-medium text-foreground">Add or update accounts</p>
+              <Tabs defaultValue="oauth" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="oauth">Gmail / Outlook</TabsTrigger>
+                  <TabsTrigger value="smtp">SMTP / IMAP</TabsTrigger>
+                </TabsList>
+                <TabsContent value="oauth" className="mt-4 flex flex-col gap-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="min-h-[44px] gap-2"
+                      onClick={() => (window.location.href = "/api/auth/gmail")}
+                    >
+                      <svg className="size-4" viewBox="0 0 24 24">
+                        <path
+                          fill="currentColor"
+                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                        />
+                        <path
+                          fill="currentColor"
+                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        />
+                        <path
+                          fill="currentColor"
+                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                        />
+                        <path
+                          fill="currentColor"
+                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                        />
+                      </svg>
+                      Add Gmail
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="min-h-[44px] gap-2"
+                      onClick={() => (window.location.href = "/api/auth/outlook")}
+                    >
+                      <svg className="size-4" viewBox="0 0 24 24">
+                        <path
+                          fill="currentColor"
+                          d="M7.88 12.04q0 .45-.11.87-.1.41-.33.74-.22.33-.58.52-.37.2-.87.2t-.85-.2q-.35-.21-.57-.55-.22-.33-.33-.75-.1-.42-.1-.86t.1-.87q.1-.43.34-.76.22-.34.59-.54.36-.2.87-.2t.86.2q.35.21.57.55.22.34.31.77.1.43.1.88zM24 12v9.38q0 .46-.33.8-.33.32-.8.32H7.13q-.46 0-.8-.33-.32-.33-.32-.8V18H1q-.41 0-.7-.3-.3-.29-.3-.7V7q0-.41.3-.7.29-.3.7-.3h6.25V1.62q0-.46.33-.8.33-.32.8-.32h14.8q.46 0 .8.33.32.33.32.8V12zm-6 8.25V10.5H8.13v9.38z"
+                        />
+                      </svg>
+                      Add Outlook
+                    </Button>
+                  </div>
+                </TabsContent>
+                <TabsContent value="smtp" className="mt-4 flex flex-col gap-4">
                   <p className="text-sm text-muted-foreground">
-                    Receive a copy of every email you send for your records.
+                    Add or update SMTP + IMAP for sending and unified inbox.
                   </p>
-                </div>
-                <Switch
-                  id="bcc-self"
-                  checked={emailConfig.bcc_self === true}
-                  onCheckedChange={async (checked) => {
-                    try {
-                      await fetch("/api/email-config", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ action: "toggle_bcc", bcc_self: checked }),
-                      })
-                      setEmailConfig({ ...emailConfig, bcc_self: checked })
-                      setEmailMessage(checked ? "BCC enabled - you'll receive copies of sent emails." : "BCC disabled.")
-                    } catch {
-                      setEmailMessage("Failed to update BCC setting.")
-                    }
-                  }}
-                />
-              </div>
-              
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="ia-smtp_host">SMTP Host</Label>
+                      <Input
+                        id="ia-smtp_host"
+                        placeholder="smtp.gmail.com"
+                        value={smtpForm.smtp_host}
+                        onChange={(e) => setSmtpForm((f) => ({ ...f, smtp_host: e.target.value }))}
+                        className="min-h-[44px]"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="ia-smtp_port">Port</Label>
+                      <Input
+                        id="ia-smtp_port"
+                        placeholder="587"
+                        value={smtpForm.smtp_port}
+                        onChange={(e) => setSmtpForm((f) => ({ ...f, smtp_port: e.target.value }))}
+                        className="min-h-[44px]"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="ia-smtp_username">Username</Label>
+                      <Input
+                        id="ia-smtp_username"
+                        placeholder="your@email.com"
+                        value={smtpForm.smtp_username}
+                        onChange={(e) => setSmtpForm((f) => ({ ...f, smtp_username: e.target.value }))}
+                        className="min-h-[44px]"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="ia-smtp_password">Password</Label>
+                      <Input
+                        id="ia-smtp_password"
+                        type="password"
+                        placeholder="App password"
+                        value={smtpForm.smtp_password}
+                        onChange={(e) => setSmtpForm((f) => ({ ...f, smtp_password: e.target.value }))}
+                        className="min-h-[44px]"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="ia-smtp_from_email">From Email</Label>
+                      <Input
+                        id="ia-smtp_from_email"
+                        placeholder="your@email.com"
+                        value={smtpForm.smtp_from_email}
+                        onChange={(e) => setSmtpForm((f) => ({ ...f, smtp_from_email: e.target.value }))}
+                        className="min-h-[44px]"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="ia-smtp_from_name">From Name</Label>
+                      <Input
+                        id="ia-smtp_from_name"
+                        placeholder="Your Name"
+                        value={smtpForm.smtp_from_name}
+                        onChange={(e) => setSmtpForm((f) => ({ ...f, smtp_from_name: e.target.value }))}
+                        className="min-h-[44px]"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="ia-smtp_use_tls"
+                      checked={smtpForm.smtp_use_tls}
+                      onCheckedChange={(checked) => setSmtpForm((f) => ({ ...f, smtp_use_tls: checked }))}
+                    />
+                    <Label htmlFor="ia-smtp_use_tls">Use TLS/STARTTLS (SMTP)</Label>
+                  </div>
+                  <Separator />
+                  <p className="text-sm font-medium text-foreground">IMAP (unified inbox)</p>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="ia-imap_host">IMAP Host</Label>
+                      <Input
+                        id="ia-imap_host"
+                        placeholder="imap.gmail.com"
+                        value={smtpForm.imap_host}
+                        onChange={(e) => setSmtpForm((f) => ({ ...f, imap_host: e.target.value }))}
+                        className="min-h-[44px]"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="ia-imap_port">IMAP Port</Label>
+                      <Input
+                        id="ia-imap_port"
+                        placeholder="993"
+                        value={smtpForm.imap_port}
+                        onChange={(e) => setSmtpForm((f) => ({ ...f, imap_port: e.target.value }))}
+                        className="min-h-[44px]"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="ia-imap_username">IMAP Username</Label>
+                      <Input
+                        id="ia-imap_username"
+                        placeholder="Leave blank to use SMTP username"
+                        value={smtpForm.imap_username}
+                        onChange={(e) => setSmtpForm((f) => ({ ...f, imap_username: e.target.value }))}
+                        className="min-h-[44px]"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="ia-imap_password">IMAP Password</Label>
+                      <Input
+                        id="ia-imap_password"
+                        type="password"
+                        placeholder="Leave blank to use SMTP password"
+                        value={smtpForm.imap_password}
+                        onChange={(e) => setSmtpForm((f) => ({ ...f, imap_password: e.target.value }))}
+                        className="min-h-[44px]"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="ia-imap_use_tls"
+                      checked={smtpForm.imap_use_tls}
+                      onCheckedChange={(checked) => setSmtpForm((f) => ({ ...f, imap_use_tls: checked }))}
+                    />
+                    <Label htmlFor="ia-imap_use_tls">IMAP TLS</Label>
+                  </div>
+                  <Button onClick={handleSaveSmtp} disabled={smtpSaving} size="lg" className="min-h-[44px]">
+                    {smtpSaving ? "Saving..." : "Save SMTP / IMAP"}
+                  </Button>
+                </TabsContent>
+              </Tabs>
+
               {emailMessage && (
                 <p className="text-sm text-green-500">{emailMessage}</p>
               )}
@@ -507,8 +873,68 @@ create policy "email_config_delete_own" on public.email_config
                     checked={smtpForm.smtp_use_tls}
                     onCheckedChange={checked => setSmtpForm(f => ({ ...f, smtp_use_tls: checked }))}
                   />
-                  <Label htmlFor="smtp_use_tls">Use TLS/STARTTLS</Label>
+                  <Label htmlFor="smtp_use_tls">Use TLS/STARTTLS (SMTP)</Label>
                 </div>
+
+                <Separator />
+                <p className="text-sm font-medium text-foreground">IMAP (unified inbox)</p>
+                <p className="text-xs text-muted-foreground">
+                  Required to load inbox for this SMTP account. Often the same host as SMTP with port 993.
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="imap_host">IMAP Host</Label>
+                    <Input
+                      id="imap_host"
+                      placeholder="imap.gmail.com"
+                      value={smtpForm.imap_host}
+                      onChange={e => setSmtpForm(f => ({ ...f, imap_host: e.target.value }))}
+                      className="min-h-[44px]"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="imap_port">IMAP Port</Label>
+                    <Input
+                      id="imap_port"
+                      placeholder="993"
+                      value={smtpForm.imap_port}
+                      onChange={e => setSmtpForm(f => ({ ...f, imap_port: e.target.value }))}
+                      className="min-h-[44px]"
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="imap_username">IMAP Username</Label>
+                    <Input
+                      id="imap_username"
+                      placeholder="Leave blank to use SMTP username"
+                      value={smtpForm.imap_username}
+                      onChange={e => setSmtpForm(f => ({ ...f, imap_username: e.target.value }))}
+                      className="min-h-[44px]"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="imap_password">IMAP Password</Label>
+                    <Input
+                      id="imap_password"
+                      type="password"
+                      placeholder="Leave blank to use SMTP password"
+                      value={smtpForm.imap_password}
+                      onChange={e => setSmtpForm(f => ({ ...f, imap_password: e.target.value }))}
+                      className="min-h-[44px]"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="imap_use_tls"
+                    checked={smtpForm.imap_use_tls}
+                    onCheckedChange={checked => setSmtpForm(f => ({ ...f, imap_use_tls: checked }))}
+                  />
+                  <Label htmlFor="imap_use_tls">IMAP TLS</Label>
+                </div>
+
                 <Button onClick={handleSaveSmtp} disabled={smtpSaving} size="lg" className="min-h-[44px]">
                   {smtpSaving ? "Saving..." : "Save SMTP Settings"}
                 </Button>
@@ -521,6 +947,99 @@ create policy "email_config_delete_own" on public.email_config
               )}
             </Tabs>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="size-4" />
+            Calendar (iCloud / CalDAV)
+          </CardTitle>
+          <CardDescription>
+            Show Apple Calendar alongside Google and Microsoft on the Calendar page. Use an app-specific password from
+            your Apple ID account.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {calendarSources.length > 0 && (
+            <ul className="flex flex-col gap-2">
+              {calendarSources.map((s) => (
+                <li
+                  key={s.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm"
+                >
+                  <span>
+                    {s.display_name || "CalDAV"} — {s.caldav_username}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDeleteCaldav(s.id)}
+                  >
+                    Remove
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="caldav_name">Label</Label>
+              <Input
+                id="caldav_name"
+                value={caldavForm.display_name}
+                onChange={(e) =>
+                  setCaldavForm((f) => ({ ...f, display_name: e.target.value }))
+                }
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="caldav_url">CalDAV URL</Label>
+              <Input
+                id="caldav_url"
+                value={caldavForm.caldav_url}
+                onChange={(e) =>
+                  setCaldavForm((f) => ({ ...f, caldav_url: e.target.value }))
+                }
+              />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="caldav_user">Apple ID (email)</Label>
+              <Input
+                id="caldav_user"
+                value={caldavForm.caldav_username}
+                onChange={(e) =>
+                  setCaldavForm((f) => ({ ...f, caldav_username: e.target.value }))
+                }
+                autoComplete="username"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="caldav_pass">App-specific password</Label>
+              <Input
+                id="caldav_pass"
+                type="password"
+                value={caldavForm.caldav_password}
+                onChange={(e) =>
+                  setCaldavForm((f) => ({ ...f, caldav_password: e.target.value }))
+                }
+                autoComplete="current-password"
+              />
+            </div>
+          </div>
+          <Button
+            type="button"
+            onClick={handleSaveCaldav}
+            disabled={caldavSaving}
+            size="lg"
+            className="min-h-[44px] w-fit"
+          >
+            {caldavSaving ? "Saving…" : "Save calendar connection"}
+          </Button>
         </CardContent>
       </Card>
 

@@ -21,6 +21,9 @@ import {
   Shield,
   Gift,
   BookText,
+  Mail,
+  Calendar,
+  FileText,
 } from "lucide-react"
 import {
   SidebarProvider,
@@ -57,6 +60,21 @@ const NAV_ITEMS = [
     title: "Command Center",
     href: "/dashboard",
     icon: LayoutDashboard,
+  },
+  {
+    title: "Inbox",
+    href: "/dashboard/inbox",
+    icon: Mail,
+  },
+  {
+    title: "Calendar",
+    href: "/dashboard/calendar",
+    icon: Calendar,
+  },
+  {
+    title: "Script counter",
+    href: "/dashboard/script-tools",
+    icon: FileText,
   },
   {
     title: "Client Hub",
