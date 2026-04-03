@@ -465,120 +465,142 @@ export default function SettingsPage() {
             <div className="flex items-center justify-center py-8">
               <Loader2 className="size-6 animate-spin text-muted-foreground" />
             </div>
-          ) : emailTableNotCreated ? (
-            <div className="flex flex-col gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="size-5 text-amber-500" />
-                <p className="font-medium text-amber-500">Database Setup Required</p>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                The email configuration table needs to be created in your Supabase database. Please run the following SQL in your Supabase SQL Editor:
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Run <code className="rounded bg-muted px-1">scripts/email-accounts-and-calendar-sources.sql</code> in the Supabase SQL Editor, then refresh this page.
-              </p>
-            </div>
-          ) : emailAccounts.length > 0 ? (
-            <div className="flex flex-col gap-4">
-              {emailAccounts.map((acc) => (
-                <div
-                  key={acc.id}
-                  className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-4"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="flex items-center gap-3">
-                      <div className="flex size-10 items-center justify-center rounded-full bg-green-500/20">
-                        <Check className="size-5 text-green-500" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-foreground">
-                          {acc.provider === "gmail"
-                            ? "Gmail"
-                            : acc.provider === "outlook"
-                              ? "Outlook"
-                              : "SMTP"}
-                          {acc.is_default_for_send && (
-                            <Badge variant="secondary" className="ml-2 text-xs">
-                              Default send
-                            </Badge>
-                          )}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {acc.oauth_email || acc.smtp_from_email}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {!acc.is_default_for_send && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleSetDefault(acc.id)}
-                        >
-                          Set default
-                        </Button>
-                      )}
-                      <Button variant="outline" size="sm" onClick={() => handleDisconnect(acc.id)}>
-                        <Unlink className="mr-1.5 size-3.5" />
-                        Disconnect
-                      </Button>
-                    </div>
+          ) : (
+            <>
+              {emailTableNotCreated && (
+                <div className="flex flex-col gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="size-5 text-amber-500" />
+                    <p className="font-medium text-amber-500">Database setup required</p>
                   </div>
-                  <div className="flex items-center justify-between border-t border-border pt-3">
-                    <div className="flex flex-col gap-1">
-                      <Label htmlFor={`bcc-${acc.id}`}>BCC myself (this account)</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Copy sent mail to your address when sending from this account.
-                      </p>
-                    </div>
-                    <Switch
-                      id={`bcc-${acc.id}`}
-                      checked={acc.bcc_self === true}
-                      onCheckedChange={async (checked) => {
-                        try {
-                          await fetch("/api/email-config", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              action: "toggle_bcc",
-                              account_id: acc.id,
-                              bcc_self: checked,
-                            }),
-                          })
-                          setEmailAccounts((prev) =>
-                            prev.map((a) =>
-                              a.id === acc.id ? { ...a, bcc_self: checked } : a
-                            )
-                          )
-                          setEmailMessage(
-                            checked
-                              ? "BCC enabled for this account."
-                              : "BCC disabled for this account."
-                          )
-                        } catch {
-                          setEmailMessage("Failed to update BCC setting.")
-                        }
-                      }}
-                    />
-                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Run{" "}
+                    <code className="rounded bg-muted px-1">
+                      scripts/email-accounts-and-calendar-sources.sql
+                    </code>{" "}
+                    in the Supabase SQL Editor, then refresh this page. Gmail, Outlook, and SMTP
+                    save are disabled until the <code className="rounded bg-muted px-1">email_accounts</code> table exists.
+                  </p>
                 </div>
-              ))}
+              )}
 
-              <Separator />
+              {emailAccounts.length > 0 && (
+                <div className="flex flex-col gap-4">
+                  {emailAccounts.map((acc) => (
+                    <div
+                      key={acc.id}
+                      className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="flex items-center gap-3">
+                          <div className="flex size-10 items-center justify-center rounded-full bg-green-500/20">
+                            <Check className="size-5 text-green-500" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">
+                              {acc.provider === "gmail"
+                                ? "Gmail"
+                                : acc.provider === "outlook"
+                                  ? "Outlook"
+                                  : "SMTP"}
+                              {acc.is_default_for_send && (
+                                <Badge variant="secondary" className="ml-2 text-xs">
+                                  Default send
+                                </Badge>
+                              )}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {acc.oauth_email || acc.smtp_from_email}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {!acc.is_default_for_send && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleSetDefault(acc.id)}
+                            >
+                              Set default
+                            </Button>
+                          )}
+                          <Button variant="outline" size="sm" onClick={() => handleDisconnect(acc.id)}>
+                            <Unlink className="mr-1.5 size-3.5" />
+                            Disconnect
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between border-t border-border pt-3">
+                        <div className="flex flex-col gap-1">
+                          <Label htmlFor={`bcc-${acc.id}`}>BCC myself (this account)</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Copy sent mail to your address when sending from this account.
+                          </p>
+                        </div>
+                        <Switch
+                          id={`bcc-${acc.id}`}
+                          checked={acc.bcc_self === true}
+                          onCheckedChange={async (checked) => {
+                            try {
+                              await fetch("/api/email-config", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  action: "toggle_bcc",
+                                  account_id: acc.id,
+                                  bcc_self: checked,
+                                }),
+                              })
+                              setEmailAccounts((prev) =>
+                                prev.map((a) =>
+                                  a.id === acc.id ? { ...a, bcc_self: checked } : a
+                                )
+                              )
+                              setEmailMessage(
+                                checked
+                                  ? "BCC enabled for this account."
+                                  : "BCC disabled for this account."
+                              )
+                            } catch {
+                              setEmailMessage("Failed to update BCC setting.")
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  <Separator />
+                </div>
+              )}
 
-              <p className="text-sm font-medium text-foreground">Add or update accounts</p>
+              <p className="text-sm font-medium text-foreground">
+                {emailAccounts.length > 0 ? "Add or update accounts" : "Connect email"}
+              </p>
               <Tabs defaultValue="oauth" className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="oauth">Gmail / Outlook</TabsTrigger>
                   <TabsTrigger value="smtp">SMTP / IMAP</TabsTrigger>
                 </TabsList>
                 <TabsContent value="oauth" className="mt-4 flex flex-col gap-4">
+                  <p className="text-sm text-muted-foreground">
+                    Connect Google Gmail or Microsoft 365 / Outlook. Reconnect after upgrading scopes if
+                    you already linked an account.
+                  </p>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Button
+                      type="button"
                       variant="outline"
                       size="lg"
                       className="min-h-[44px] gap-2"
-                      onClick={() => (window.location.href = "/api/auth/gmail")}
+                      disabled={emailTableNotCreated}
+                      title={
+                        emailTableNotCreated
+                          ? "Run the SQL migration in Supabase first"
+                          : undefined
+                      }
+                      onClick={() => {
+                        if (!emailTableNotCreated) window.location.href = "/api/auth/gmail"
+                      }}
                     >
                       <svg className="size-4" viewBox="0 0 24 24">
                         <path
@@ -598,13 +620,22 @@ export default function SettingsPage() {
                           d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                         />
                       </svg>
-                      Add Gmail
+                      {emailAccounts.length > 0 ? "Add Gmail" : "Connect Gmail"}
                     </Button>
                     <Button
+                      type="button"
                       variant="outline"
                       size="lg"
                       className="min-h-[44px] gap-2"
-                      onClick={() => (window.location.href = "/api/auth/outlook")}
+                      disabled={emailTableNotCreated}
+                      title={
+                        emailTableNotCreated
+                          ? "Run the SQL migration in Supabase first"
+                          : undefined
+                      }
+                      onClick={() => {
+                        if (!emailTableNotCreated) window.location.href = "/api/auth/outlook"
+                      }}
                     >
                       <svg className="size-4" viewBox="0 0 24 24">
                         <path
@@ -612,9 +643,13 @@ export default function SettingsPage() {
                           d="M7.88 12.04q0 .45-.11.87-.1.41-.33.74-.22.33-.58.52-.37.2-.87.2t-.85-.2q-.35-.21-.57-.55-.22-.33-.33-.75-.1-.42-.1-.86t.1-.87q.1-.43.34-.76.22-.34.59-.54.36-.2.87-.2t.86.2q.35.21.57.55.22.34.31.77.1.43.1.88zM24 12v9.38q0 .46-.33.8-.33.32-.8.32H7.13q-.46 0-.8-.33-.32-.33-.32-.8V18H1q-.41 0-.7-.3-.3-.29-.3-.7V7q0-.41.3-.7.29-.3.7-.3h6.25V1.62q0-.46.33-.8.33-.32.8-.32h14.8q.46 0 .8.33.32.33.32.8V12zm-6 8.25V10.5H8.13v9.38z"
                         />
                       </svg>
-                      Add Outlook
+                      {emailAccounts.length > 0 ? "Add Outlook" : "Connect Outlook"}
                     </Button>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Requires GOOGLE_CLIENT_ID / MICROSOFT_CLIENT_ID (and secrets) in your deployment
+                    environment.
+                  </p>
                 </TabsContent>
                 <TabsContent value="smtp" className="mt-4 flex flex-col gap-4">
                   <p className="text-sm text-muted-foreground">
@@ -750,202 +785,34 @@ export default function SettingsPage() {
                     />
                     <Label htmlFor="ia-imap_use_tls">IMAP TLS</Label>
                   </div>
-                  <Button onClick={handleSaveSmtp} disabled={smtpSaving} size="lg" className="min-h-[44px]">
+                  <Button
+                    onClick={handleSaveSmtp}
+                    disabled={smtpSaving || emailTableNotCreated}
+                    size="lg"
+                    className="min-h-[44px]"
+                  >
                     {smtpSaving ? "Saving..." : "Save SMTP / IMAP"}
                   </Button>
                 </TabsContent>
               </Tabs>
 
               {emailMessage && (
-                <p className="text-sm text-green-500">{emailMessage}</p>
-              )}
-            </div>
-          ) : (
-            <Tabs defaultValue="oauth" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="oauth">Gmail / Outlook</TabsTrigger>
-                <TabsTrigger value="smtp">SMTP Settings</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="oauth" className="mt-4 flex flex-col gap-4">
-                <p className="text-sm text-muted-foreground">
-                  Connect your Gmail or Outlook account to send emails directly from your personal email address.
-                </p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="min-h-[44px] gap-2"
-                    onClick={() => window.location.href = "/api/auth/gmail"}
-                  >
-                    <svg className="size-4" viewBox="0 0 24 24"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                    Connect Gmail
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="min-h-[44px] gap-2"
-                    onClick={() => window.location.href = "/api/auth/outlook"}
-                  >
-                    <svg className="size-4" viewBox="0 0 24 24"><path fill="currentColor" d="M7.88 12.04q0 .45-.11.87-.1.41-.33.74-.22.33-.58.52-.37.2-.87.2t-.85-.2q-.35-.21-.57-.55-.22-.33-.33-.75-.1-.42-.1-.86t.1-.87q.1-.43.34-.76.22-.34.59-.54.36-.2.87-.2t.86.2q.35.21.57.55.22.34.31.77.1.43.1.88zM24 12v9.38q0 .46-.33.8-.33.32-.8.32H7.13q-.46 0-.8-.33-.32-.33-.32-.8V18H1q-.41 0-.7-.3-.3-.29-.3-.7V7q0-.41.3-.7.29-.3.7-.3h6.25V1.62q0-.46.33-.8.33-.32.8-.32h14.8q.46 0 .8.33.32.33.32.8V12zm-6 8.25V10.5H8.13v9.38z"/></svg>
-                    Connect Outlook
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Note: Gmail/Outlook OAuth requires setting up GOOGLE_CLIENT_ID/MICROSOFT_CLIENT_ID environment variables.
-                </p>
-              </TabsContent>
-              
-              <TabsContent value="smtp" className="mt-4 flex flex-col gap-4">
-                <p className="text-sm text-muted-foreground">
-                  Configure custom SMTP settings if you prefer to use your own mail server.
-                </p>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="smtp_host">SMTP Host</Label>
-                    <Input
-                      id="smtp_host"
-                      placeholder="smtp.gmail.com"
-                      value={smtpForm.smtp_host}
-                      onChange={e => setSmtpForm(f => ({ ...f, smtp_host: e.target.value }))}
-                      className="min-h-[44px]"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="smtp_port">Port</Label>
-                    <Input
-                      id="smtp_port"
-                      placeholder="587"
-                      value={smtpForm.smtp_port}
-                      onChange={e => setSmtpForm(f => ({ ...f, smtp_port: e.target.value }))}
-                      className="min-h-[44px]"
-                    />
-                  </div>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="smtp_username">Username</Label>
-                    <Input
-                      id="smtp_username"
-                      placeholder="your@email.com"
-                      value={smtpForm.smtp_username}
-                      onChange={e => setSmtpForm(f => ({ ...f, smtp_username: e.target.value }))}
-                      className="min-h-[44px]"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="smtp_password">Password</Label>
-                    <Input
-                      id="smtp_password"
-                      type="password"
-                      placeholder="App password"
-                      value={smtpForm.smtp_password}
-                      onChange={e => setSmtpForm(f => ({ ...f, smtp_password: e.target.value }))}
-                      className="min-h-[44px]"
-                    />
-                  </div>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="smtp_from_email">From Email</Label>
-                    <Input
-                      id="smtp_from_email"
-                      placeholder="your@email.com"
-                      value={smtpForm.smtp_from_email}
-                      onChange={e => setSmtpForm(f => ({ ...f, smtp_from_email: e.target.value }))}
-                      className="min-h-[44px]"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="smtp_from_name">From Name</Label>
-                    <Input
-                      id="smtp_from_name"
-                      placeholder="Your Name"
-                      value={smtpForm.smtp_from_name}
-                      onChange={e => setSmtpForm(f => ({ ...f, smtp_from_name: e.target.value }))}
-                      className="min-h-[44px]"
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id="smtp_use_tls"
-                    checked={smtpForm.smtp_use_tls}
-                    onCheckedChange={checked => setSmtpForm(f => ({ ...f, smtp_use_tls: checked }))}
-                  />
-                  <Label htmlFor="smtp_use_tls">Use TLS/STARTTLS (SMTP)</Label>
-                </div>
-
-                <Separator />
-                <p className="text-sm font-medium text-foreground">IMAP (unified inbox)</p>
-                <p className="text-xs text-muted-foreground">
-                  Required to load inbox for this SMTP account. Often the same host as SMTP with port 993.
-                </p>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="imap_host">IMAP Host</Label>
-                    <Input
-                      id="imap_host"
-                      placeholder="imap.gmail.com"
-                      value={smtpForm.imap_host}
-                      onChange={e => setSmtpForm(f => ({ ...f, imap_host: e.target.value }))}
-                      className="min-h-[44px]"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="imap_port">IMAP Port</Label>
-                    <Input
-                      id="imap_port"
-                      placeholder="993"
-                      value={smtpForm.imap_port}
-                      onChange={e => setSmtpForm(f => ({ ...f, imap_port: e.target.value }))}
-                      className="min-h-[44px]"
-                    />
-                  </div>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="imap_username">IMAP Username</Label>
-                    <Input
-                      id="imap_username"
-                      placeholder="Leave blank to use SMTP username"
-                      value={smtpForm.imap_username}
-                      onChange={e => setSmtpForm(f => ({ ...f, imap_username: e.target.value }))}
-                      className="min-h-[44px]"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="imap_password">IMAP Password</Label>
-                    <Input
-                      id="imap_password"
-                      type="password"
-                      placeholder="Leave blank to use SMTP password"
-                      value={smtpForm.imap_password}
-                      onChange={e => setSmtpForm(f => ({ ...f, imap_password: e.target.value }))}
-                      className="min-h-[44px]"
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id="imap_use_tls"
-                    checked={smtpForm.imap_use_tls}
-                    onCheckedChange={checked => setSmtpForm(f => ({ ...f, imap_use_tls: checked }))}
-                  />
-                  <Label htmlFor="imap_use_tls">IMAP TLS</Label>
-                </div>
-
-                <Button onClick={handleSaveSmtp} disabled={smtpSaving} size="lg" className="min-h-[44px]">
-                  {smtpSaving ? "Saving..." : "Save SMTP Settings"}
-                </Button>
-              </TabsContent>
-              
-              {emailMessage && (
-                <p className={`text-sm ${emailMessage.includes("success") ? "text-green-500" : "text-destructive"}`}>
+                <p
+                  className={`text-sm ${
+                    emailMessage.includes("success") ||
+                    emailMessage.includes("Saved") ||
+                    emailMessage.includes("connected") ||
+                    emailMessage.includes("removed") ||
+                    emailMessage.includes("enabled") ||
+                    emailMessage.includes("disabled")
+                      ? "text-green-500"
+                      : "text-destructive"
+                  }`}
+                >
                   {emailMessage}
                 </p>
               )}
-            </Tabs>
+            </>
           )}
         </CardContent>
       </Card>

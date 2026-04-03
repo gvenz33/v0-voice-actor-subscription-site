@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import Stripe from "stripe"
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-02-24.acacia",
-})
+import { getStripe } from "@/lib/stripe"
 
 export async function POST() {
   try {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return NextResponse.json(
+        { error: "Stripe is not configured on this deployment." },
+        { status: 503 }
+      )
+    }
+
+    const stripe = getStripe()
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 

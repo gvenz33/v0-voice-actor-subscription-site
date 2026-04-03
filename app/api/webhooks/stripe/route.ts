@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { stripe } from '@/lib/stripe'
+import { getStripe } from '@/lib/stripe'
 import { addPurchasedTokens } from '@/lib/ai-limits'
 import Stripe from 'stripe'
 import { createClient } from '@/lib/supabase/server'
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     // If STRIPE_WEBHOOK_SECRET is set, verify the signature
     // Otherwise, parse the event directly (for testing)
     if (process.env.STRIPE_WEBHOOK_SECRET) {
-      event = stripe.webhooks.constructEvent(
+      event = getStripe().webhooks.constructEvent(
         body,
         signature,
         process.env.STRIPE_WEBHOOK_SECRET

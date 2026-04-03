@@ -1,6 +1,6 @@
 'use server'
 
-import { stripe } from '@/lib/stripe'
+import { getStripe } from '@/lib/stripe'
 import { PRODUCTS, getProductPrice } from '@/lib/products'
 import { TOKEN_PACKAGES } from '@/lib/token-products'
 import { createClient } from '@/lib/supabase/server'
@@ -18,7 +18,7 @@ export async function startCheckoutSession(
   const priceInCents = getProductPrice(product, billingInterval)
   const intervalLabel = billingInterval === 'year' ? 'Annual' : 'Monthly'
 
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     ui_mode: 'embedded',
     redirect_on_completion: 'never',
     metadata: {
@@ -61,7 +61,7 @@ export async function startTokenCheckoutSession(packageId: string) {
     throw new Error(`Package with id "${packageId}" not found`)
   }
 
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     ui_mode: 'embedded',
     redirect_on_completion: 'never',
     line_items: [
