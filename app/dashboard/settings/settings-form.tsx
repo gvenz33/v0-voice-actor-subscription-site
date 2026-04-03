@@ -400,8 +400,7 @@ export function SettingsForm() {
           Settings
         </h2>
         <p className="text-sm text-muted-foreground">
-          Email connection is the first section below. Then update your profile, plan, calendar, and
-          signature.
+          Profile and subscription first, then email (Gmail, Microsoft 365, SMTP), calendar, and signature.
         </p>
       </div>
 
