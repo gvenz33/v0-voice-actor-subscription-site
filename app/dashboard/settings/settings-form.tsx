@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
+import { useState, useEffect, useCallback, Suspense } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { OAuthCallbackMessages } from "./oauth-callback-messages"
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from "@/components/ui/card"
@@ -59,7 +59,6 @@ interface CalendarSourceRow {
 }
 
 export function SettingsForm() {
-  const searchParams = useSearchParams()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [email, setEmail] = useState("")
   const [saving, setSaving] = useState(false)
@@ -134,10 +133,14 @@ export function SettingsForm() {
         if (!res.ok) {
           if (res.status === 401) {
             setEmailMessage("Sign in again to load email settings.")
+            setEmailTableNotCreated(false)
           } else if (data.tableNotCreated) {
             setEmailTableNotCreated(true)
           } else if (data.error) {
             setEmailMessage(data.error)
+            setEmailTableNotCreated(false)
+          } else {
+            setEmailTableNotCreated(false)
           }
           return
         }
@@ -187,30 +190,29 @@ export function SettingsForm() {
     setSignatureLoading(false)
   }, [])
 
-  // Handle OAuth success/error messages
-  useEffect(() => {
-    const success = searchParams.get("success")
-    const error = searchParams.get("error")
-    if (success === "gmail_connected") {
-      setEmailMessage("Gmail connected successfully!")
-      fetch("/api/email-config", { credentials: "same-origin", cache: "no-store" })
-        .then((res) => res.json())
-        .then((data) => {
-          setEmailConfig(data.config)
-          setEmailAccounts(data.accounts ?? [])
-        })
-    } else if (success === "outlook_connected") {
-      setEmailMessage("Outlook connected successfully!")
-      fetch("/api/email-config", { credentials: "same-origin", cache: "no-store" })
-        .then((res) => res.json())
-        .then((data) => {
-          setEmailConfig(data.config)
-          setEmailAccounts(data.accounts ?? [])
-        })
-    } else if (error) {
-      setEmailMessage(`Connection failed: ${error.replace(/_/g, " ")}`)
-    }
-  }, [searchParams])
+  const onGmailConnected = useCallback(() => {
+    setEmailMessage("Gmail connected successfully!")
+    void fetch("/api/email-config", { credentials: "same-origin", cache: "no-store" })
+      .then((res) => res.json())
+      .then((data: { config?: EmailConfig | null; accounts?: EmailAccountRow[] }) => {
+        setEmailConfig(data.config ?? null)
+        setEmailAccounts(data.accounts ?? [])
+      })
+  }, [])
+
+  const onOutlookConnected = useCallback(() => {
+    setEmailMessage("Outlook connected successfully!")
+    void fetch("/api/email-config", { credentials: "same-origin", cache: "no-store" })
+      .then((res) => res.json())
+      .then((data: { config?: EmailConfig | null; accounts?: EmailAccountRow[] }) => {
+        setEmailConfig(data.config ?? null)
+        setEmailAccounts(data.accounts ?? [])
+      })
+  }, [])
+
+  const onOAuthError = useCallback((message: string) => {
+    setEmailMessage(message)
+  }, [])
 
   const handleSaveSmtp = async () => {
     setSmtpSaving(true)
@@ -387,6 +389,13 @@ export function SettingsForm() {
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
+      <Suspense fallback={null}>
+        <OAuthCallbackMessages
+          onGmailConnected={onGmailConnected}
+          onOutlookConnected={onOutlookConnected}
+          onOAuthError={onOAuthError}
+        />
+      </Suspense>
       <div>
         <h2 className="font-[family-name:var(--font-heading)] text-2xl font-bold tracking-tight text-foreground">
           Settings
@@ -521,12 +530,16 @@ export function SettingsForm() {
               <p className="text-sm font-medium text-foreground">
                 {emailAccounts.length > 0 ? "Add or update accounts" : "Connect email"}
               </p>
-              <Tabs defaultValue="oauth" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="oauth">Gmail / Outlook</TabsTrigger>
-                  <TabsTrigger value="smtp">SMTP / IMAP</TabsTrigger>
+              <Tabs defaultValue="oauth" className="w-full min-h-[14rem]">
+                <TabsList className="grid h-auto min-h-11 w-full grid-cols-2 gap-1 bg-muted/60 p-1">
+                  <TabsTrigger value="oauth" className="text-sm sm:text-base">
+                    Gmail / Outlook
+                  </TabsTrigger>
+                  <TabsTrigger value="smtp" className="text-sm sm:text-base">
+                    SMTP / IMAP
+                  </TabsTrigger>
                 </TabsList>
-                <TabsContent value="oauth" className="mt-4 flex flex-col gap-4">
+                <TabsContent value="oauth" className="mt-4 flex flex-col gap-4 data-[state=inactive]:hidden">
                   <p className="text-sm text-muted-foreground">
                     Connect Google Gmail or Microsoft 365 / Outlook. Reconnect after upgrading scopes if
                     you already linked an account.
@@ -596,7 +609,7 @@ export function SettingsForm() {
                     environment.
                   </p>
                 </TabsContent>
-                <TabsContent value="smtp" className="mt-4 flex flex-col gap-4">
+                <TabsContent value="smtp" className="mt-4 flex flex-col gap-4 data-[state=inactive]:hidden">
                   <p className="text-sm text-muted-foreground">
                     Add or update SMTP + IMAP for sending and unified inbox.
                   </p>
