@@ -418,12 +418,14 @@ export function SettingsForm() {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          {emailConfigLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          {emailConfigLoading && (
+            <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+              <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+              Loading your saved connections… Gmail and Microsoft buttons below stay visible; they unlock after this
+              finishes.
             </div>
-          ) : (
-            <>
+          )}
+          <>
               {emailTableNotCreated && (
                 <div className="flex flex-col gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
                   <div className="flex items-center gap-2">
@@ -465,10 +467,11 @@ export function SettingsForm() {
 
               <div className="flex flex-col gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-foreground">Gmail &amp; Microsoft 365 (OAuth)</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Google Gmail &amp; Microsoft 365 (Outlook)</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Always visible—no tab to switch. Add each Google or Microsoft account with one click. Reconnect if we
-                    upgraded OAuth scopes.
+                    This is your <span className="font-medium text-foreground">email mailbox</span> (Gmail and Outlook /
+                    Office 365)—not Google Gemini AI. Add each account with one click. Reconnect if OAuth scopes were
+                    upgraded.
                   </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -476,18 +479,22 @@ export function SettingsForm() {
                     type="button"
                     variant="outline"
                     size="lg"
-                    className="min-h-[44px] gap-2 border-2"
-                    disabled={emailTableNotCreated}
+                    className="min-h-[44px] gap-2 border-2 border-foreground/20 bg-background disabled:opacity-70"
+                    disabled={emailConfigLoading || emailTableNotCreated}
                     title={
-                      emailTableNotCreated
-                        ? "Run the SQL migration in Supabase first"
-                        : undefined
+                      emailConfigLoading
+                        ? "Wait for connections to finish loading"
+                        : emailTableNotCreated
+                          ? "Run the SQL migration in Supabase first"
+                          : undefined
                     }
                     onClick={() => {
-                      if (!emailTableNotCreated) window.location.href = "/api/auth/gmail"
+                      if (!emailConfigLoading && !emailTableNotCreated) {
+                        window.location.href = "/api/auth/gmail"
+                      }
                     }}
                   >
-                    <svg className="size-4" viewBox="0 0 24 24">
+                    <svg className="size-4" viewBox="0 0 24 24" aria-hidden>
                       <path
                         fill="currentColor"
                         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -505,34 +512,40 @@ export function SettingsForm() {
                         d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                       />
                     </svg>
-                    {emailAccounts.length > 0 ? "Add Gmail" : "Connect Gmail"}
+                    {emailAccounts.length > 0 ? "Add Google Gmail" : "Connect Google Gmail"}
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
                     size="lg"
-                    className="min-h-[44px] gap-2 border-2"
-                    disabled={emailTableNotCreated}
+                    className="min-h-[44px] gap-2 border-2 border-foreground/20 bg-background disabled:opacity-70"
+                    disabled={emailConfigLoading || emailTableNotCreated}
                     title={
-                      emailTableNotCreated
-                        ? "Run the SQL migration in Supabase first"
-                        : undefined
+                      emailConfigLoading
+                        ? "Wait for connections to finish loading"
+                        : emailTableNotCreated
+                          ? "Run the SQL migration in Supabase first"
+                          : undefined
                     }
                     onClick={() => {
-                      if (!emailTableNotCreated) window.location.href = "/api/auth/outlook"
+                      if (!emailConfigLoading && !emailTableNotCreated) {
+                        window.location.href = "/api/auth/outlook"
+                      }
                     }}
                   >
-                    <svg className="size-4" viewBox="0 0 24 24">
+                    <svg className="size-4" viewBox="0 0 24 24" aria-hidden>
                       <path
                         fill="currentColor"
                         d="M7.88 12.04q0 .45-.11.87-.1.41-.33.74-.22.33-.58.52-.37.2-.87.2t-.85-.2q-.35-.21-.57-.55-.22-.33-.33-.75-.1-.42-.1-.86t.1-.87q.1-.43.34-.76.22-.34.59-.54.36-.2.87-.2t.86.2q.35.21.57.55.22.34.31.77.1.43.1.88zM24 12v9.38q0 .46-.33.8-.33.32-.8.32H7.13q-.46 0-.8-.33-.32-.33-.32-.8V18H1q-.41 0-.7-.3-.3-.29-.3-.7V7q0-.41.3-.7.29-.3.7-.3h6.25V1.62q0-.46.33-.8.33-.32.8-.32h14.8q.46 0 .8.33.32.33.32.8V12zm-6 8.25V10.5H8.13v9.38z"
                       />
                     </svg>
-                    {emailAccounts.length > 0 ? "Add Outlook" : "Connect Outlook"}
+                    {emailAccounts.length > 0 ? "Add Microsoft 365" : "Connect Microsoft 365 (Outlook)"}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Requires GOOGLE_CLIENT_ID / MICROSOFT_CLIENT_ID (and secrets) on the server.
+                  Server env: <code className="rounded bg-muted px-1">GOOGLE_CLIENT_ID</code>,{" "}
+                  <code className="rounded bg-muted px-1">MICROSOFT_CLIENT_ID</code>, and their secrets (required for
+                  OAuth).
                 </p>
               </div>
 
@@ -767,7 +780,7 @@ export function SettingsForm() {
                   </div>
                   <Button
                     onClick={handleSaveSmtp}
-                    disabled={smtpSaving || emailTableNotCreated}
+                    disabled={smtpSaving || emailTableNotCreated || emailConfigLoading}
                     size="lg"
                     className="min-h-[44px]"
                   >
@@ -791,8 +804,7 @@ export function SettingsForm() {
                   {emailMessage}
                 </p>
               )}
-            </>
-          )}
+          </>
         </CardContent>
       </Card>
 
