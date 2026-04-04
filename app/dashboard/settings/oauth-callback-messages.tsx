@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { useSearchParams } from "next/navigation"
+import { MAX_EMAIL_ACCOUNTS_PER_USER } from "@/lib/email-account-limits"
 
 /**
  * Reads OAuth redirect query params. Kept separate so the parent settings UI
@@ -26,7 +27,13 @@ export function OAuthCallbackMessages({
     } else if (success === "outlook_connected") {
       onOutlookConnected()
     } else if (error) {
-      onOAuthError(`Connection failed: ${error.replace(/_/g, " ")}`)
+      if (error === "max_email_accounts") {
+        onOAuthError(
+          `You can connect up to ${MAX_EMAIL_ACCOUNTS_PER_USER} mailboxes. Disconnect one to add another.`
+        )
+      } else {
+        onOAuthError(`Connection failed: ${error.replace(/_/g, " ")}`)
+      }
     }
   }, [searchParams, onGmailConnected, onOutlookConnected, onOAuthError])
 

@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import {
+  countEmailAccountsForUser,
+  MAX_EMAIL_ACCOUNTS_PER_USER,
+} from "@/lib/email-account-limits"
 
 const MICROSOFT_CLIENT_ID = process.env.MICROSOFT_CLIENT_ID
 const MICROSOFT_CLIENT_SECRET = process.env.MICROSOFT_CLIENT_SECRET
@@ -103,6 +107,12 @@ export async function GET(req: Request) {
         return NextResponse.redirect(new URL("/dashboard/settings?error=outlook_save_failed", req.url))
       }
     } else {
+      const n = await countEmailAccountsForUser(supabase, user.id)
+      if (n >= MAX_EMAIL_ACCOUNTS_PER_USER) {
+        return NextResponse.redirect(
+          new URL("/dashboard/settings?error=max_email_accounts", req.url)
+        )
+      }
       const { error: dbError } = await supabase.from("email_accounts").insert({
         user_id: user.id,
         ...baseUpdate,

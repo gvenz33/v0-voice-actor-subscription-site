@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import {
+  countEmailAccountsForUser,
+  MAX_EMAIL_ACCOUNTS_PER_USER,
+} from "@/lib/email-account-limits"
 
 async function tableExists(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -36,7 +40,7 @@ export async function GET() {
   const { data: accounts, error: accErr } = await supabase
     .from("email_accounts")
     .select(
-      "id, provider, label, oauth_email, smtp_host, smtp_from_email, smtp_from_name, bcc_self, is_default_for_send, imap_host, imap_port, imap_username"
+      "id, provider, label, oauth_email, smtp_host, smtp_port, smtp_username, smtp_from_email, smtp_from_name, smtp_use_tls, bcc_self, is_default_for_send, imap_host, imap_port, imap_username, imap_use_tls"
     )
     .eq("user_id", user.id)
     .order("created_at", { ascending: true })
@@ -129,22 +133,32 @@ export async function POST(req: Request) {
     const port = parseInt(String(smtp_port), 10) || 587
     const imapPort = imap_port ? parseInt(String(imap_port), 10) : null
 
-    const smtpPayload = {
+    const smtpPayload: Record<string, unknown> = {
       provider: "smtp" as const,
       smtp_host,
       smtp_port: port,
       smtp_username,
-      smtp_password,
       smtp_from_email,
       smtp_from_name,
       smtp_use_tls: smtp_use_tls !== false,
       imap_host: imap_host || null,
       imap_port: imapPort,
       imap_username: imap_username || null,
-      imap_password: imap_password || null,
       imap_use_tls: imap_use_tls !== false,
-      bcc_self: bcc_self === true,
       updated_at: new Date().toISOString(),
+    }
+    if (typeof bcc_self === "boolean") {
+      smtpPayload.bcc_self = bcc_self
+    }
+    const smtpPwd = String(smtp_password ?? "").trim()
+    const imapPwd = String(imap_password ?? "").trim()
+    if (smtpPwd) {
+      smtpPayload.smtp_password = smtp_password
+    }
+    if (imapPwd) {
+      smtpPayload.imap_password = imap_password
+    } else if (smtpPwd) {
+      smtpPayload.imap_password = imap_password || smtp_password
     }
 
     if (account_id) {
@@ -162,26 +176,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true })
     }
 
-    const { data: existingSmtp } = await supabase
-      .from("email_accounts")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("provider", "smtp")
-      .limit(1)
-      .maybeSingle()
+    const total = await countEmailAccountsForUser(supabase, user.id)
+    if (total >= MAX_EMAIL_ACCOUNTS_PER_USER) {
+      return NextResponse.json(
+        {
+          error: `You can connect up to ${MAX_EMAIL_ACCOUNTS_PER_USER} mailboxes. Disconnect one to add another.`,
+          code: "max_email_accounts",
+        },
+        { status: 400 }
+      )
+    }
 
-    if (existingSmtp?.id) {
-      const { error } = await supabase
-        .from("email_accounts")
-        .update(smtpPayload)
-        .eq("id", existingSmtp.id)
-        .eq("user_id", user.id)
-
-      if (error) {
-        console.error("Error updating SMTP account:", error)
-        return NextResponse.json({ error: "Failed to save SMTP settings" }, { status: 500 })
-      }
-      return NextResponse.json({ success: true })
+    if (!smtpPwd) {
+      return NextResponse.json(
+        { error: "SMTP password is required when adding a new mailbox." },
+        { status: 400 }
+      )
     }
 
     const { data: hasDefault } = await supabase
@@ -191,11 +201,18 @@ export async function POST(req: Request) {
       .eq("is_default_for_send", true)
       .maybeSingle()
 
-    const { error } = await supabase.from("email_accounts").insert({
+    const insertPayload = {
       user_id: user.id,
       ...smtpPayload,
+      smtp_password: smtpPwd ? smtp_password : null,
+      imap_password:
+        imapPwd || smtpPwd
+          ? imap_password || smtp_password
+          : null,
       is_default_for_send: !hasDefault,
-    })
+    } as Record<string, unknown>
+
+    const { error } = await supabase.from("email_accounts").insert(insertPayload)
 
     if (error) {
       console.error("Error inserting SMTP account:", error)

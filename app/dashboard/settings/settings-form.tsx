@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback, Suspense } from "react"
+import { useState, useEffect, useCallback, useMemo, Suspense } from "react"
+import { MAX_EMAIL_ACCOUNTS_PER_USER } from "@/lib/email-account-limits"
 import { createClient } from "@/lib/supabase/client"
 import { OAuthCallbackMessages } from "./oauth-callback-messages"
 import {
@@ -41,13 +42,17 @@ interface EmailAccountRow {
   label: string | null
   oauth_email: string | null
   smtp_host: string | null
+  smtp_port?: number | null
+  smtp_username?: string | null
   smtp_from_email: string | null
   smtp_from_name: string | null
+  smtp_use_tls?: boolean
   bcc_self?: boolean
   is_default_for_send?: boolean
   imap_host?: string | null
   imap_port?: number | null
   imap_username?: string | null
+  imap_use_tls?: boolean
 }
 
 interface CalendarSourceRow {
@@ -102,6 +107,49 @@ export function SettingsForm() {
   const [signatureSaving, setSignatureSaving] = useState(false)
   const [signatureMessage, setSignatureMessage] = useState("")
 
+  const smtpAccountsOnly = useMemo(
+    () => emailAccounts.filter((a) => a.provider === "smtp"),
+    [emailAccounts]
+  )
+
+  const applySmtpAccountToForm = useCallback((acc: EmailAccountRow | "new") => {
+    if (acc === "new") {
+      setSmtpForm((f) => ({
+        ...f,
+        smtp_account_id: "",
+        smtp_host: "",
+        smtp_port: "587",
+        smtp_username: "",
+        smtp_password: "",
+        smtp_from_email: "",
+        smtp_from_name: "",
+        smtp_use_tls: true,
+        imap_host: "",
+        imap_port: "993",
+        imap_username: "",
+        imap_password: "",
+        imap_use_tls: true,
+      }))
+      return
+    }
+    setSmtpForm((f) => ({
+      ...f,
+      smtp_account_id: acc.id,
+      smtp_host: acc.smtp_host ?? "",
+      smtp_port: acc.smtp_port != null ? String(acc.smtp_port) : "587",
+      smtp_username: acc.smtp_username ?? "",
+      smtp_password: "",
+      smtp_from_email: acc.smtp_from_email ?? "",
+      smtp_from_name: acc.smtp_from_name ?? "",
+      smtp_use_tls: acc.smtp_use_tls !== false,
+      imap_host: acc.imap_host ?? "",
+      imap_port: acc.imap_port != null ? String(acc.imap_port) : "993",
+      imap_username: acc.imap_username ?? "",
+      imap_password: "",
+      imap_use_tls: acc.imap_use_tls !== false,
+    }))
+  }, [])
+
   useEffect(() => {
     async function load() {
       const supabase = createClient()
@@ -147,20 +195,15 @@ export function SettingsForm() {
         setEmailAccounts(data.accounts ?? [])
         setCalendarSources(data.calendarSources ?? [])
         setEmailTableNotCreated(data.tableNotCreated === true)
-        const smtpAcc = (data.accounts ?? []).find(
+        const smtpList = (data.accounts ?? []).filter(
           (a: EmailAccountRow) => a.provider === "smtp"
         )
+        const smtpAcc =
+          smtpList.find((a) => a.is_default_for_send) ?? smtpList[0]
         if (smtpAcc) {
-          setSmtpForm((f) => ({
-            ...f,
-            smtp_account_id: smtpAcc.id,
-            smtp_host: smtpAcc.smtp_host ?? "",
-            smtp_from_email: smtpAcc.smtp_from_email ?? "",
-            smtp_from_name: smtpAcc.smtp_from_name ?? "",
-            imap_host: smtpAcc.imap_host ?? "",
-            imap_port: smtpAcc.imap_port ? String(smtpAcc.imap_port) : "993",
-            imap_username: smtpAcc.imap_username ?? "",
-          }))
+          applySmtpAccountToForm(smtpAcc)
+        } else {
+          applySmtpAccountToForm("new")
         }
         const cal = (data.calendarSources ?? [])[0] as CalendarSourceRow | undefined
         if (cal) {
@@ -180,7 +223,7 @@ export function SettingsForm() {
       }
     }
     loadEmailConfig()
-  }, [])
+  }, [applySmtpAccountToForm])
 
   // Load signature from localStorage
   useEffect(() => {
@@ -242,9 +285,23 @@ export function SettingsForm() {
         const configRes = await fetch("/api/email-config")
         const data = await configRes.json()
         setEmailConfig(data.config)
-        setEmailAccounts(data.accounts ?? [])
+        const accounts = (data.accounts ?? []) as EmailAccountRow[]
+        setEmailAccounts(accounts)
+        const smtpList = accounts.filter((a) => a.provider === "smtp")
+        const picked =
+          smtpList.find((a) => a.id === smtpForm.smtp_account_id) ??
+          smtpList.find((a) => a.is_default_for_send) ??
+          smtpList[smtpList.length - 1]
+        if (picked) {
+          applySmtpAccountToForm(picked)
+        } else {
+          applySmtpAccountToForm("new")
+        }
       } else {
-        setEmailMessage("Failed to save SMTP settings.")
+        const errData = (await res.json().catch(() => ({}))) as {
+          error?: string
+        }
+        setEmailMessage(errData.error || "Failed to save SMTP settings.")
       }
     } catch {
       setEmailMessage("Failed to save SMTP settings.")
@@ -262,7 +319,16 @@ export function SettingsForm() {
       const configRes = await fetch("/api/email-config")
       const data = await configRes.json()
       setEmailConfig(data.config)
-      setEmailAccounts(data.accounts ?? [])
+      const accounts = (data.accounts ?? []) as EmailAccountRow[]
+      setEmailAccounts(accounts)
+      const smtpList = accounts.filter((a) => a.provider === "smtp")
+      const picked =
+        smtpList.find((a) => a.is_default_for_send) ?? smtpList[0]
+      if (picked) {
+        applySmtpAccountToForm(picked)
+      } else {
+        applySmtpAccountToForm("new")
+      }
       setEmailMessage("Account disconnected.")
     } catch {
       setEmailMessage("Failed to disconnect.")
@@ -442,18 +508,24 @@ export function SettingsForm() {
                 </div>
               )}
 
-              <p className="text-sm font-medium text-foreground">
-                {emailAccounts.length > 0 ? "Add another mailbox" : "Connect your first mailbox"}
-              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-medium text-foreground">
+                  {emailAccounts.length > 0 ? "Add another mailbox" : "Connect your first mailbox"}
+                </p>
+                <Badge variant="outline" className="text-xs font-normal">
+                  {emailAccounts.length} / {MAX_EMAIL_ACCOUNTS_PER_USER} mailboxes
+                </Badge>
+              </div>
 
               <div className="flex flex-col gap-3 rounded-lg border border-[oklch(0.55_0.22_295_/_0.35)] bg-[oklch(0.55_0.22_295_/_0.08)] p-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <p className="font-semibold text-foreground">Unified inbox (multi-account)</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Like VoFlow: sync several Gmail and Microsoft 365 accounts into one inbox (recommended up to four).
-                      Messages show together on Inbox; you can keep SMTP for providers that need app passwords.
-                    </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Like Outlook on Windows: Gmail and Microsoft 365 use OAuth below; Yahoo and custom hosts use SMTP/IMAP
+                    farther down. An active SMTP mailbox does not block adding Gmail or Microsoft—use both. Up to{" "}
+                    {MAX_EMAIL_ACCOUNTS_PER_USER} mailboxes total.
+                  </p>
                   </div>
                   <Button variant="secondary" size="sm" className="shrink-0 gap-1.5" asChild>
                     <Link href="/dashboard/inbox">
@@ -472,6 +544,11 @@ export function SettingsForm() {
                     Office 365)—not Google Gemini AI. Add each account with one click. Reconnect if OAuth scopes were
                     upgraded.
                   </p>
+                  {emailAccounts.length >= MAX_EMAIL_ACCOUNTS_PER_USER && (
+                    <p className="text-sm text-amber-600 dark:text-amber-500">
+                      Mailbox limit reached. Disconnect an account below to connect Gmail or Microsoft 365.
+                    </p>
+                  )}
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Button
@@ -479,16 +556,26 @@ export function SettingsForm() {
                     variant="outline"
                     size="lg"
                     className="min-h-[44px] gap-2 border-2 border-foreground/20 bg-background disabled:opacity-70"
-                    disabled={emailConfigLoading || emailTableNotCreated}
+                    disabled={
+                      emailConfigLoading ||
+                      emailTableNotCreated ||
+                      emailAccounts.length >= MAX_EMAIL_ACCOUNTS_PER_USER
+                    }
                     title={
                       emailConfigLoading
                         ? "Wait for connections to finish loading"
                         : emailTableNotCreated
                           ? "Run the SQL migration in Supabase first"
-                          : undefined
+                          : emailAccounts.length >= MAX_EMAIL_ACCOUNTS_PER_USER
+                            ? "Disconnect a mailbox to add another"
+                            : undefined
                     }
                     onClick={() => {
-                      if (!emailConfigLoading && !emailTableNotCreated) {
+                      if (
+                        !emailConfigLoading &&
+                        !emailTableNotCreated &&
+                        emailAccounts.length < MAX_EMAIL_ACCOUNTS_PER_USER
+                      ) {
                         window.location.href = "/api/auth/gmail"
                       }
                     }}
@@ -518,16 +605,26 @@ export function SettingsForm() {
                     variant="outline"
                     size="lg"
                     className="min-h-[44px] gap-2 border-2 border-foreground/20 bg-background disabled:opacity-70"
-                    disabled={emailConfigLoading || emailTableNotCreated}
+                    disabled={
+                      emailConfigLoading ||
+                      emailTableNotCreated ||
+                      emailAccounts.length >= MAX_EMAIL_ACCOUNTS_PER_USER
+                    }
                     title={
                       emailConfigLoading
                         ? "Wait for connections to finish loading"
                         : emailTableNotCreated
                           ? "Run the SQL migration in Supabase first"
-                          : undefined
+                          : emailAccounts.length >= MAX_EMAIL_ACCOUNTS_PER_USER
+                            ? "Disconnect a mailbox to add another"
+                            : undefined
                     }
                     onClick={() => {
-                      if (!emailConfigLoading && !emailTableNotCreated) {
+                      if (
+                        !emailConfigLoading &&
+                        !emailTableNotCreated &&
+                        emailAccounts.length < MAX_EMAIL_ACCOUNTS_PER_USER
+                      ) {
                         window.location.href = "/api/auth/outlook"
                       }
                     }}
@@ -642,11 +739,52 @@ export function SettingsForm() {
 
               <div className="flex flex-col gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-foreground">SMTP / IMAP</h3>
+                  <h3 className="text-sm font-semibold text-foreground">SMTP / IMAP (multiple mailboxes)</h3>
                   <p className="text-sm text-muted-foreground">
-                    Add or update SMTP + IMAP for sending and the unified inbox when OAuth is not available.
+                    Add Yahoo, custom domains, or any host that gives you SMTP + IMAP credentials. Pick an existing SMTP
+                    row in the dropdown to edit it, or choose{" "}
+                    <span className="font-medium text-foreground">Add new SMTP…</span> and Save to create another mailbox.
+                    Password fields can stay blank when updating—only fill them to set or change the stored password.
                   </p>
                 </div>
+                {smtpAccountsOnly.length > 0 && (
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div className="flex flex-col gap-2 sm:max-w-md">
+                      <Label htmlFor="smtp-edit-pick">SMTP account to edit</Label>
+                      <Select
+                        value={smtpForm.smtp_account_id || "__new__"}
+                        onValueChange={(v) => {
+                          if (v === "__new__") {
+                            applySmtpAccountToForm("new")
+                          } else {
+                            const acc = smtpAccountsOnly.find((a) => a.id === v)
+                            if (acc) applySmtpAccountToForm(acc)
+                          }
+                        }}
+                      >
+                        <SelectTrigger id="smtp-edit-pick" className="min-h-[44px]">
+                          <SelectValue placeholder="Choose account" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {smtpAccountsOnly.map((a) => (
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.smtp_from_email || a.smtp_host || "SMTP account"}
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="__new__">+ Add new SMTP / Yahoo / IMAP mailbox</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="min-h-[44px] shrink-0"
+                      onClick={() => applySmtpAccountToForm("new")}
+                    >
+                      New SMTP mailbox form
+                    </Button>
+                  </div>
+                )}
                 <div className="grid gap-4 sm:grid-cols-2">
                     <div className="flex flex-col gap-2">
                       <Label htmlFor="ia-smtp_host">SMTP Host</Label>
@@ -777,9 +915,21 @@ export function SettingsForm() {
                     />
                     <Label htmlFor="ia-imap_use_tls">IMAP TLS</Label>
                   </div>
+                  {!smtpForm.smtp_account_id &&
+                    emailAccounts.length >= MAX_EMAIL_ACCOUNTS_PER_USER && (
+                      <p className="text-sm text-amber-600 dark:text-amber-500">
+                        Mailbox limit reached. Disconnect an account above to add another SMTP mailbox.
+                      </p>
+                    )}
                   <Button
                     onClick={handleSaveSmtp}
-                    disabled={smtpSaving || emailTableNotCreated || emailConfigLoading}
+                    disabled={
+                      smtpSaving ||
+                      emailTableNotCreated ||
+                      emailConfigLoading ||
+                      (!smtpForm.smtp_account_id &&
+                        emailAccounts.length >= MAX_EMAIL_ACCOUNTS_PER_USER)
+                    }
                     size="lg"
                     className="min-h-[44px]"
                   >
