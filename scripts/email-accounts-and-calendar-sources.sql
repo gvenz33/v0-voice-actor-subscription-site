@@ -1,5 +1,10 @@
 -- Multi-account email + optional CalDAV calendar sources (run in Supabase SQL Editor)
 -- Migrates legacy public.email_config (one row per user) into public.email_accounts.
+--
+-- IMPORTANT: Paste and run this ENTIRE file from line 1 through the final "end $$;".
+-- Do not run only the "do $$ ... end $$" block first — that block inserts into
+-- public.email_accounts, which must already exist (created above).
+-- Policies use DROP IF EXISTS so you can re-run the full script after a partial failure.
 
 create table if not exists public.email_accounts (
   id uuid primary key default gen_random_uuid(),
@@ -41,6 +46,11 @@ create unique index if not exists email_accounts_oauth_identity
 
 alter table public.email_accounts enable row level security;
 
+drop policy if exists "email_accounts_select_own" on public.email_accounts;
+drop policy if exists "email_accounts_insert_own" on public.email_accounts;
+drop policy if exists "email_accounts_update_own" on public.email_accounts;
+drop policy if exists "email_accounts_delete_own" on public.email_accounts;
+
 create policy "email_accounts_select_own" on public.email_accounts
   for select using (auth.uid() = user_id);
 create policy "email_accounts_insert_own" on public.email_accounts
@@ -67,6 +77,11 @@ create table if not exists public.calendar_sources (
 create index if not exists calendar_sources_user_id_idx on public.calendar_sources (user_id);
 
 alter table public.calendar_sources enable row level security;
+
+drop policy if exists "calendar_sources_select_own" on public.calendar_sources;
+drop policy if exists "calendar_sources_insert_own" on public.calendar_sources;
+drop policy if exists "calendar_sources_update_own" on public.calendar_sources;
+drop policy if exists "calendar_sources_delete_own" on public.calendar_sources;
 
 create policy "calendar_sources_select_own" on public.calendar_sources
   for select using (auth.uid() = user_id);
