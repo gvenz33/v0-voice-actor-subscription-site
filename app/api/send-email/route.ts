@@ -5,6 +5,32 @@ import { getEmailAccountForSend } from "@/lib/email-accounts-server"
 import { ensureGoogleAccessToken, ensureMicrosoftAccessToken } from "@/lib/email-tokens"
 import type { EmailAccountRow } from "@/lib/email-account-types"
 
+function smtpPort(row: EmailAccountRow): number {
+  const p = row.smtp_port
+  if (typeof p === "number" && Number.isFinite(p)) return p
+  const n = parseInt(String(p ?? ""), 10)
+  return Number.isFinite(n) && n > 0 ? n : 587
+}
+
+function createSmtpTransporter(row: EmailAccountRow) {
+  const port = smtpPort(row)
+  const secure = port === 465
+  const wantTls = row.smtp_use_tls !== false
+  return nodemailer.createTransport({
+    host: row.smtp_host ?? undefined,
+    port,
+    secure,
+    requireTLS: wantTls && !secure,
+    auth: {
+      user: row.smtp_username?.trim() || undefined,
+      pass: row.smtp_password || undefined,
+    },
+    tls: {
+      rejectUnauthorized: false,
+    },
+  })
+}
+
 export async function POST(req: Request) {
   const supabase = await createClient()
   const {
@@ -128,18 +154,25 @@ export async function POST(req: Request) {
     }
 
     if (row.provider === "smtp") {
-      const transporter = nodemailer.createTransport({
-        host: row.smtp_host ?? undefined,
-        port: row.smtp_port || 587,
-        secure: row.smtp_port === 465,
-        auth: {
-          user: row.smtp_username ?? undefined,
-          pass: row.smtp_password ?? undefined,
-        },
-        tls: {
-          rejectUnauthorized: false,
-        },
-      })
+      const user = row.smtp_username?.trim()
+      const hasPassword = String(row.smtp_password ?? "").trim().length > 0
+      if (!row.smtp_host?.trim()) {
+        return NextResponse.json(
+          { error: "SMTP host is missing. Open Settings and save your SMTP settings again." },
+          { status: 400 }
+        )
+      }
+      if (!user || !hasPassword) {
+        return NextResponse.json(
+          {
+            error:
+              "SMTP username or password is missing in your saved account. Open Settings → Email, select this SMTP mailbox, re-enter the password (app password for Gmail/Yahoo), and click Save.",
+          },
+          { status: 400 }
+        )
+      }
+
+      const transporter = createSmtpTransporter(row)
 
       const mailOptions: nodemailer.SendMailOptions = {
         from: row.smtp_from_name
@@ -168,11 +201,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unknown email provider" }, { status: 400 })
   } catch (err) {
     console.error("Send email error:", err)
-    return NextResponse.json(
-      {
-        error: err instanceof Error ? err.message : "Failed to send email",
-      },
-      { status: 500 }
-    )
+    const raw = err instanceof Error ? err.message : String(err)
+    let detail = raw
+    if (/535|Invalid login|authentication failed|bad credentials/i.test(raw)) {
+      detail = `${raw} For SMTP: use your full email as the username, an app-specific password (not your normal login) for Gmail/Yahoo/Microsoft when required, port 587 with TLS or 465 with SSL, and re-save SMTP in Settings if you edited the form without re-entering the password.`
+    }
+    return NextResponse.json({ error: detail }, { status: 500 })
   }
 }
