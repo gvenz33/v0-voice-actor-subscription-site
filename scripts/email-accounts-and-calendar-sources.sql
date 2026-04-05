@@ -77,13 +77,26 @@ create policy "calendar_sources_update_own" on public.calendar_sources
 create policy "calendar_sources_delete_own" on public.calendar_sources
   for delete using (auth.uid() = user_id);
 
--- One-time migration from legacy email_config (single row per user), if that table exists
+-- One-time migration from legacy email_config (single row per user), if that table exists.
+-- Older projects may omit signature_text (or other columns); branch so migration still runs.
 do $$
+declare
+  legacy_has_signature_text boolean;
 begin
   if exists (
     select 1 from information_schema.tables
     where table_schema = 'public' and table_name = 'email_config'
   ) then
+  select exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'email_config'
+      and column_name = 'signature_text'
+  )
+  into legacy_has_signature_text;
+
+  if legacy_has_signature_text then
     insert into public.email_accounts (
       user_id,
       provider,
@@ -127,6 +140,51 @@ begin
     where not exists (
       select 1 from public.email_accounts ea where ea.user_id = ec.user_id
     );
+  else
+    insert into public.email_accounts (
+      user_id,
+      provider,
+      oauth_access_token,
+      oauth_refresh_token,
+      oauth_expires_at,
+      oauth_email,
+      smtp_host,
+      smtp_port,
+      smtp_username,
+      smtp_password,
+      smtp_from_email,
+      smtp_from_name,
+      smtp_use_tls,
+      bcc_self,
+      signature_text,
+      is_default_for_send,
+      created_at,
+      updated_at
+    )
+    select
+      ec.user_id,
+      ec.provider,
+      ec.oauth_access_token,
+      ec.oauth_refresh_token,
+      ec.oauth_expires_at,
+      ec.oauth_email,
+      ec.smtp_host,
+      ec.smtp_port,
+      ec.smtp_username,
+      ec.smtp_password,
+      ec.smtp_from_email,
+      ec.smtp_from_name,
+      coalesce(ec.smtp_use_tls, true),
+      coalesce(ec.bcc_self, false),
+      null::text,
+      true,
+      ec.created_at,
+      ec.updated_at
+    from public.email_config ec
+    where not exists (
+      select 1 from public.email_accounts ea where ea.user_id = ec.user_id
+    );
+  end if;
   end if;
 end $$;
 
