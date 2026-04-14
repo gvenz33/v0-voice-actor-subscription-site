@@ -1,4 +1,5 @@
 import "server-only"
+import { getNotifyInboxEmail } from "@/lib/notify-inbox"
 
 /** Avoid loading Resend at module scope — build has no RESEND_API_KEY and the SDK throws. */
 export const dynamic = "force-dynamic"
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
 
     await resend.emails.send({
       from: "VOBizSuite Support <noreply@vobizsuite.io>",
-      to: "gvenz33@gmail.com",
+      to: getNotifyInboxEmail(),
       subject: `[Action Required] Support Escalation - ${visitorName}`,
       html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
