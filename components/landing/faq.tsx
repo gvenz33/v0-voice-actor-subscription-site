@@ -43,6 +43,30 @@ const faqs = [
     answer: "Yes! You can upgrade, downgrade, or cancel your subscription at any time from your account settings. If you cancel, you'll retain access to your paid features until the end of your current billing period. Your data is always yours and can be exported."
   },
   {
+    question: "Can I see all my mail and calendars in one place?",
+    answer: "Yes. Connect Gmail, Microsoft 365, or SMTP and IMAP in Dashboard → Settings → Email, then use Inbox for a unified view across accounts and Calendar for events from Google, Microsoft, and CalDAV sources such as iCloud. You can add multiple mailboxes so your workflow stays in one workspace."
+  },
+  {
+    question: "What are Script Tools?",
+    answer: "Script Tools count words in narration or e-learning scripts: paste text or upload a .txt or .docx file. You get word counts and estimated reading time, and you can carry those numbers into Billing Desk when you build an invoice."
+  },
+  {
+    question: "How does Prospect Finder work?",
+    answer: "Enter a company or studio website URL and Prospect Finder uses AI to scan public pages and extract contact names, emails, roles, and phone numbers when available. Save leads into your CRM and follow up with outreach from AI Tools."
+  },
+  {
+    question: "What is the Rate Guide?",
+    answer: "The Rate Guide is a built-in reference for voice over rates—use it when you quote projects, negotiate usage, or build invoices in Billing Desk. Markets and usage vary, so treat it as a starting point, not a guarantee."
+  },
+  {
+    question: "How does Billing Desk handle invoices?",
+    answer: "Billing Desk lets you create, track, and send invoices tied to bookings and clients. Mark what is paid, pending, or overdue, and email invoices to clients using the email account you connected in Settings."
+  },
+  {
+    question: "How do I get help?",
+    answer: "Use the chat icon on any page to ask questions or request a human. You can also use the Contact link in the navigation. For email, calendar, and SMTP setup, open Dashboard → Settings → Email."
+  },
+  {
     question: "Do you have an affiliate program?",
     answer: "Yes! Every VOBizSuite member gets a unique affiliate code. Share it with other voice actors and earn 20% commission on their subscription for as long as they remain a paying customer. It's a great way to help fellow VOs while earning passive income. Check your dashboard for your affiliate link."
   },
