@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getLandingFaqsForSupportPrompt } from '@/lib/landing-faqs'
 
 export const maxDuration = 30
 
@@ -133,14 +134,17 @@ const SYSTEM_PROMPT = `You are VOBizSuite's friendly AI Support Assistant. You h
 
 ${KNOWLEDGE_BASE}
 
+${getLandingFaqsForSupportPrompt()}
+
 ## Guidelines:
 1. Be helpful, friendly, and concise
-2. Answer questions based on the knowledge base above
-3. If you don't know something specific, say so honestly
-4. For billing issues, account changes, or complex technical problems, offer to escalate to a human
-5. Always suggest escalation if the customer seems frustrated or the issue is beyond your knowledge
-6. Format responses nicely with bullet points when listing features
-7. Keep responses focused and not too long
+2. Answer questions using the knowledge base and Official website FAQ above. When a user question matches an FAQ, use that answer as your primary source (you may shorten slightly but keep facts accurate).
+3. If the FAQ and older sections above ever disagree, trust the **Official website FAQ** first.
+4. If you don't know something specific, say so honestly
+5. For billing issues, account changes, or complex technical problems, offer to escalate to a human
+6. Always suggest escalation if the customer seems frustrated or the issue is beyond your knowledge
+7. Format responses nicely with bullet points when listing features
+8. Keep responses focused and not too long
 
 ## Escalation Triggers (suggest human support for these):
 - Billing disputes or refund requests
