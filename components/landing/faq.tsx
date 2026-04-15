@@ -27,6 +27,10 @@ const faqs = [
     answer: "AI features use tokens — think of them as credits for AI generations. Each subscription tier includes a monthly token allowance that resets each billing cycle. If you need more, you can purchase additional token packs. Unused tokens don't roll over, so use them to grow your business!"
   },
   {
+    question: "What's the difference between subscription tiers and tokens?",
+    answer: "Your plan—Launch, Momentum, or Command—controls which product features you get: limits on contacts, Prospect Finder scans, included AI generations per month, and extras like priority support. See the Pricing section for the full comparison. Tokens are the credits that power AI actions (for example outreach emails, pitches, follow-ups, and chat). Each paid tier includes a monthly token allowance; if you need more in a given month, you can buy add-on token packs from the Tokens page in your dashboard."
+  },
+  {
     question: "Can I import my existing client list?",
     answer: "Absolutely! VOBizSuite includes a CRM import feature that lets you upload your existing client spreadsheet (CSV format). Our smart field mapping tool helps you match your spreadsheet columns to our contact fields, making migration seamless. You can also export your data anytime."
   },
@@ -65,6 +69,10 @@ const faqs = [
   {
     question: "How do I get help?",
     answer: "Use the chat icon on any page to ask questions or request a human. You can also use the Contact link in the navigation. For email, calendar, and SMTP setup, open Dashboard → Settings → Email."
+  },
+  {
+    question: "Can I use VOBizSuite on my phone or tablet?",
+    answer: "Yes. VOBizSuite runs in your web browser—Chrome, Safari, Firefox, or Edge—on desktop, laptop, tablet, or phone. The dashboard is responsive so you can manage your business on the go. There is no separate app store download; bookmark the site or add it to your home screen for quick access."
   },
   {
     question: "Do you have an affiliate program?",
