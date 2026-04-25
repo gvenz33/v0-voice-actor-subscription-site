@@ -73,7 +73,7 @@ function UsageMeter({ usage }: { usage: UsageData }) {
           <div>
             <p className="font-medium text-foreground">AI Tools Require a Subscription</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Upgrade to Launch ($19/mo) to start generating AI outreach emails.
+              Upgrade to Launch ($29/mo) to start generating AI outreach emails.
             </p>
           </div>
           <Button asChild className="mt-2 bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90">

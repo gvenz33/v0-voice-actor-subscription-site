@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { MessageCircle, X, Send, User, Bot, Loader2, UserPlus } from "lucide-react"
+import { MessageCircle, ChevronDown, Send, User, Bot, Loader2, UserPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -276,9 +276,10 @@ export function SupportChatWidget() {
                 variant="ghost"
                 size="icon"
                 onClick={handleClosePanel}
-                className="h-8 w-8 text-primary-foreground/70 hover:bg-primary-foreground/10 hover:text-primary-foreground"
+                className="h-9 w-9 shrink-0 text-primary-foreground/90 hover:bg-primary-foreground/15 hover:text-primary-foreground"
+                aria-label="Close chat"
               >
-                <X className="h-4 w-4" />
+                <ChevronDown className="h-5 w-5" strokeWidth={2.5} />
               </Button>
             </div>
           </div>

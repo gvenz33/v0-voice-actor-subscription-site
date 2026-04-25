@@ -449,7 +449,7 @@ export function SettingsForm() {
       : profile?.subscription_tier === "momentum"
         ? "Momentum ($49/mo)"
         : profile?.subscription_tier === "launch"
-          ? "Launch ($19/mo)"
+          ? "Launch ($29/mo)"
           : "Free"
 
   return (

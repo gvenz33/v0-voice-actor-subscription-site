@@ -574,7 +574,7 @@ export default function AdminUsersPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="free">Free</SelectItem>
-                      <SelectItem value="launch">Launch ($19/mo)</SelectItem>
+                      <SelectItem value="launch">Launch ($29/mo)</SelectItem>
                       <SelectItem value="momentum">Momentum ($49/mo)</SelectItem>
                       <SelectItem value="command">Command ($99/mo)</SelectItem>
                     </SelectContent>
@@ -888,7 +888,7 @@ export default function AdminUsersPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="free">Free</SelectItem>
-                  <SelectItem value="launch">Launch ($19/mo)</SelectItem>
+                  <SelectItem value="launch">Launch ($29/mo)</SelectItem>
                   <SelectItem value="momentum">Momentum ($49/mo)</SelectItem>
                   <SelectItem value="command">Command ($99/mo)</SelectItem>
                 </SelectContent>

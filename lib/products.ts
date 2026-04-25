@@ -15,8 +15,8 @@ export const PRODUCTS: Product[] = [
     id: 'launch',
     name: 'Launch',
     description: 'For voice actors just getting started in the business',
-    monthlyPriceInCents: 1900,
-    annualPriceInCents: 19000, // $190/yr ($15.83/mo effective)
+    monthlyPriceInCents: 2900,
+    annualPriceInCents: 29000, // $290/yr ($24.17/mo effective)
     tier: 'launch',
     features: [
       'Up to 50 contacts in Client Hub',

@@ -47,6 +47,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: 'website',
+    url: 'https://vobizsuite.io',
     locale: 'en_US',
     siteName: 'VO Biz Suite',
     title: 'VO Biz Suite | Build Your Voiceover Career Like a Business',
@@ -56,9 +57,10 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'VO Biz Suite | Build Your Voiceover Career Like a Business',
     description: 'The all-in-one CRM and business management platform built for voice actors.',
+    site: '@vobizsuite',
     creator: '@vobizsuite',
   },
-  metadataBase: new URL('https://vobizsuite.com'),
+  metadataBase: new URL('https://vobizsuite.io'),
   alternates: {
     canonical: '/',
   },
