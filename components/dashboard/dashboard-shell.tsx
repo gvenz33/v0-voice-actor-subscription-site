@@ -14,7 +14,6 @@ import {
   CheckSquare,
   Settings,
   LogOut,
-  Mic2,
   Sparkles,
   ScanSearch,
   Coins,
@@ -24,6 +23,7 @@ import {
   Mail,
   Calendar,
   FileText,
+  Menu,
 } from "lucide-react"
 import {
   SidebarProvider,
@@ -39,8 +39,10 @@ import {
   SidebarMenuButton,
   SidebarInset,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
+import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 
@@ -133,6 +135,87 @@ const NAV_ITEMS = [
   },
 ]
 
+/** Primary routes shown in the mobile bottom tab bar (must exist in NAV_ITEMS). */
+const MOBILE_TAB_HREFS = [
+  "/dashboard",
+  "/dashboard/inbox",
+  "/dashboard/calendar",
+  "/dashboard/clients",
+] as const
+
+const MOBILE_TAB_ITEMS = MOBILE_TAB_HREFS.map((href) => {
+  const item = NAV_ITEMS.find((n) => n.href === href)
+  if (!item) throw new Error(`Missing NAV_ITEMS entry for ${href}`)
+  return item
+})
+
+const MOBILE_TAB_LABELS: Record<(typeof MOBILE_TAB_HREFS)[number], string> = {
+  "/dashboard": "Home",
+  "/dashboard/inbox": "Inbox",
+  "/dashboard/calendar": "Calendar",
+  "/dashboard/clients": "Clients",
+}
+
+function navItemIsActive(pathname: string, href: string) {
+  return href === "/dashboard"
+    ? pathname === "/dashboard"
+    : pathname.startsWith(href)
+}
+
+function DashboardMobileTabBar() {
+  const pathname = usePathname()
+  const { setOpenMobile, openMobile } = useSidebar()
+
+  const onPrimaryTab = MOBILE_TAB_ITEMS.some((item) =>
+    navItemIsActive(pathname, item.href)
+  )
+  const moreActive = !onPrimaryTab
+
+  return (
+    <nav
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 pb-[max(0.25rem,env(safe-area-inset-bottom,0px))] pt-1 shadow-[0_-4px_24px_-8px_rgba(0,0,0,0.35)] backdrop-blur-md md:hidden"
+      aria-label="App navigation"
+    >
+      <div className="mx-auto flex h-14 max-w-lg items-stretch justify-between gap-0.5 px-1">
+        {MOBILE_TAB_ITEMS.map((item) => {
+          const active = navItemIsActive(pathname, item.href)
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => {
+                if (openMobile) setOpenMobile(false)
+              }}
+              className={cn(
+                "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 text-muted-foreground transition-colors",
+                active &&
+                  "bg-primary/15 text-primary"
+              )}
+            >
+              <item.icon className="size-5 shrink-0" strokeWidth={active ? 2.25 : 2} />
+              <span className="max-w-full truncate text-[10px] font-medium leading-none">
+                {MOBILE_TAB_LABELS[item.href as keyof typeof MOBILE_TAB_LABELS]}
+              </span>
+            </Link>
+          )
+        })}
+        <button
+          type="button"
+          onClick={() => setOpenMobile(true)}
+          className={cn(
+            "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 text-muted-foreground transition-colors",
+            moreActive && "bg-muted/80 text-foreground"
+          )}
+          aria-label="Open full menu"
+        >
+          <Menu className="size-5 shrink-0" strokeWidth={moreActive ? 2.25 : 2} />
+          <span className="max-w-full truncate text-[10px] font-medium leading-none">More</span>
+        </button>
+      </div>
+    </nav>
+  )
+}
+
 export function DashboardShell({
   user,
   profile,
@@ -192,11 +275,7 @@ export function DashboardShell({
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                       asChild
-                      isActive={
-                        item.href === "/dashboard"
-                          ? pathname === "/dashboard"
-                          : pathname.startsWith(item.href)
-                      }
+                      isActive={navItemIsActive(pathname, item.href)}
                       tooltip={item.title}
                     >
                       <Link href={item.href}>
@@ -265,20 +344,16 @@ export function DashboardShell({
           <SidebarTrigger className="-ml-1 size-10 shrink-0 md:size-7" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <h1 className="font-[family-name:var(--font-heading)] text-sm font-semibold text-foreground">
-            {NAV_ITEMS.find(
-              (item) =>
-                item.href === "/dashboard"
-                  ? pathname === "/dashboard"
-                  : pathname.startsWith(item.href)
-            )?.title ||
+            {NAV_ITEMS.find((item) => navItemIsActive(pathname, item.href))?.title ||
               (pathname.includes("settings") ? "Settings" : "VO Biz Suite")}
           </h1>
           </div>
         </header>
-        <div className="flex-1 overflow-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] md:p-6">
+        <div className="flex-1 overflow-auto p-4 pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] md:p-6 md:pb-[max(1rem,env(safe-area-inset-bottom,0px))]">
           {children}
         </div>
       </SidebarInset>
+      <DashboardMobileTabBar />
     </SidebarProvider>
   )
 }
