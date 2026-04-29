@@ -259,9 +259,10 @@ export function DashboardShell({
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset>
-        <header className="flex h-14 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
+      <SidebarInset className="min-h-dvh">
+        <header className="sticky top-0 z-20 flex shrink-0 items-center gap-2 border-b bg-background/95 px-4 pt-[env(safe-area-inset-top,0px)] backdrop-blur supports-[backdrop-filter]:bg-background/80">
+          <div className="flex h-14 min-h-14 w-full items-center gap-2">
+          <SidebarTrigger className="-ml-1 size-10 shrink-0 md:size-7" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <h1 className="font-[family-name:var(--font-heading)] text-sm font-semibold text-foreground">
             {NAV_ITEMS.find(
@@ -272,8 +273,11 @@ export function DashboardShell({
             )?.title ||
               (pathname.includes("settings") ? "Settings" : "VO Biz Suite")}
           </h1>
+          </div>
         </header>
-        <div className="flex-1 overflow-auto p-4 md:p-6">{children}</div>
+        <div className="flex-1 overflow-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] md:p-6">
+          {children}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   )

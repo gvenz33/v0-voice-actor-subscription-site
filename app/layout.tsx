@@ -9,8 +9,11 @@ const _spaceGrotesk = Space_Grotesk({ subsets: ["latin"] })
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  themeColor: "#1a1530",
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#1a1530" },
+    { media: "(prefers-color-scheme: light)", color: "#1a1530" },
+  ],
 }
 
 export const metadata: Metadata = {
@@ -63,6 +66,22 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://vobizsuite.io'),
   alternates: {
     canonical: '/',
+  },
+  appleWebApp: {
+    capable: true,
+    title: 'VO Biz Suite',
+    statusBarStyle: 'black-translucent',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/pwa-icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/pwa-icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
   },
 }
 

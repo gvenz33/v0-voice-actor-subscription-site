@@ -230,7 +230,8 @@ export function SupportChatWidget() {
         type="button"
         onClick={() => setIsOpen(true)}
         className={cn(
-          "fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-all hover:scale-105 hover:shadow-xl",
+          "fixed z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-all hover:scale-105 hover:shadow-xl",
+          "bottom-[max(1.5rem,env(safe-area-inset-bottom,0px))] right-[max(1.5rem,env(safe-area-inset-right,0px))]",
           isOpen && "hidden"
         )}
         aria-label="Open support chat"
@@ -242,8 +243,8 @@ export function SupportChatWidget() {
         <div
           className={cn(
             "fixed z-50 flex max-h-[85dvh] w-[min(100vw-1rem,380px)] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl",
-            "bottom-4 right-4 max-sm:left-1/2 max-sm:right-auto max-sm:w-[min(100vw-1rem,380px)] max-sm:-translate-x-1/2",
-            "sm:bottom-6 sm:right-6"
+            "bottom-[max(1rem,env(safe-area-inset-bottom,0px))] right-[max(1rem,env(safe-area-inset-right,0px))] max-sm:left-1/2 max-sm:right-auto max-sm:w-[min(100vw-1rem,380px)] max-sm:-translate-x-1/2",
+            "sm:bottom-[max(1.5rem,env(safe-area-inset-bottom,0px))] sm:right-[max(1.5rem,env(safe-area-inset-right,0px))]"
           )}
           style={{ height: "min(500px, 85dvh)" }}
         >

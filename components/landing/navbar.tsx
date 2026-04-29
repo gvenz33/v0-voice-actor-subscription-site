@@ -36,8 +36,8 @@ export function Navbar() {
   const logoHref = isAuthed ? '/dashboard' : '/'
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
-      <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-2">
+    <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 pt-[env(safe-area-inset-top,0px)] backdrop-blur-md">
+      <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2 sm:px-6">
         <Link href={logoHref} className="flex items-center">
           <Image 
             src="/images/vobizsuite-logo-cropped.png" 
@@ -87,7 +87,8 @@ export function Navbar() {
         </div>
 
         <button
-          className="md:hidden"
+          type="button"
+          className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-foreground md:hidden"
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label="Toggle menu"
         >
@@ -100,7 +101,7 @@ export function Navbar() {
       </nav>
 
       {mobileOpen && (
-        <div className="border-t border-border/50 bg-background px-6 py-4 md:hidden">
+        <div className="border-t border-border/50 bg-background px-4 py-4 sm:px-6 md:hidden pb-[max(1rem,env(safe-area-inset-bottom,0px))]">
           <div className="flex flex-col gap-4">
             <Link href="#features" className="text-sm text-muted-foreground" onClick={() => setMobileOpen(false)}>
               Features
