@@ -32,15 +32,28 @@ import {
 } from "@/lib/email-inbox-types"
 import {
   Forward,
+  Inbox,
   Loader2,
   Mail,
+  MailWarning,
   Paperclip,
   Reply,
   ReplyAll,
   Send,
+  SendHorizonal,
   Trash2,
   X,
+  FilePenLine,
 } from "lucide-react"
+
+const FOLDER_ICONS: Record<MailFolder, typeof Inbox> = {
+  inbox: Inbox,
+  sent: Send,
+  outbox: SendHorizonal,
+  drafts: FilePenLine,
+  trash: Trash2,
+  spam: MailWarning,
+}
 
 type AccountOpt = {
   id: string
@@ -350,21 +363,24 @@ export default function InboxPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <ScrollArea className="w-full whitespace-nowrap lg:w-auto">
-          <div className="flex items-center gap-1 rounded-lg border border-border p-1 min-w-max">
-            {MAIL_FOLDERS.map((f) => (
-              <Button
-                key={f.id}
-                type="button"
-                variant={mailFolder === f.id ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => setMailFolder(f.id)}
-              >
-                {f.label}
-              </Button>
-            ))}
-          </div>
-        </ScrollArea>
+        <div className="flex items-center gap-2 md:hidden w-full">
+          <Label className="text-muted-foreground shrink-0">Folder</Label>
+          <Select
+            value={mailFolder}
+            onValueChange={(v) => setMailFolder(v as MailFolder)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MAIL_FOLDERS.map((f) => (
+                <SelectItem key={f.id} value={f.id}>
+                  {f.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="flex items-center gap-2">
           <Label className="text-muted-foreground">Account</Label>
           <Select value={accountFilter} onValueChange={setAccountFilter}>
@@ -523,7 +539,37 @@ export default function InboxPage() {
         </Card>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="flex flex-col gap-4 lg:flex-row">
+        <Card className="hidden md:block lg:w-52 shrink-0">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+              Folders
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-2 pt-0">
+            <nav className="flex flex-col gap-0.5">
+              {MAIL_FOLDERS.map((f) => {
+                const Icon = FOLDER_ICONS[f.id]
+                const active = mailFolder === f.id
+                return (
+                  <Button
+                    key={f.id}
+                    type="button"
+                    variant={active ? "secondary" : "ghost"}
+                    size="sm"
+                    className="w-full justify-start gap-2 font-normal"
+                    onClick={() => setMailFolder(f.id)}
+                  >
+                    <Icon className="size-4 shrink-0" />
+                    {f.label}
+                  </Button>
+                )
+              })}
+            </nav>
+          </CardContent>
+        </Card>
+
+        <div className="min-w-0 flex-1 grid gap-4 lg:grid-cols-2">
         <Card className="min-h-[480px]">
           <CardHeader>
             <CardTitle className="text-base">
@@ -662,6 +708,7 @@ export default function InboxPage() {
             )}
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   )
