@@ -13,11 +13,15 @@ export type EmailAttachment = {
 export type SendEmailMessageInput = {
   userId: string
   to: string
+  cc?: string
   subject: string
   text: string
   html?: string
   accountId?: string
   attachments?: EmailAttachment[]
+  inReplyTo?: string
+  references?: string
+  gmailThreadId?: string
 }
 
 function smtpPort(row: EmailAccountRow): number {
@@ -48,12 +52,15 @@ function createSmtpTransporter(row: EmailAccountRow) {
 
 function buildMimeMultipartMixed(params: {
   to: string
+  cc?: string
   subject: string
   text: string
   html?: string
   fromEmail: string
   fromName?: string | null
   attachments: EmailAttachment[]
+  inReplyTo?: string
+  references?: string
 }) {
   const boundary = `mixed_${Date.now()}_${Math.random().toString(36).slice(2)}`
   const from = params.fromName
@@ -63,12 +70,15 @@ function buildMimeMultipartMixed(params: {
   const parts: string[] = [
     `From: ${from}`,
     `To: ${params.to}`,
-    `Subject: ${params.subject}`,
-    `MIME-Version: 1.0`,
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
-    "",
-    `--${boundary}`,
   ]
+  if (params.cc?.trim()) parts.push(`Cc: ${params.cc.trim()}`)
+  parts.push(
+    `Subject: ${params.subject}`,
+    `MIME-Version: 1.0`
+  )
+  if (params.inReplyTo) parts.push(`In-Reply-To: ${params.inReplyTo}`)
+  if (params.references) parts.push(`References: ${params.references}`)
+  parts.push(`Content-Type: multipart/mixed; boundary="${boundary}"`, "", `--${boundary}`)
 
   if (params.html) {
     const altBoundary = `alt_${Date.now()}`
@@ -107,6 +117,30 @@ function buildMimeMultipartMixed(params: {
 
   parts.push("--")
   return parts.join("\r\n")
+}
+
+function buildSimpleMimeMessage(params: {
+  to: string
+  cc?: string
+  subject: string
+  text: string
+  html?: string
+  inReplyTo?: string
+  references?: string
+}) {
+  const lines = [`To: ${params.to}`]
+  if (params.cc?.trim()) lines.push(`Cc: ${params.cc.trim()}`)
+  lines.push(`Subject: ${params.subject}`)
+  if (params.inReplyTo) lines.push(`In-Reply-To: ${params.inReplyTo}`)
+  if (params.references) lines.push(`References: ${params.references}`)
+  lines.push(
+    params.html
+      ? `Content-Type: text/html; charset=utf-8`
+      : `Content-Type: text/plain; charset=utf-8`,
+    "",
+    params.html ?? params.text
+  )
+  return lines.join("\n")
 }
 
 function encodeGmailRawMessage(message: string) {
@@ -149,22 +183,30 @@ export async function sendEmailMessage(
       attachments.length > 0
         ? buildMimeMultipartMixed({
             to: input.to,
+            cc: input.cc,
             subject: input.subject,
             text: input.text,
             html: input.html,
             fromEmail: row.oauth_email ?? "",
             fromName: row.smtp_from_name,
             attachments,
+            inReplyTo: input.inReplyTo,
+            references: input.references,
           })
-        : [
-            `To: ${input.to}`,
-            `Subject: ${input.subject}`,
-            input.html
-              ? `Content-Type: text/html; charset=utf-8`
-              : `Content-Type: text/plain; charset=utf-8`,
-            "",
-            input.html ?? input.text,
-          ].join("\n")
+        : buildSimpleMimeMessage({
+            to: input.to,
+            cc: input.cc,
+            subject: input.subject,
+            text: input.text,
+            html: input.html,
+            inReplyTo: input.inReplyTo,
+            references: input.references,
+          })
+
+    const sendBody: { raw: string; threadId?: string } = {
+      raw: encodeGmailRawMessage(message),
+    }
+    if (input.gmailThreadId) sendBody.threadId = input.gmailThreadId
 
     const sendRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
       method: "POST",
@@ -172,7 +214,7 @@ export async function sendEmailMessage(
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ raw: encodeGmailRawMessage(message) }),
+      body: JSON.stringify(sendBody),
     })
 
     if (!sendRes.ok) {
@@ -193,6 +235,17 @@ export async function sendEmailMessage(
       contentBytes: file.content.toString("base64"),
     }))
 
+    const toRecipients = input.to
+      .split(",")
+      .map((addr) => addr.trim())
+      .filter(Boolean)
+      .map((address) => ({ emailAddress: { address } }))
+    const ccRecipients = (input.cc || "")
+      .split(",")
+      .map((addr) => addr.trim())
+      .filter(Boolean)
+      .map((address) => ({ emailAddress: { address } }))
+
     const sendRes = await fetch("https://graph.microsoft.com/v1.0/me/sendMail", {
       method: "POST",
       headers: {
@@ -206,7 +259,8 @@ export async function sendEmailMessage(
             contentType: input.html ? "HTML" : "Text",
             content: input.html ?? input.text,
           },
-          toRecipients: [{ emailAddress: { address: input.to } }],
+          toRecipients,
+          ccRecipients: ccRecipients.length ? ccRecipients : undefined,
           attachments: graphAttachments.length ? graphAttachments : undefined,
         },
       }),
@@ -238,9 +292,12 @@ export async function sendEmailMessage(
         ? `"${row.smtp_from_name}" <${row.smtp_from_email}>`
         : row.smtp_from_email ?? undefined,
       to: input.to,
+      cc: input.cc || undefined,
       subject: input.subject,
       text: input.text,
       html: input.html,
+      inReplyTo: input.inReplyTo,
+      references: input.references,
       attachments: attachments.map((file) => ({
         filename: file.filename,
         content: file.content,

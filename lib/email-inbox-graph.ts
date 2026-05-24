@@ -2,6 +2,29 @@ import type { EmailAccountRow } from "@/lib/email-account-types"
 import { ensureMicrosoftAccessToken } from "@/lib/email-tokens"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { NormalizedThread } from "@/lib/email-inbox-types"
+import type { EmailMessageContent } from "@/lib/email-message-types"
+import { sanitizeEmailHtml } from "@/lib/sanitize-email-html"
+
+function formatAddress(
+  addr?: { emailAddress?: { name?: string; address?: string } }
+): string {
+  if (!addr?.emailAddress?.address) return ""
+  const name = addr.emailAddress.name || ""
+  return name
+    ? `${name} <${addr.emailAddress.address}>`
+    : addr.emailAddress.address
+}
+
+function formatRecipients(
+  list?: Array<{ emailAddress?: { name?: string; address?: string } }>
+): string {
+  return (
+    list
+      ?.map((r) => formatAddress(r))
+      .filter(Boolean)
+      .join(", ") || ""
+  )
+}
 
 export async function listOutlookMessages(
   supabase: SupabaseClient,
@@ -43,18 +66,13 @@ export async function listOutlookMessages(
   return values.map((m) => ({
     id: `${row.id}:${m.id}`,
     threadKey: m.id,
+    messageId: m.id,
     accountId: row.id,
     provider: "outlook" as const,
     folder,
     subject: m.subject || "(no subject)",
-    from: m.from?.emailAddress?.address
-      ? `${m.from.emailAddress.name || ""} <${m.from.emailAddress.address}>`.trim()
-      : "",
-    to:
-      m.toRecipients
-        ?.map((r) => r.emailAddress?.address || r.emailAddress?.name || "")
-        .filter(Boolean)
-        .join(", ") || "",
+    from: formatAddress(m.from),
+    to: formatRecipients(m.toRecipients),
     snippet: m.bodyPreview || "",
     internalDate: m.receivedDateTime
       ? new Date(m.receivedDateTime).getTime()
@@ -67,10 +85,10 @@ export async function getOutlookMessageBody(
   userId: string,
   row: EmailAccountRow,
   messageId: string
-): Promise<{ text: string; subject: string; from: string }> {
+): Promise<EmailMessageContent> {
   const accessToken = await ensureMicrosoftAccessToken(supabase, userId, row)
   const res = await fetch(
-    `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(messageId)}?$select=subject,body,from`,
+    `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(messageId)}?$select=subject,body,from,toRecipients,ccRecipients,internetMessageId`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   )
   if (!res.ok) {
@@ -81,19 +99,76 @@ export async function getOutlookMessageBody(
     subject?: string
     body?: { content?: string; contentType?: string }
     from?: { emailAddress?: { name?: string; address?: string } }
+    toRecipients?: Array<{ emailAddress?: { name?: string; address?: string } }>
+    ccRecipients?: Array<{ emailAddress?: { name?: string; address?: string } }>
+    internetMessageId?: string
   }
-  const from = m.from?.emailAddress?.address
-    ? `${m.from.emailAddress.name || ""} <${m.from.emailAddress.address}>`.trim()
-    : ""
   const ct = (m.body?.contentType || "").toLowerCase()
+  const rawContent = m.body?.content || ""
+  const html =
+    ct === "html" || ct === "text/html"
+      ? rawContent
+      : rawContent.replace(/\n/g, "<br>")
   const text =
     ct === "text" || ct === "text/plain"
-      ? m.body?.content || ""
-      : stripHtml(m.body?.content || "")
+      ? rawContent
+      : stripHtml(rawContent)
   return {
     text: text || "(no body)",
+    html: sanitizeEmailHtml(html),
     subject: m.subject || "",
-    from,
+    from: formatAddress(m.from),
+    to: formatRecipients(m.toRecipients),
+    cc: formatRecipients(m.ccRecipients),
+    messageId: m.internetMessageId,
+  }
+}
+
+export async function deleteOutlookMessage(
+  supabase: SupabaseClient,
+  userId: string,
+  row: EmailAccountRow,
+  messageId: string
+): Promise<void> {
+  const accessToken = await ensureMicrosoftAccessToken(supabase, userId, row)
+  const res = await fetch(
+    `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(messageId)}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  )
+  if (!res.ok && res.status !== 204) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error?.message || "Outlook delete failed")
+  }
+}
+
+export async function outlookReplyMessage(
+  supabase: SupabaseClient,
+  userId: string,
+  row: EmailAccountRow,
+  messageId: string,
+  comment: string,
+  mode: "reply" | "replyAll" | "forward"
+): Promise<void> {
+  const accessToken = await ensureMicrosoftAccessToken(supabase, userId, row)
+  const action =
+    mode === "replyAll" ? "replyAll" : mode === "forward" ? "forward" : "reply"
+  const res = await fetch(
+    `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(messageId)}/${action}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ comment }),
+    }
+  )
+  if (!res.ok && res.status !== 202) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error?.message || `Outlook ${action} failed`)
   }
 }
 

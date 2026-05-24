@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import useSWR from "swr"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -15,8 +15,27 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Loader2, Mail, Paperclip, Send, X } from "lucide-react"
+import { EmailHtmlBody } from "@/components/inbox/email-html-body"
+import {
+  buildQuotedText,
+  buildReplyAllRecipients,
+  buildReplyRecipients,
+  formatForwardSubject,
+  formatReplySubject,
+} from "@/lib/email-address"
+import type { ComposeMode, EmailMessageContent } from "@/lib/email-message-types"
 import type { MailFolder, NormalizedThread } from "@/lib/email-inbox-types"
+import {
+  Forward,
+  Loader2,
+  Mail,
+  Paperclip,
+  Reply,
+  ReplyAll,
+  Send,
+  Trash2,
+  X,
+} from "lucide-react"
 
 type AccountOpt = {
   id: string
@@ -44,12 +63,31 @@ async function readFileAsBase64(file: File): Promise<string> {
   })
 }
 
+function ownEmailsForAccount(accounts: AccountOpt[], accountId: string): string[] {
+  const acc = accounts.find((a) => a.id === accountId)
+  return [acc?.oauth_email, acc?.smtp_from_email].filter(Boolean) as string[]
+}
+
+function composeTitle(mode: ComposeMode): string {
+  switch (mode) {
+    case "reply":
+      return "Reply"
+    case "replyAll":
+      return "Reply all"
+    case "forward":
+      return "Forward"
+    default:
+      return "Compose"
+  }
+}
+
 export default function InboxPage() {
   const [accountFilter, setAccountFilter] = useState<string>("all")
   const [mailFolder, setMailFolder] = useState<MailFolder>("inbox")
   const [selected, setSelected] = useState<NormalizedThread | null>(null)
-  const [bodyText, setBodyText] = useState<string>("")
+  const [messageContent, setMessageContent] = useState<EmailMessageContent | null>(null)
   const [bodyLoading, setBodyLoading] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const attachmentInputRef = useRef<HTMLInputElement>(null)
 
   const { data: accData } = useSWR("/api/email/accounts", fetcher)
@@ -63,12 +101,12 @@ export default function InboxPage() {
 
   useEffect(() => {
     setSelected(null)
-    setBodyText("")
+    setMessageContent(null)
   }, [accountFilter, mailFolder])
 
   useEffect(() => {
     if (!selected) {
-      setBodyText("")
+      setMessageContent(null)
       return
     }
     let cancelled = false
@@ -89,13 +127,29 @@ export default function InboxPage() {
       .then((data) => {
         if (cancelled) return
         if (data.error) {
-          setBodyText(data.error)
+          setMessageContent({
+            subject: selected.subject,
+            from: selected.from,
+            to: selected.to,
+            cc: "",
+            text: data.error,
+            html: "",
+          })
         } else {
-          setBodyText(data.text || "")
+          setMessageContent(data as EmailMessageContent)
         }
       })
       .catch(() => {
-        if (!cancelled) setBodyText("Failed to load message.")
+        if (!cancelled) {
+          setMessageContent({
+            subject: selected.subject,
+            from: selected.from,
+            to: selected.to,
+            cc: "",
+            text: "Failed to load message.",
+            html: "",
+          })
+        }
       })
       .finally(() => {
         if (!cancelled) setBodyLoading(false)
@@ -106,7 +160,9 @@ export default function InboxPage() {
   }, [selected, mailFolder])
 
   const [composeOpen, setComposeOpen] = useState(false)
+  const [composeMode, setComposeMode] = useState<ComposeMode>("new")
   const [sendTo, setSendTo] = useState("")
+  const [sendCc, setSendCc] = useState("")
   const [sendSubject, setSendSubject] = useState("")
   const [sendBody, setSendBody] = useState("")
   const [sendAttachments, setSendAttachments] = useState<File[]>([])
@@ -123,6 +179,64 @@ export default function InboxPage() {
       setSendAccountId(defaultSendId)
     }
   }, [defaultSendId, sendAccountId])
+
+  const resetCompose = () => {
+    setComposeOpen(false)
+    setComposeMode("new")
+    setSendTo("")
+    setSendCc("")
+    setSendSubject("")
+    setSendBody("")
+    setSendAttachments([])
+  }
+
+  const openCompose = useCallback(
+    (mode: ComposeMode = "new") => {
+      setComposeMode(mode)
+      setSendAttachments([])
+      if (mode === "new") {
+        setSendTo("")
+        setSendCc("")
+        setSendSubject("")
+        setSendBody("")
+        if (defaultSendId) setSendAccountId(defaultSendId)
+      }
+      setComposeOpen(true)
+    },
+    [defaultSendId]
+  )
+
+  const startReply = (mode: "reply" | "replyAll" | "forward") => {
+    if (!selected || !messageContent) return
+    setSendAccountId(selected.accountId)
+    setComposeMode(mode)
+    const own = ownEmailsForAccount(accounts, selected.accountId)
+
+    if (mode === "forward") {
+      setSendTo("")
+      setSendCc("")
+      setSendSubject(formatForwardSubject(messageContent.subject))
+      setSendBody(buildQuotedText(messageContent))
+    } else if (mode === "replyAll") {
+      const { to, cc } = buildReplyAllRecipients({
+        from: messageContent.from,
+        to: messageContent.to,
+        cc: messageContent.cc,
+        ownEmails: own,
+      })
+      setSendTo(to)
+      setSendCc(cc)
+      setSendSubject(formatReplySubject(messageContent.subject))
+      setSendBody(`\n\n${buildQuotedText(messageContent)}`)
+    } else {
+      setSendTo(buildReplyRecipients({ from: messageContent.from, ownEmails: own }))
+      setSendCc("")
+      setSendSubject(formatReplySubject(messageContent.subject))
+      setSendBody(`\n\n${buildQuotedText(messageContent)}`)
+    }
+    setSendAttachments([])
+    setComposeOpen(true)
+  }
 
   const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
@@ -146,29 +260,72 @@ export default function InboxPage() {
           contentType: file.type || "application/octet-stream",
         }))
       )
+
+      const isReply = composeMode === "reply" || composeMode === "replyAll"
+      const payload: Record<string, unknown> = {
+        to: sendTo.trim(),
+        cc: sendCc.trim() || undefined,
+        subject: sendSubject.trim(),
+        body: sendBody,
+        account_id: sendAccountId || undefined,
+        attachments,
+      }
+
+      if (isReply && messageContent?.messageId) {
+        payload.in_reply_to = messageContent.messageId
+        payload.references = messageContent.messageId
+      }
+      if (isReply && messageContent?.gmailThreadId) {
+        payload.gmail_thread_id = messageContent.gmailThreadId
+      }
+
       const res = await fetch("/api/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: sendTo.trim(),
-          subject: sendSubject.trim(),
-          body: sendBody,
-          account_id: sendAccountId || undefined,
-          attachments,
-        }),
+        body: JSON.stringify(payload),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Send failed")
-      setComposeOpen(false)
-      setSendTo("")
-      setSendSubject("")
-      setSendBody("")
-      setSendAttachments([])
+      resetCompose()
       setMailFolder("sent")
+      mutate()
     } catch (e) {
       alert(e instanceof Error ? e.message : "Send failed")
     }
     setSendLoading(false)
+  }
+
+  const handleDelete = async () => {
+    if (!selected) return
+    if (!confirm("Move this message to trash?")) return
+    setDeleteLoading(true)
+    try {
+      const payload: Record<string, unknown> = {
+        accountId: selected.accountId,
+        provider: selected.provider,
+        folder: selected.folder || mailFolder,
+      }
+      if (selected.provider === "gmail") {
+        payload.gmailThreadId = selected.threadKey
+      } else if (selected.provider === "outlook") {
+        payload.outlookMessageId = selected.threadKey
+      } else {
+        payload.imapUid = selected.threadKey
+      }
+      const res = await fetch("/api/email/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Delete failed")
+      setSelected(null)
+      setMessageContent(null)
+      mutate()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Delete failed")
+    }
+    setDeleteLoading(false)
   }
 
   const emptyMessage =
@@ -184,7 +341,7 @@ export default function InboxPage() {
           Mail
         </h2>
         <p className="text-sm text-muted-foreground">
-          Unified inbox across connected accounts. Configure accounts in Settings.
+          Read, reply, forward, and manage email across connected accounts.
         </p>
       </div>
 
@@ -232,7 +389,7 @@ export default function InboxPage() {
         <Button variant="secondary" onClick={() => mutate()}>
           Refresh
         </Button>
-        <Button onClick={() => setComposeOpen((o) => !o)}>
+        <Button onClick={() => openCompose("new")}>
           <Send className="mr-2 size-4" />
           Compose
         </Button>
@@ -246,8 +403,11 @@ export default function InboxPage() {
 
       {composeOpen && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Compose</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-lg">{composeTitle(composeMode)}</CardTitle>
+            <Button type="button" variant="ghost" size="icon" onClick={resetCompose}>
+              <X className="size-4" />
+            </Button>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <div className="grid gap-3 sm:grid-cols-2">
@@ -277,6 +437,15 @@ export default function InboxPage() {
               </div>
             </div>
             <div className="flex flex-col gap-2">
+              <Label htmlFor="cc">Cc</Label>
+              <Input
+                id="cc"
+                value={sendCc}
+                onChange={(e) => setSendCc(e.target.value)}
+                placeholder="Optional"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
               <Label htmlFor="subj">Subject</Label>
               <Input
                 id="subj"
@@ -288,7 +457,7 @@ export default function InboxPage() {
               <Label htmlFor="msg">Message</Label>
               <Textarea
                 id="msg"
-                rows={6}
+                rows={8}
                 value={sendBody}
                 onChange={(e) => setSendBody(e.target.value)}
               />
@@ -335,21 +504,26 @@ export default function InboxPage() {
                 </ul>
               )}
             </div>
-            <Button onClick={handleSend} disabled={sendLoading}>
-              {sendLoading ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <>
-                  <Send className="mr-2 size-4" /> Send
-                </>
-              )}
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={handleSend} disabled={sendLoading}>
+                {sendLoading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <>
+                    <Send className="mr-2 size-4" /> Send
+                  </>
+                )}
+              </Button>
+              <Button type="button" variant="outline" onClick={resetCompose}>
+                Cancel
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="min-h-[420px]">
+        <Card className="min-h-[480px]">
           <CardHeader>
             <CardTitle className="text-base">
               {mailFolder === "sent" ? "Sent" : "Inbox"}
@@ -369,7 +543,7 @@ export default function InboxPage() {
             {!isLoading && !error && threads.length === 0 && (
               <p className="p-4 text-sm text-muted-foreground">{emptyMessage}</p>
             )}
-            <ScrollArea className="h-[360px]">
+            <ScrollArea className="h-[400px]">
               <ul className="divide-y divide-border">
                 {threads.map((t) => (
                   <li key={t.id}>
@@ -399,9 +573,60 @@ export default function InboxPage() {
           </CardContent>
         </Card>
 
-        <Card className="min-h-[420px]">
-          <CardHeader>
-            <CardTitle className="text-base">Preview</CardTitle>
+        <Card className="min-h-[480px]">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <CardTitle className="text-base">Message</CardTitle>
+            {selected && (
+              <div className="flex flex-wrap gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => startReply("reply")}
+                  disabled={!messageContent}
+                >
+                  <Reply className="mr-1 size-3.5" />
+                  Reply
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => startReply("replyAll")}
+                  disabled={!messageContent}
+                >
+                  <ReplyAll className="mr-1 size-3.5" />
+                  Reply all
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => startReply("forward")}
+                  disabled={!messageContent}
+                >
+                  <Forward className="mr-1 size-3.5" />
+                  Forward
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDelete}
+                  disabled={deleteLoading}
+                  className="text-destructive hover:text-destructive"
+                >
+                  {deleteLoading ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <>
+                      <Trash2 className="mr-1 size-3.5" />
+                      Delete
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             {!selected && (
@@ -410,20 +635,27 @@ export default function InboxPage() {
               </p>
             )}
             {selected && (
-              <div className="flex flex-col gap-2">
-                <p className="font-medium">{selected.subject}</p>
-                <p className="text-xs text-muted-foreground">
-                  {mailFolder === "sent"
-                    ? selected.to
-                      ? `To: ${selected.to}`
-                      : "To: (unknown)"
-                    : selected.from}
-                </p>
+              <div className="flex flex-col gap-3">
+                <div>
+                  <p className="font-medium">{selected.subject}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {mailFolder === "sent"
+                      ? selected.to
+                        ? `To: ${selected.to}`
+                        : "To: (unknown)"
+                      : `From: ${selected.from}`}
+                  </p>
+                  {messageContent?.cc && (
+                    <p className="text-xs text-muted-foreground">Cc: {messageContent.cc}</p>
+                  )}
+                </div>
                 {bodyLoading ? (
                   <Loader2 className="size-6 animate-spin text-muted-foreground mt-4" />
+                ) : messageContent?.html ? (
+                  <EmailHtmlBody html={messageContent.html} />
                 ) : (
-                  <pre className="whitespace-pre-wrap text-sm mt-2 max-h-[300px] overflow-auto rounded border border-border p-3 bg-muted/20">
-                    {bodyText}
+                  <pre className="whitespace-pre-wrap text-sm rounded border border-border p-3 bg-muted/20 max-h-[420px] overflow-auto">
+                    {messageContent?.text || ""}
                   </pre>
                 )}
               </div>

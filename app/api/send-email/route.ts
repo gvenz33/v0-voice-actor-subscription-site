@@ -15,11 +15,15 @@ export async function POST(req: Request) {
   const body = await req.json()
   const {
     to,
+    cc,
     subject,
     body: textBody,
     html,
     account_id: accountId,
     attachments: rawAttachments,
+    in_reply_to: inReplyTo,
+    references,
+    gmail_thread_id: gmailThreadId,
   } = body
 
   if (!to || !subject || !textBody) {
@@ -58,11 +62,15 @@ export async function POST(req: Request) {
     const result = await sendEmailMessage(supabase, {
       userId: user.id,
       to,
+      cc,
       subject,
       text: textBody,
       html,
       accountId,
       attachments,
+      inReplyTo,
+      references,
+      gmailThreadId,
     })
 
     return NextResponse.json({ success: true, ...result })

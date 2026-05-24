@@ -3,6 +3,7 @@ export type MailFolder = "inbox" | "sent"
 export type NormalizedThread = {
   id: string
   threadKey: string
+  messageId?: string
   accountId: string
   provider: "gmail" | "outlook" | "smtp"
   folder: MailFolder

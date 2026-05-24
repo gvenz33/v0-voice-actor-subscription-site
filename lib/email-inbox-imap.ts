@@ -1,6 +1,9 @@
 import type { EmailAccountRow } from "@/lib/email-account-types"
 import type { NormalizedThread } from "@/lib/email-inbox-types"
+import type { EmailMessageContent } from "@/lib/email-message-types"
+import { sanitizeEmailHtml } from "@/lib/sanitize-email-html"
 import { ImapFlow } from "imapflow"
+import { simpleParser } from "mailparser"
 
 function imapClient(row: EmailAccountRow) {
   const user =
@@ -19,6 +22,35 @@ function imapClient(row: EmailAccountRow) {
   })
 }
 
+async function openSentMailbox(client: ImapFlow): Promise<string> {
+  const candidates = ["Sent", "Sent Items", "Sent Mail", "[Gmail]/Sent Mail", "INBOX.Sent"]
+  for (const name of candidates) {
+    try {
+      await client.mailboxOpen(name)
+      return name
+    } catch {
+      continue
+    }
+  }
+  throw new Error("Could not open Sent folder for this IMAP account")
+}
+
+function formatImapAddress(
+  list?: Array<{ name?: string; address?: string } | string>
+): string {
+  if (!list?.length) return ""
+  return list
+    .map((addr) => {
+      if (typeof addr === "string") return addr
+      if (addr.address) {
+        return addr.name ? `${addr.name} <${addr.address}>` : addr.address
+      }
+      return addr.name || ""
+    })
+    .filter(Boolean)
+    .join(", ")
+}
+
 export async function listImapMessages(
   row: EmailAccountRow,
   options: { maxResults?: number; folder?: "inbox" | "sent" } = {}
@@ -34,9 +66,7 @@ export async function listImapMessages(
   await client.connect()
   try {
     const mailboxName =
-      folder === "sent"
-        ? await openSentMailbox(client)
-        : "INBOX"
+      folder === "sent" ? await openSentMailbox(client) : "INBOX"
     await client.mailboxOpen(mailboxName)
     const uids = await client.search({ all: true }, { uid: true })
     if (!uids || !Array.isArray(uids) || uids.length === 0) {
@@ -79,6 +109,7 @@ export async function listImapMessages(
       out.push({
         id: `${row.id}:${msg.uid}`,
         threadKey: String(msg.uid),
+        messageId: String(msg.uid),
         accountId: row.id,
         provider: "smtp",
         folder,
@@ -95,24 +126,11 @@ export async function listImapMessages(
   }
 }
 
-async function openSentMailbox(client: ImapFlow): Promise<string> {
-  const candidates = ["Sent", "Sent Items", "Sent Mail", "[Gmail]/Sent Mail", "INBOX.Sent"]
-  for (const name of candidates) {
-    try {
-      await client.mailboxOpen(name)
-      return name
-    } catch {
-      continue
-    }
-  }
-  throw new Error("Could not open Sent folder for this IMAP account")
-}
-
 export async function getImapMessageBody(
   row: EmailAccountRow,
   uid: number,
   folder: "inbox" | "sent" = "inbox"
-): Promise<{ text: string; subject: string; from: string }> {
+): Promise<EmailMessageContent> {
   const client = imapClient(row)
 
   await client.connect()
@@ -126,25 +144,62 @@ export async function getImapMessageBody(
       { uid: true }
     )
     if (!msg) {
-      return { text: "(not found)", subject: "", from: "" }
-    }
-    const subject = msg.envelope?.subject || ""
-    const fromAddr = msg.envelope?.from?.[0]
-    const from =
-      (fromAddr && "address" in fromAddr && fromAddr.address) ||
-      (fromAddr && "name" in fromAddr && fromAddr.name) ||
-      ""
-    let text = ""
-    if (msg.source) {
-      const raw = msg.source.toString()
-      const parts = raw.split(/\r?\n\r?\n/)
-      if (parts.length > 1) {
-        text = parts.slice(1).join("\n\n")
-      } else {
-        text = raw
+      return {
+        text: "(not found)",
+        html: "",
+        subject: "",
+        from: "",
+        to: "",
+        cc: "",
       }
     }
-    return { text: text.trim() || "(no body)", subject, from: String(from) }
+    const subject = msg.envelope?.subject || ""
+    const from = formatImapAddress(msg.envelope?.from as never)
+    const to = formatImapAddress(msg.envelope?.to as never)
+    const cc = formatImapAddress(msg.envelope?.cc as never)
+
+    if (msg.source) {
+      const parsed = await simpleParser(msg.source)
+      const text = parsed.text || ""
+      const html = parsed.html
+        ? sanitizeEmailHtml(String(parsed.html))
+        : sanitizeEmailHtml(text.replace(/\n/g, "<br>"))
+      return {
+        text: text || "(no body)",
+        html,
+        subject,
+        from,
+        to,
+        cc,
+        messageId: parsed.messageId || undefined,
+      }
+    }
+
+    return {
+      text: "(no body)",
+      html: "",
+      subject,
+      from,
+      to,
+      cc,
+    }
+  } finally {
+    await client.logout()
+  }
+}
+
+export async function deleteImapMessage(
+  row: EmailAccountRow,
+  uid: number,
+  folder: "inbox" | "sent" = "inbox"
+): Promise<void> {
+  const client = imapClient(row)
+  await client.connect()
+  try {
+    const mailboxName =
+      folder === "sent" ? await openSentMailbox(client) : "INBOX"
+    await client.mailboxOpen(mailboxName)
+    await client.messageDelete(uid, { uid: true })
   } finally {
     await client.logout()
   }

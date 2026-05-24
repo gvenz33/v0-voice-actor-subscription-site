@@ -15,7 +15,7 @@ export async function GET() {
     "email",
     "offline_access",
     "https://graph.microsoft.com/Mail.Send",
-    "https://graph.microsoft.com/Mail.Read",
+    "https://graph.microsoft.com/Mail.ReadWrite",
     "https://graph.microsoft.com/Calendars.Read",
   ].join(" ")
 
