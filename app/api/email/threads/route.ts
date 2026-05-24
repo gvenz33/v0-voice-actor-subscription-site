@@ -4,7 +4,8 @@ import { listEmailAccounts } from "@/lib/email-accounts-server"
 import { listGmailThreads } from "@/lib/email-inbox-gmail"
 import { listOutlookMessages } from "@/lib/email-inbox-graph"
 import { listImapMessages } from "@/lib/email-inbox-imap"
-import type { NormalizedThread, MailFolder } from "@/lib/email-inbox-types"
+import type { NormalizedThread } from "@/lib/email-inbox-types"
+import { parseMailFolder } from "@/lib/email-folders"
 import type { EmailAccountRow } from "@/lib/email-account-types"
 
 export const runtime = "nodejs"
@@ -20,8 +21,7 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url)
   const accountId = url.searchParams.get("accountId") || "all"
-  const folderParam = url.searchParams.get("folder") || "inbox"
-  const folder: MailFolder = folderParam === "sent" ? "sent" : "inbox"
+  const folder = parseMailFolder(url.searchParams.get("folder"))
 
   const { data: accounts, error: listErr } = await listEmailAccounts(supabase, user.id)
   if (listErr?.message.includes("does not exist") || listErr?.message.includes("schema cache")) {

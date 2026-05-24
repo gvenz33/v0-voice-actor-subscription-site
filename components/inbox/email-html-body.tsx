@@ -1,26 +1,37 @@
 "use client"
 
+import DOMPurify from "isomorphic-dompurify"
+import { useMemo } from "react"
+import { prepareEmailHtmlForDisplay } from "@/lib/email-display-html"
+
 type EmailHtmlBodyProps = {
-  html: string
+  html?: string
+  plainText?: string
   className?: string
 }
 
-export function EmailHtmlBody({ html, className }: EmailHtmlBodyProps) {
-  if (!html.trim()) {
+export function EmailHtmlBody({ html, plainText, className }: EmailHtmlBodyProps) {
+  const safeHtml = useMemo(() => {
+    const raw = prepareEmailHtmlForDisplay(plainText || "", html)
+    if (!raw.trim()) return ""
+    return DOMPurify.sanitize(raw, {
+      USE_PROFILES: { html: true },
+      ADD_ATTR: ["target", "style", "class", "align", "bgcolor", "width", "height", "colspan", "rowspan"],
+      FORBID_TAGS: ["script", "iframe", "object", "embed", "form"],
+    })
+  }, [html, plainText])
+
+  if (!safeHtml.trim()) {
     return <p className="text-sm text-muted-foreground">No message content.</p>
   }
 
   return (
-    <iframe
-      title="Email message"
-      sandbox=""
-      srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><base target="_blank"><style>
-        body { font-family: system-ui, sans-serif; font-size: 14px; line-height: 1.5; color: #111; margin: 0; padding: 0; word-break: break-word; }
-        img { max-width: 100%; height: auto; }
-        a { color: #2563eb; }
-        blockquote { margin: 0.5em 0; padding-left: 1em; border-left: 3px solid #ddd; color: #555; }
-      </style></head><body>${html}</body></html>`}
-      className={className ?? "w-full min-h-[280px] max-h-[420px] rounded border border-border bg-white"}
+    <div
+      className={
+        className ??
+        "email-body prose prose-sm max-w-none text-sm rounded border border-border bg-white p-4 max-h-[480px] overflow-auto dark:bg-zinc-950 dark:prose-invert [&_img]:max-w-full [&_table]:max-w-full"
+      }
+      dangerouslySetInnerHTML={{ __html: safeHtml }}
     />
   )
 }

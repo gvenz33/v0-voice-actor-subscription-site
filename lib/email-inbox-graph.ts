@@ -3,7 +3,9 @@ import { ensureMicrosoftAccessToken } from "@/lib/email-tokens"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { NormalizedThread } from "@/lib/email-inbox-types"
 import type { EmailMessageContent } from "@/lib/email-message-types"
-import { sanitizeEmailHtml } from "@/lib/sanitize-email-html"
+import { prepareEmailHtmlForDisplay } from "@/lib/email-display-html"
+import type { MailFolder } from "@/lib/email-folders"
+import { OUTLOOK_FOLDER_SEGMENT } from "@/lib/email-folders"
 
 function formatAddress(
   addr?: { emailAddress?: { name?: string; address?: string } }
@@ -30,12 +32,12 @@ export async function listOutlookMessages(
   supabase: SupabaseClient,
   userId: string,
   row: EmailAccountRow,
-  options: { top?: number; folder?: "inbox" | "sent" } = {}
+  options: { top?: number; folder?: MailFolder } = {}
 ): Promise<NormalizedThread[]> {
   const top = options.top ?? 25
   const folder = options.folder ?? "inbox"
   const accessToken = await ensureMicrosoftAccessToken(supabase, userId, row)
-  const folderSegment = folder === "sent" ? "sentitems" : "inbox"
+  const folderSegment = OUTLOOK_FOLDER_SEGMENT[folder]
   const url = new URL(`https://graph.microsoft.com/v1.0/me/mailFolders/${folderSegment}/messages`)
   url.searchParams.set("$top", String(top))
   url.searchParams.set("$orderby", "receivedDateTime desc")
@@ -105,17 +107,15 @@ export async function getOutlookMessageBody(
   }
   const ct = (m.body?.contentType || "").toLowerCase()
   const rawContent = m.body?.content || ""
-  const html =
-    ct === "html" || ct === "text/html"
-      ? rawContent
-      : rawContent.replace(/\n/g, "<br>")
+  const isHtml = ct === "html" || ct === "text/html"
+  const html = isHtml ? rawContent : ""
   const text =
     ct === "text" || ct === "text/plain"
       ? rawContent
       : stripHtml(rawContent)
   return {
     text: text || "(no body)",
-    html: sanitizeEmailHtml(html),
+    html: prepareEmailHtmlForDisplay(text, html || (isHtml ? rawContent : "")),
     subject: m.subject || "",
     from: formatAddress(m.from),
     to: formatRecipients(m.toRecipients),

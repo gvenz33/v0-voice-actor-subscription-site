@@ -4,6 +4,7 @@ import { deleteGmailThread } from "@/lib/email-inbox-gmail"
 import { deleteOutlookMessage } from "@/lib/email-inbox-graph"
 import { deleteImapMessage } from "@/lib/email-inbox-imap"
 import type { EmailAccountRow } from "@/lib/email-account-types"
+import { parseMailFolder } from "@/lib/email-folders"
 
 export const runtime = "nodejs"
 
@@ -33,7 +34,7 @@ export async function POST(req: Request) {
     )
   }
 
-  const folder = folderParam === "sent" ? "sent" : "inbox"
+  const folder = parseMailFolder(folderParam)
 
   const { data: row, error } = await supabase
     .from("email_accounts")

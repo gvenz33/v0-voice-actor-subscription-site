@@ -3,7 +3,9 @@ import { ensureGoogleAccessToken } from "@/lib/email-tokens"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { NormalizedThread } from "@/lib/email-inbox-types"
 import type { EmailMessageContent } from "@/lib/email-message-types"
-import { sanitizeEmailHtml } from "@/lib/sanitize-email-html"
+import { prepareEmailHtmlForDisplay } from "@/lib/email-display-html"
+import type { MailFolder } from "@/lib/email-folders"
+import { GMAIL_FOLDER_QUERY } from "@/lib/email-folders"
 
 function headerMap(
   headers: { name?: string; value?: string }[] | undefined
@@ -19,11 +21,11 @@ export async function listGmailThreads(
   supabase: SupabaseClient,
   userId: string,
   row: EmailAccountRow,
-  options: { maxResults?: number; folder?: "inbox" | "sent" } = {}
+  options: { maxResults?: number; folder?: MailFolder } = {}
 ): Promise<NormalizedThread[]> {
   const maxResults = options.maxResults ?? 20
   const folder = options.folder ?? "inbox"
-  const query = folder === "sent" ? "in:sent" : "in:inbox"
+  const query = GMAIL_FOLDER_QUERY[folder]
   const accessToken = await ensureGoogleAccessToken(supabase, userId, row)
   const listRes = await fetch(
     `https://gmail.googleapis.com/gmail/v1/users/me/threads?maxResults=${maxResults}&q=${encodeURIComponent(query)}`,
@@ -53,7 +55,7 @@ export async function listGmailThreads(
     }
     const messages = threadJson.messages ?? []
     const msg =
-      folder === "sent"
+      folder === "sent" || folder === "outbox" || folder === "drafts"
         ? messages[messages.length - 1] ?? messages[0]
         : messages[0]
     const headers = headerMap(msg?.payload?.headers)
@@ -127,7 +129,7 @@ export async function getGmailThreadBody(
   )
   return {
     text: text || "(no plain text body)",
-    html: sanitizeEmailHtml(html || text.replace(/\n/g, "<br>")),
+    html: prepareEmailHtmlForDisplay(text, html),
     subject: headers.subject || "",
     from: headers.from || "",
     to: headers.to || "",

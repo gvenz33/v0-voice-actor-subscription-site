@@ -4,6 +4,7 @@ import { getGmailThreadBody } from "@/lib/email-inbox-gmail"
 import { getOutlookMessageBody } from "@/lib/email-inbox-graph"
 import { getImapMessageBody } from "@/lib/email-inbox-imap"
 import type { EmailAccountRow } from "@/lib/email-account-types"
+import { parseMailFolder } from "@/lib/email-folders"
 
 export const runtime = "nodejs"
 
@@ -21,8 +22,7 @@ export async function GET(req: Request) {
   const gmailThreadId = url.searchParams.get("gmailThreadId")
   const outlookMessageId = url.searchParams.get("outlookMessageId")
   const imapUid = url.searchParams.get("imapUid")
-  const folderParam = url.searchParams.get("folder") || "inbox"
-  const folder = folderParam === "sent" ? "sent" : "inbox"
+  const folder = parseMailFolder(url.searchParams.get("folder"))
 
   if (!accountId) {
     return NextResponse.json({ error: "accountId required" }, { status: 400 })

@@ -24,7 +24,12 @@ import {
   formatReplySubject,
 } from "@/lib/email-address"
 import type { ComposeMode, EmailMessageContent } from "@/lib/email-message-types"
-import type { MailFolder, NormalizedThread } from "@/lib/email-inbox-types"
+import {
+  MAIL_FOLDERS,
+  folderLabel,
+  type MailFolder,
+  type NormalizedThread,
+} from "@/lib/email-inbox-types"
 import {
   Forward,
   Loader2,
@@ -66,6 +71,10 @@ async function readFileAsBase64(file: File): Promise<string> {
 function ownEmailsForAccount(accounts: AccountOpt[], accountId: string): string[] {
   const acc = accounts.find((a) => a.id === accountId)
   return [acc?.oauth_email, acc?.smtp_from_email].filter(Boolean) as string[]
+}
+
+function isOutboundFolder(folder: MailFolder): boolean {
+  return folder === "sent" || folder === "outbox" || folder === "drafts"
 }
 
 function composeTitle(mode: ComposeMode): string {
@@ -119,9 +128,7 @@ export default function InboxPage() {
     } else {
       params.set("imapUid", selected.threadKey)
     }
-    if (selected.folder === "sent" || mailFolder === "sent") {
-      params.set("folder", "sent")
-    }
+    params.set("folder", mailFolder)
     fetch(`/api/email/content?${params}`)
       .then((r) => r.json())
       .then((data) => {
@@ -328,10 +335,7 @@ export default function InboxPage() {
     setDeleteLoading(false)
   }
 
-  const emptyMessage =
-    mailFolder === "sent"
-      ? "No sent messages yet."
-      : "No messages yet. Connect Gmail, Outlook, or SMTP+IMAP in Settings."
+  const emptyMessage = `No messages in ${folderLabel(mailFolder).toLowerCase()}.`
 
   return (
     <div className="flex flex-col gap-6">
@@ -346,24 +350,21 @@ export default function InboxPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1 rounded-lg border border-border p-1">
-          <Button
-            type="button"
-            variant={mailFolder === "inbox" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setMailFolder("inbox")}
-          >
-            Inbox
-          </Button>
-          <Button
-            type="button"
-            variant={mailFolder === "sent" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setMailFolder("sent")}
-          >
-            Sent
-          </Button>
-        </div>
+        <ScrollArea className="w-full whitespace-nowrap lg:w-auto">
+          <div className="flex items-center gap-1 rounded-lg border border-border p-1 min-w-max">
+            {MAIL_FOLDERS.map((f) => (
+              <Button
+                key={f.id}
+                type="button"
+                variant={mailFolder === f.id ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setMailFolder(f.id)}
+              >
+                {f.label}
+              </Button>
+            ))}
+          </div>
+        </ScrollArea>
         <div className="flex items-center gap-2">
           <Label className="text-muted-foreground">Account</Label>
           <Select value={accountFilter} onValueChange={setAccountFilter}>
@@ -526,7 +527,7 @@ export default function InboxPage() {
         <Card className="min-h-[480px]">
           <CardHeader>
             <CardTitle className="text-base">
-              {mailFolder === "sent" ? "Sent" : "Inbox"}
+              {folderLabel(mailFolder)}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -537,7 +538,7 @@ export default function InboxPage() {
             )}
             {error && (
               <p className="p-4 text-sm text-destructive">
-                Could not load {mailFolder === "sent" ? "sent mail" : "inbox"}.
+                Could not load {folderLabel(mailFolder).toLowerCase()}.
               </p>
             )}
             {!isLoading && !error && threads.length === 0 && (
@@ -556,7 +557,7 @@ export default function InboxPage() {
                     >
                       <div className="font-medium line-clamp-1">{t.subject}</div>
                       <div className="text-xs text-muted-foreground line-clamp-1">
-                        {mailFolder === "sent"
+                        {isOutboundFolder(mailFolder)
                           ? t.to
                             ? `To: ${t.to}`
                             : "To: (unknown)"
@@ -639,7 +640,7 @@ export default function InboxPage() {
                 <div>
                   <p className="font-medium">{selected.subject}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {mailFolder === "sent"
+                    {isOutboundFolder(mailFolder)
                       ? selected.to
                         ? `To: ${selected.to}`
                         : "To: (unknown)"
@@ -651,12 +652,11 @@ export default function InboxPage() {
                 </div>
                 {bodyLoading ? (
                   <Loader2 className="size-6 animate-spin text-muted-foreground mt-4" />
-                ) : messageContent?.html ? (
-                  <EmailHtmlBody html={messageContent.html} />
                 ) : (
-                  <pre className="whitespace-pre-wrap text-sm rounded border border-border p-3 bg-muted/20 max-h-[420px] overflow-auto">
-                    {messageContent?.text || ""}
-                  </pre>
+                  <EmailHtmlBody
+                    html={messageContent?.html}
+                    plainText={messageContent?.text}
+                  />
                 )}
               </div>
             )}
