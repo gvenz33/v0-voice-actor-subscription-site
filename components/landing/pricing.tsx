@@ -1,14 +1,32 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Check } from 'lucide-react'
 import { PRODUCTS, getEffectiveMonthlyPrice } from '@/lib/products'
+import { TIER_MARKETING_NAMES } from '@/lib/promo-codes'
 import { cn } from '@/lib/utils'
 
 export function Pricing() {
-  const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month')
+  const searchParams = useSearchParams()
+  const promoFromUrl = searchParams.get('promo') ?? ''
+  const intervalFromUrl = searchParams.get('interval')
+  const [billingInterval, setBillingInterval] = useState<'month' | 'year'>(
+    intervalFromUrl === 'year' ? 'year' : 'month'
+  )
+
+  useEffect(() => {
+    if (intervalFromUrl === 'year') {
+      setBillingInterval('year')
+    }
+  }, [intervalFromUrl])
+
+  const promoQuery = promoFromUrl
+    ? `&promo=${encodeURIComponent(promoFromUrl)}`
+    : ''
 
   return (
     <section id="pricing" className="section-pricing px-6 py-24 md:py-32">
@@ -20,9 +38,16 @@ export function Pricing() {
           <p className="mt-4 text-pretty text-lg leading-relaxed text-muted-foreground">
             Whether you are just starting out or scaling a six-figure voice over business, there is a plan that fits.
           </p>
+          {promoFromUrl && (
+            <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-2 text-sm">
+              <Badge variant="secondary" className="bg-accent/20">Beta Promo</Badge>
+              <span>
+                Code <span className="font-mono font-semibold">{promoFromUrl.toUpperCase()}</span> will be applied at checkout on eligible annual plans.
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Billing Toggle */}
         <div className="mt-10 flex items-center justify-center gap-4">
           <button
             onClick={() => setBillingInterval('month')}
@@ -51,12 +76,20 @@ export function Pricing() {
           </button>
         </div>
 
+        {promoFromUrl && billingInterval === 'month' && (
+          <p className="mt-4 text-center text-sm text-amber-600 dark:text-amber-400">
+            Beta promo codes require annual billing. Switch to Annual to use code {promoFromUrl.toUpperCase()}.
+          </p>
+        )}
+
         <div className="mx-auto mt-12 grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-3">
           {PRODUCTS.map((product) => {
             const monthlyPrice = product.monthlyPriceInCents / 100
             const annualPrice = product.annualPriceInCents / 100
             const effectiveMonthly = getEffectiveMonthlyPrice(product) / 100
             const savings = (monthlyPrice * 12) - annualPrice
+            const marketingName = TIER_MARKETING_NAMES[product.tier]
+            const checkoutHref = `/checkout/${product.id}?interval=${billingInterval}${promoQuery}`
 
             return (
               <div
@@ -75,6 +108,9 @@ export function Pricing() {
                 )}
                 <div className="mb-6">
                   <h3 className="text-xl font-bold text-card-foreground">{product.name}</h3>
+                  {marketingName !== product.name && (
+                    <p className="text-xs font-medium text-accent">{marketingName}</p>
+                  )}
                   <p className="mt-1 text-sm text-muted-foreground">{product.description}</p>
                 </div>
                 <div className="mb-6">
@@ -120,7 +156,7 @@ export function Pricing() {
                   variant={product.highlighted ? 'default' : 'outline'}
                   asChild
                 >
-                  <Link href={`/checkout/${product.id}?interval=${billingInterval}`}>
+                  <Link href={checkoutHref}>
                     Get {product.name}
                   </Link>
                 </Button>

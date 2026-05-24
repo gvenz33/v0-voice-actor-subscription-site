@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { Navbar } from '@/components/landing/navbar'
 import { Hero } from '@/components/landing/hero'
 import { Features } from '@/components/landing/features'
@@ -6,6 +7,7 @@ import { Pricing } from '@/components/landing/pricing'
 import { CTA } from '@/components/landing/cta'
 import { FAQ } from '@/components/landing/faq'
 import { Footer } from '@/components/landing/footer'
+import { BetaTesterPopup } from '@/components/landing/beta-tester-popup'
 import type { Metadata } from 'next'
 
 const siteUrl = 'https://vobizsuite.io'
@@ -39,11 +41,14 @@ export default function HomePage() {
         <Hero />
         <Features />
         <HowItWorks />
-        <Pricing />
+        <Suspense fallback={null}>
+          <Pricing />
+        </Suspense>
         <CTA />
         <FAQ />
       </main>
       <Footer />
+      <BetaTesterPopup />
     </div>
   )
 }

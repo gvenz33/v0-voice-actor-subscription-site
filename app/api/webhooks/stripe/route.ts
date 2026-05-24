@@ -3,6 +3,7 @@ import { getStripe } from '@/lib/stripe'
 import { addPurchasedTokens } from '@/lib/ai-limits'
 import Stripe from 'stripe'
 import { createClient } from '@/lib/supabase/server'
+import { recordPromoRedemption } from '@/lib/promo-codes-server'
 
 export async function POST(request: NextRequest) {
   const body = await request.text()
@@ -68,6 +69,23 @@ export async function POST(request: NextRequest) {
             console.error('Failed to update subscription tier:', error)
             // Don't return error - Stripe will retry
           }
+        }
+      }
+
+      if (session.metadata?.promo_code_id) {
+        try {
+          await recordPromoRedemption({
+            promoCodeId: session.metadata.promo_code_id,
+            userId: session.metadata.user_id ?? null,
+            stripeSessionId: session.id,
+            tier: session.metadata.tier ?? null,
+            billingInterval: session.metadata.billing_interval ?? null,
+            discountAppliedCents: session.metadata.discount_applied_cents
+              ? parseInt(session.metadata.discount_applied_cents, 10)
+              : 0,
+          })
+        } catch (error) {
+          console.error('Failed to record promo redemption:', error)
         }
       }
       break

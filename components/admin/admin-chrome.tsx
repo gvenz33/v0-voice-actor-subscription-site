@@ -11,6 +11,7 @@ import {
   Shield,
   LogOut,
   Menu,
+  Ticket,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -25,6 +26,7 @@ import { cn } from "@/lib/utils"
 const adminNavItems = [
   { title: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { title: "Users", href: "/admin/users", icon: Users },
+  { title: "Promo Codes", href: "/admin/promo-codes", icon: Ticket },
   { title: "Settings", href: "/admin/settings", icon: Settings },
 ] as const
 

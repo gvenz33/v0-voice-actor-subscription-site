@@ -1,30 +1,64 @@
 import { PRODUCTS, getProductPrice } from '@/lib/products'
-import { notFound } from 'next/navigation'
-import Checkout from '@/components/checkout'
+import { notFound, redirect } from 'next/navigation'
+import CheckoutFlow from '@/components/checkout-flow'
 import { Mic, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
+import { validatePromoCodeForCheckout } from '@/lib/promo-codes-server'
+import { formatCents } from '@/lib/promo-codes'
 
 export default async function CheckoutPage({
   params,
   searchParams,
 }: {
   params: Promise<{ productId: string }>
-  searchParams: Promise<{ interval?: string }>
+  searchParams: Promise<{ interval?: string; promo?: string }>
 }) {
   const { productId } = await params
-  const { interval } = await searchParams
-  const billingInterval = interval === 'year' ? 'year' : 'month'
-  
-  const product = PRODUCTS.find((p) => p.id === productId)
+  const { interval, promo } = await searchParams
 
+  const product = PRODUCTS.find((p) => p.id === productId)
   if (!product) {
     notFound()
   }
 
+  let billingInterval: 'month' | 'year' = interval === 'year' ? 'year' : 'month'
+  const initialPromoCode = promo?.trim() ?? ''
+
+  if (initialPromoCode) {
+    const validation = await validatePromoCodeForCheckout(
+      initialPromoCode,
+      productId,
+      billingInterval
+    )
+
+    if (
+      validation.valid &&
+      validation.promo?.billing_interval_restriction === 'year' &&
+      billingInterval !== 'year'
+    ) {
+      redirect(`/checkout/${productId}?interval=year&promo=${encodeURIComponent(initialPromoCode)}`)
+    }
+  }
+
   const priceInCents = getProductPrice(product, billingInterval)
-  const displayPrice = billingInterval === 'year' 
-    ? `$${(priceInCents / 100).toFixed(0)}/year`
-    : `$${(priceInCents / 100).toFixed(0)}/month`
+  let displayPrice =
+    billingInterval === 'year'
+      ? `$${(priceInCents / 100).toFixed(0)}/year`
+      : `$${(priceInCents / 100).toFixed(0)}/month`
+
+  let promoNote: string | null = null
+
+  if (initialPromoCode) {
+    const validation = await validatePromoCodeForCheckout(
+      initialPromoCode,
+      productId,
+      billingInterval
+    )
+    if (validation.valid && validation.discountedPriceInCents != null) {
+      displayPrice = `${formatCents(validation.discountedPriceInCents)}/${billingInterval === 'year' ? 'year' : 'month'}`
+      promoNote = `Promo ${validation.promo?.code} applied at checkout`
+    }
+  }
 
   return (
     <div className="min-h-svh bg-secondary">
@@ -51,12 +85,21 @@ export default async function CheckoutPage({
             {product.description} &mdash; {displayPrice}
           </p>
           {billingInterval === 'year' && (
-            <p className="mt-1 text-sm text-accent font-medium">
+            <p className="mt-1 text-sm font-medium text-accent">
               2 months free with annual billing
             </p>
           )}
+          {promoNote && (
+            <p className="mt-1 text-sm font-medium text-green-600 dark:text-green-400">
+              {promoNote}
+            </p>
+          )}
         </div>
-        <Checkout productId={productId} billingInterval={billingInterval} />
+        <CheckoutFlow
+          productId={productId}
+          billingInterval={billingInterval}
+          initialPromoCode={initialPromoCode}
+        />
       </div>
     </div>
   )
