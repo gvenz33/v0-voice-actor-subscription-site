@@ -226,11 +226,33 @@ export function SettingsForm() {
     loadEmailConfig()
   }, [applySmtpAccountToForm])
 
-  // Load signature from localStorage
+  // Load signature from database (fallback to localStorage)
   useEffect(() => {
-    const saved = localStorage.getItem("vo_email_signature")
-    if (saved) setSignature(saved)
-    setSignatureLoading(false)
+    async function loadSignature() {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      let saved = ""
+      if (user) {
+        const { data } = await supabase
+          .from("email_signatures")
+          .select("signature_text")
+          .eq("user_id", user.id)
+          .maybeSingle()
+        saved = data?.signature_text ?? ""
+      }
+
+      if (!saved) {
+        saved = localStorage.getItem("vo_email_signature") || ""
+      }
+
+      setSignature(saved)
+      setSignatureLoading(false)
+    }
+
+    void loadSignature()
   }, [])
 
   const onGmailConnected = useCallback(() => {
@@ -413,13 +435,35 @@ export function SettingsForm() {
     }
   }
 
-  const handleSaveSignature = () => {
+  const handleSaveSignature = async () => {
     setSignatureSaving(true)
     setSignatureMessage("")
-    localStorage.setItem("vo_email_signature", signature)
-    setSignatureMessage("Signature saved successfully!")
-    setTimeout(() => setSignatureMessage(""), 3000)
-    setSignatureSaving(false)
+    try {
+      localStorage.setItem("vo_email_signature", signature)
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (user) {
+        const { error } = await supabase.from("email_signatures").upsert(
+          {
+            user_id: user.id,
+            signature_text: signature,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" }
+        )
+        if (error) throw error
+      }
+
+      setSignatureMessage("Signature saved successfully!")
+      setTimeout(() => setSignatureMessage(""), 3000)
+    } catch {
+      setSignatureMessage("Failed to save signature. Please try again.")
+    } finally {
+      setSignatureSaving(false)
+    }
   }
 
   const handleSaveProfile = async (e: React.FormEvent<HTMLFormElement>) => {

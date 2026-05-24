@@ -21,6 +21,8 @@ export async function GET(req: Request) {
   const gmailThreadId = url.searchParams.get("gmailThreadId")
   const outlookMessageId = url.searchParams.get("outlookMessageId")
   const imapUid = url.searchParams.get("imapUid")
+  const folderParam = url.searchParams.get("folder") || "inbox"
+  const folder = folderParam === "sent" ? "sent" : "inbox"
 
   if (!accountId) {
     return NextResponse.json({ error: "accountId required" }, { status: 400 })
@@ -58,7 +60,7 @@ export async function GET(req: Request) {
       if (!Number.isFinite(uid)) {
         return NextResponse.json({ error: "invalid imapUid" }, { status: 400 })
       }
-      const body = await getImapMessageBody(acc, uid)
+      const body = await getImapMessageBody(acc, uid, folder)
       return NextResponse.json(body)
     }
     return NextResponse.json(

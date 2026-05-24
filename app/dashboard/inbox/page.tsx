@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import useSWR from "swr"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -15,8 +15,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Loader2, Mail, Send } from "lucide-react"
-import type { NormalizedThread } from "@/lib/email-inbox-types"
+import { Loader2, Mail, Paperclip, Send, X } from "lucide-react"
+import type { MailFolder, NormalizedThread } from "@/lib/email-inbox-types"
 
 type AccountOpt = {
   id: string
@@ -32,16 +32,30 @@ async function fetcher(url: string) {
   return res.json()
 }
 
+async function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      resolve(result.split(",")[1] ?? "")
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
 export default function InboxPage() {
   const [accountFilter, setAccountFilter] = useState<string>("all")
+  const [mailFolder, setMailFolder] = useState<MailFolder>("inbox")
   const [selected, setSelected] = useState<NormalizedThread | null>(null)
   const [bodyText, setBodyText] = useState<string>("")
   const [bodyLoading, setBodyLoading] = useState(false)
+  const attachmentInputRef = useRef<HTMLInputElement>(null)
 
   const { data: accData } = useSWR("/api/email/accounts", fetcher)
   const accounts: AccountOpt[] = accData?.accounts ?? []
 
-  const threadsUrl = `/api/email/threads?accountId=${encodeURIComponent(accountFilter)}`
+  const threadsUrl = `/api/email/threads?accountId=${encodeURIComponent(accountFilter)}&folder=${mailFolder}`
   const { data: threadData, isLoading, error, mutate } = useSWR(threadsUrl, fetcher)
 
   const threads: NormalizedThread[] = threadData?.threads ?? []
@@ -50,7 +64,7 @@ export default function InboxPage() {
   useEffect(() => {
     setSelected(null)
     setBodyText("")
-  }, [accountFilter])
+  }, [accountFilter, mailFolder])
 
   useEffect(() => {
     if (!selected) {
@@ -66,6 +80,9 @@ export default function InboxPage() {
       params.set("outlookMessageId", selected.threadKey)
     } else {
       params.set("imapUid", selected.threadKey)
+    }
+    if (selected.folder === "sent" || mailFolder === "sent") {
+      params.set("folder", "sent")
     }
     fetch(`/api/email/content?${params}`)
       .then((r) => r.json())
@@ -86,12 +103,13 @@ export default function InboxPage() {
     return () => {
       cancelled = true
     }
-  }, [selected])
+  }, [selected, mailFolder])
 
   const [composeOpen, setComposeOpen] = useState(false)
   const [sendTo, setSendTo] = useState("")
   const [sendSubject, setSendSubject] = useState("")
   const [sendBody, setSendBody] = useState("")
+  const [sendAttachments, setSendAttachments] = useState<File[]>([])
   const [sendAccountId, setSendAccountId] = useState<string>("")
   const [sendLoading, setSendLoading] = useState(false)
 
@@ -106,10 +124,28 @@ export default function InboxPage() {
     }
   }, [defaultSendId, sendAccountId])
 
+  const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    if (files.length === 0) return
+    setSendAttachments((prev) => [...prev, ...files])
+    e.target.value = ""
+  }
+
+  const removeAttachment = (index: number) => {
+    setSendAttachments((prev) => prev.filter((_, i) => i !== index))
+  }
+
   const handleSend = async () => {
     if (!sendTo.trim() || !sendSubject.trim() || !sendBody.trim()) return
     setSendLoading(true)
     try {
+      const attachments = await Promise.all(
+        sendAttachments.map(async (file) => ({
+          filename: file.name,
+          contentBase64: await readFileAsBase64(file),
+          contentType: file.type || "application/octet-stream",
+        }))
+      )
       const res = await fetch("/api/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -118,6 +154,7 @@ export default function InboxPage() {
           subject: sendSubject.trim(),
           body: sendBody,
           account_id: sendAccountId || undefined,
+          attachments,
         }),
       })
       const data = await res.json()
@@ -126,19 +163,25 @@ export default function InboxPage() {
       setSendTo("")
       setSendSubject("")
       setSendBody("")
-      mutate()
+      setSendAttachments([])
+      setMailFolder("sent")
     } catch (e) {
       alert(e instanceof Error ? e.message : "Send failed")
     }
     setSendLoading(false)
   }
 
+  const emptyMessage =
+    mailFolder === "sent"
+      ? "No sent messages yet."
+      : "No messages yet. Connect Gmail, Outlook, or SMTP+IMAP in Settings."
+
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h2 className="font-[family-name:var(--font-heading)] text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
           <Mail className="size-6" />
-          Inbox
+          Mail
         </h2>
         <p className="text-sm text-muted-foreground">
           Unified inbox across connected accounts. Configure accounts in Settings.
@@ -146,6 +189,24 @@ export default function InboxPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-1 rounded-lg border border-border p-1">
+          <Button
+            type="button"
+            variant={mailFolder === "inbox" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setMailFolder("inbox")}
+          >
+            Inbox
+          </Button>
+          <Button
+            type="button"
+            variant={mailFolder === "sent" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setMailFolder("sent")}
+          >
+            Sent
+          </Button>
+        </div>
         <div className="flex items-center gap-2">
           <Label className="text-muted-foreground">Account</Label>
           <Select value={accountFilter} onValueChange={setAccountFilter}>
@@ -232,6 +293,48 @@ export default function InboxPage() {
                 onChange={(e) => setSendBody(e.target.value)}
               />
             </div>
+            <div className="flex flex-col gap-2">
+              <Label>Attachments</Label>
+              <input
+                ref={attachmentInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={handleAttachmentChange}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-fit"
+                onClick={() => attachmentInputRef.current?.click()}
+              >
+                <Paperclip className="mr-2 size-4" />
+                Add attachment
+              </Button>
+              {sendAttachments.length > 0 && (
+                <ul className="flex flex-col gap-1">
+                  {sendAttachments.map((file, index) => (
+                    <li
+                      key={`${file.name}-${index}`}
+                      className="flex items-center justify-between gap-2 rounded border border-border px-3 py-2 text-sm"
+                    >
+                      <span className="truncate">{file.name}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 shrink-0"
+                        onClick={() => removeAttachment(index)}
+                        aria-label={`Remove ${file.name}`}
+                      >
+                        <X className="size-4" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
             <Button onClick={handleSend} disabled={sendLoading}>
               {sendLoading ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -248,7 +351,9 @@ export default function InboxPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="min-h-[420px]">
           <CardHeader>
-            <CardTitle className="text-base">Threads</CardTitle>
+            <CardTitle className="text-base">
+              {mailFolder === "sent" ? "Sent" : "Inbox"}
+            </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {isLoading && (
@@ -257,12 +362,12 @@ export default function InboxPage() {
               </div>
             )}
             {error && (
-              <p className="p-4 text-sm text-destructive">Could not load inbox.</p>
+              <p className="p-4 text-sm text-destructive">
+                Could not load {mailFolder === "sent" ? "sent mail" : "inbox"}.
+              </p>
             )}
             {!isLoading && !error && threads.length === 0 && (
-              <p className="p-4 text-sm text-muted-foreground">
-                No messages yet. Connect Gmail, Outlook, or SMTP+IMAP in Settings.
-              </p>
+              <p className="p-4 text-sm text-muted-foreground">{emptyMessage}</p>
             )}
             <ScrollArea className="h-[360px]">
               <ul className="divide-y divide-border">
@@ -277,7 +382,11 @@ export default function InboxPage() {
                     >
                       <div className="font-medium line-clamp-1">{t.subject}</div>
                       <div className="text-xs text-muted-foreground line-clamp-1">
-                        {t.from}
+                        {mailFolder === "sent"
+                          ? t.to
+                            ? `To: ${t.to}`
+                            : "To: (unknown)"
+                          : t.from}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
                         {t.snippet}
@@ -297,13 +406,19 @@ export default function InboxPage() {
           <CardContent>
             {!selected && (
               <p className="text-sm text-muted-foreground">
-                Select a thread to read the message.
+                Select a message to read it.
               </p>
             )}
             {selected && (
               <div className="flex flex-col gap-2">
                 <p className="font-medium">{selected.subject}</p>
-                <p className="text-xs text-muted-foreground">{selected.from}</p>
+                <p className="text-xs text-muted-foreground">
+                  {mailFolder === "sent"
+                    ? selected.to
+                      ? `To: ${selected.to}`
+                      : "To: (unknown)"
+                    : selected.from}
+                </p>
                 {bodyLoading ? (
                   <Loader2 className="size-6 animate-spin text-muted-foreground mt-4" />
                 ) : (

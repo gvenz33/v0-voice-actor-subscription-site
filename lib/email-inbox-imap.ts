@@ -21,8 +21,10 @@ function imapClient(row: EmailAccountRow) {
 
 export async function listImapMessages(
   row: EmailAccountRow,
-  maxResults = 25
+  options: { maxResults?: number; folder?: "inbox" | "sent" } = {}
 ): Promise<NormalizedThread[]> {
+  const maxResults = options.maxResults ?? 25
+  const folder = options.folder ?? "inbox"
   if (!row.imap_host) {
     throw new Error("IMAP host not configured for this account")
   }
@@ -31,7 +33,11 @@ export async function listImapMessages(
 
   await client.connect()
   try {
-    await client.mailboxOpen("INBOX")
+    const mailboxName =
+      folder === "sent"
+        ? await openSentMailbox(client)
+        : "INBOX"
+    await client.mailboxOpen(mailboxName)
     const uids = await client.search({ all: true }, { uid: true })
     if (!uids || !Array.isArray(uids) || uids.length === 0) {
       return []
@@ -51,9 +57,20 @@ export async function listImapMessages(
     )) {
       const env = msg.envelope
       const fromAddr = env?.from?.[0]
+      const toAddr = env?.to?.[0]
       const from =
         (fromAddr && "address" in fromAddr && fromAddr.address) ||
         (fromAddr && "name" in fromAddr && fromAddr.name) ||
+        ""
+      const to =
+        env?.to
+          ?.map((addr) =>
+            ("address" in addr && addr.address) || ("name" in addr && addr.name) || ""
+          )
+          .filter(Boolean)
+          .join(", ") ||
+        (toAddr && "address" in toAddr && toAddr.address) ||
+        (toAddr && "name" in toAddr && toAddr.name) ||
         ""
       const subject = env?.subject || "(no subject)"
       const internalDate = msg.internalDate
@@ -64,8 +81,10 @@ export async function listImapMessages(
         threadKey: String(msg.uid),
         accountId: row.id,
         provider: "smtp",
+        folder,
         subject,
         from: String(from),
+        to: String(to),
         snippet: "",
         internalDate,
       })
@@ -76,15 +95,31 @@ export async function listImapMessages(
   }
 }
 
+async function openSentMailbox(client: ImapFlow): Promise<string> {
+  const candidates = ["Sent", "Sent Items", "Sent Mail", "[Gmail]/Sent Mail", "INBOX.Sent"]
+  for (const name of candidates) {
+    try {
+      await client.mailboxOpen(name)
+      return name
+    } catch {
+      continue
+    }
+  }
+  throw new Error("Could not open Sent folder for this IMAP account")
+}
+
 export async function getImapMessageBody(
   row: EmailAccountRow,
-  uid: number
+  uid: number,
+  folder: "inbox" | "sent" = "inbox"
 ): Promise<{ text: string; subject: string; from: string }> {
   const client = imapClient(row)
 
   await client.connect()
   try {
-    await client.mailboxOpen("INBOX")
+    const mailboxName =
+      folder === "sent" ? await openSentMailbox(client) : "INBOX"
+    await client.mailboxOpen(mailboxName)
     const msg = await client.fetchOne(
       uid,
       { envelope: true, source: true, uid: true },

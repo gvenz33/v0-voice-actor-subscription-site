@@ -4,7 +4,7 @@ import { listEmailAccounts } from "@/lib/email-accounts-server"
 import { listGmailThreads } from "@/lib/email-inbox-gmail"
 import { listOutlookMessages } from "@/lib/email-inbox-graph"
 import { listImapMessages } from "@/lib/email-inbox-imap"
-import type { NormalizedThread } from "@/lib/email-inbox-types"
+import type { NormalizedThread, MailFolder } from "@/lib/email-inbox-types"
 import type { EmailAccountRow } from "@/lib/email-account-types"
 
 export const runtime = "nodejs"
@@ -20,6 +20,8 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url)
   const accountId = url.searchParams.get("accountId") || "all"
+  const folderParam = url.searchParams.get("folder") || "inbox"
+  const folder: MailFolder = folderParam === "sent" ? "sent" : "inbox"
 
   const { data: accounts, error: listErr } = await listEmailAccounts(supabase, user.id)
   if (listErr?.message.includes("does not exist") || listErr?.message.includes("schema cache")) {
@@ -44,11 +46,11 @@ export async function GET(req: Request) {
   for (const acc of selected) {
     try {
       if (acc.provider === "gmail") {
-        merged.push(...(await listGmailThreads(supabase, user.id, acc)))
+        merged.push(...(await listGmailThreads(supabase, user.id, acc, { folder })))
       } else if (acc.provider === "outlook") {
-        merged.push(...(await listOutlookMessages(supabase, user.id, acc)))
+        merged.push(...(await listOutlookMessages(supabase, user.id, acc, { folder })))
       } else if (acc.provider === "smtp" && acc.imap_host) {
-        merged.push(...(await listImapMessages(acc)))
+        merged.push(...(await listImapMessages(acc, { folder })))
       }
     } catch (e) {
       errors.push(

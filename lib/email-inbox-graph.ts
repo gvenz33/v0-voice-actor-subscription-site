@@ -7,15 +7,18 @@ export async function listOutlookMessages(
   supabase: SupabaseClient,
   userId: string,
   row: EmailAccountRow,
-  top = 25
+  options: { top?: number; folder?: "inbox" | "sent" } = {}
 ): Promise<NormalizedThread[]> {
+  const top = options.top ?? 25
+  const folder = options.folder ?? "inbox"
   const accessToken = await ensureMicrosoftAccessToken(supabase, userId, row)
-  const url = new URL("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages")
+  const folderSegment = folder === "sent" ? "sentitems" : "inbox"
+  const url = new URL(`https://graph.microsoft.com/v1.0/me/mailFolders/${folderSegment}/messages`)
   url.searchParams.set("$top", String(top))
   url.searchParams.set("$orderby", "receivedDateTime desc")
   url.searchParams.set(
     "$select",
-    "id,subject,bodyPreview,receivedDateTime,conversationId,from"
+    "id,subject,bodyPreview,receivedDateTime,conversationId,from,toRecipients"
   )
 
   const res = await fetch(url.toString(), {
@@ -33,6 +36,7 @@ export async function listOutlookMessages(
       receivedDateTime?: string
       conversationId?: string
       from?: { emailAddress?: { name?: string; address?: string } }
+      toRecipients?: Array<{ emailAddress?: { name?: string; address?: string } }>
     }[]
   }
   const values = json.value ?? []
@@ -41,10 +45,16 @@ export async function listOutlookMessages(
     threadKey: m.id,
     accountId: row.id,
     provider: "outlook" as const,
+    folder,
     subject: m.subject || "(no subject)",
     from: m.from?.emailAddress?.address
       ? `${m.from.emailAddress.name || ""} <${m.from.emailAddress.address}>`.trim()
       : "",
+    to:
+      m.toRecipients
+        ?.map((r) => r.emailAddress?.address || r.emailAddress?.name || "")
+        .filter(Boolean)
+        .join(", ") || "",
     snippet: m.bodyPreview || "",
     internalDate: m.receivedDateTime
       ? new Date(m.receivedDateTime).getTime()

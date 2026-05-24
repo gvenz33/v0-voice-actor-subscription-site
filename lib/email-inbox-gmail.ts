@@ -17,11 +17,14 @@ export async function listGmailThreads(
   supabase: SupabaseClient,
   userId: string,
   row: EmailAccountRow,
-  maxResults = 20
+  options: { maxResults?: number; folder?: "inbox" | "sent" } = {}
 ): Promise<NormalizedThread[]> {
+  const maxResults = options.maxResults ?? 20
+  const folder = options.folder ?? "inbox"
+  const query = folder === "sent" ? "in:sent" : "in:inbox"
   const accessToken = await ensureGoogleAccessToken(supabase, userId, row)
   const listRes = await fetch(
-    `https://gmail.googleapis.com/gmail/v1/users/me/threads?maxResults=${maxResults}&q=in:inbox`,
+    `https://gmail.googleapis.com/gmail/v1/users/me/threads?maxResults=${maxResults}&q=${encodeURIComponent(query)}`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   )
   if (!listRes.ok) {
@@ -35,7 +38,7 @@ export async function listGmailThreads(
   const results: NormalizedThread[] = []
   for (const t of threads) {
     const tr = await fetch(
-      `https://gmail.googleapis.com/gmail/v1/users/me/threads/${t.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`,
+      `https://gmail.googleapis.com/gmail/v1/users/me/threads/${t.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Date`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     )
     if (!tr.ok) continue
@@ -55,8 +58,10 @@ export async function listGmailThreads(
       threadKey: t.id,
       accountId: row.id,
       provider: "gmail",
+      folder,
       subject: headers.subject || "(no subject)",
       from: headers.from || "",
+      to: headers.to || "",
       snippet: t.snippet || "",
       internalDate,
     })

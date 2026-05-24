@@ -387,48 +387,28 @@ export default function BillingDesk() {
     try {
       if (!form.clientEmail) throw new Error("Client email is required to send the invoice.")
 
-      // Ensure invoice exists/updated, but don't mark it as sent until email succeeds.
       const invoiceId = await upsertInvoice("draft")
 
-      const billedInfo = computed
-      const subject = `Invoice ${form.invoiceNumber || ""} from VOBizSuite`.trim()
-      const body = [
-        "Hello,",
-        "",
-        "Please find your invoice below:",
-        "",
-        `Invoice #: ${form.invoiceNumber}`,
-        `Due date: ${form.dueDate || "(not set)"}`,
-        `Description: ${form.description || "(none)"}`,
-        "",
-        `Word count: ${form.wordCount}`,
-        `Rate template: ${form.rateTemplate.toUpperCase()}`,
-        `Words per minute (WPM): ${form.wpm}`,
-        `Estimated billed time: ${billedInfo ? formatHours(billedInfo.durationHours) : "(unknown)"}`,
-        "",
-        `Total due: $${billedInfo ? billedInfo.amount.toFixed(2) : "0.00"}`,
-        "",
-        "Thank you,",
-        "VOBizSuite",
-      ].join("\n")
+      const signatureText =
+        typeof window !== "undefined"
+          ? localStorage.getItem("vo_email_signature") || ""
+          : ""
 
-      const res = await fetch("/api/send-email", {
+      const res = await fetch("/api/invoices/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: form.clientEmail,
-          subject,
-          body,
-        }),
+        body: JSON.stringify({ invoiceId, signatureText }),
       })
 
-      const data = await res.json()
+      const data = (await res.json()) as {
+        error?: string
+        hasPaymentLink?: boolean
+        paymentUrl?: string | null
+      }
+
       if (!res.ok) {
         throw new Error(data?.error || "Failed to send invoice email")
       }
-
-      const supabase = createClient()
-      await supabase.from("invoices").update({ status: "sent" }).eq("id", invoiceId)
 
       setDialogOpen(false)
       setEditing(null)
