@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, Suspense } from "react"
 import { MAX_EMAIL_ACCOUNTS_PER_USER } from "@/lib/email-account-limits"
 import { createClient } from "@/lib/supabase/client"
 import { OAuthCallbackMessages } from "./oauth-callback-messages"
+import { DemoReelsSettings } from "@/components/settings/demo-reels-settings"
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from "@/components/ui/card"
@@ -466,7 +467,7 @@ export function SettingsForm() {
           Settings
         </h2>
         <p className="text-sm text-muted-foreground">
-          Profile and subscription first, then email (Gmail, Microsoft 365, SMTP), calendar, and signature.
+          Profile and subscription first, then demo reels, email (Gmail, Microsoft 365, SMTP), calendar, and signature.
         </p>
       </div>
 
@@ -1004,6 +1005,8 @@ export function SettingsForm() {
           </form>
         </CardContent>
       </Card>
+
+      <DemoReelsSettings />
 
       <Card>
         <CardHeader>
