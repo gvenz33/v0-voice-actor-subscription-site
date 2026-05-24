@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Mail,
   Sparkles,
@@ -40,6 +41,7 @@ import {
   Save,
   FileSignature,
   Award,
+  Paperclip,
 } from "lucide-react"
 import Link from "next/link"
 import { TokenPurchaseModal } from "@/components/token-purchase-modal"
@@ -211,6 +213,13 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
   const [sending, setSending] = useState(false)
   const [sendSuccess, setSendSuccess] = useState(false)
   const [sendError, setSendError] = useState("")
+  const [selectedDemoReelIds, setSelectedDemoReelIds] = useState<string[]>([])
+
+  const { data: demoReelsData } = useSWR<{ reels?: Array<{ id: string; title: string; file_name: string; file_size: number }> }>(
+    "/api/demo-reels",
+    fetcher
+  )
+  const demoReels = demoReelsData?.reels ?? []
   
   // Token purchase modal
   const [showPurchaseModal, setShowPurchaseModal] = useState(false)
@@ -256,7 +265,18 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
     setSending(true)
     setSendError("")
     setSendSuccess(false)
-    
+
+    const plainBody = getFinalEmail()
+    const htmlBody = plainBody
+      .split("\n")
+      .map((line) =>
+        line
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+      )
+      .join("<br>")
+
     try {
       const res = await fetch("/api/send-email", {
         method: "POST",
@@ -264,7 +284,9 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
         body: JSON.stringify({
           to: recipientEmail,
           subject: editedSubject || `Voice Over Inquiry - ${companyName || "Collaboration Opportunity"}`,
-          body: getFinalEmail(),
+          body: plainBody,
+          html: htmlBody,
+          demo_reel_ids: selectedDemoReelIds,
         }),
       })
       
@@ -467,6 +489,55 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
                     </div>
                   )}
                 </div>
+                {demoReels.length > 0 && (
+                  <div className="rounded-lg border border-border p-4">
+                    <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                      <Paperclip className="size-4" />
+                      Attach demo reels from your library
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {demoReels.map((reel) => (
+                        <label
+                          key={reel.id}
+                          className="flex cursor-pointer items-start gap-3 rounded-md border border-border/60 px-3 py-2 hover:bg-muted/40"
+                        >
+                          <Checkbox
+                            checked={selectedDemoReelIds.includes(reel.id)}
+                            onCheckedChange={(checked) => {
+                              setSelectedDemoReelIds((prev) =>
+                                checked
+                                  ? [...prev, reel.id]
+                                  : prev.filter((id) => id !== reel.id)
+                              )
+                            }}
+                          />
+                          <span className="text-sm">
+                            <span className="font-medium">{reel.title}</span>
+                            <span className="block text-xs text-muted-foreground">
+                              {reel.file_name}
+                            </span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Upload more demos in{" "}
+                      <Link href="/dashboard/settings#demo-reels" className="underline">
+                        Settings → Demo Reels
+                      </Link>
+                      .
+                    </p>
+                  </div>
+                )}
+                {demoReels.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    No demo reels in your library yet.{" "}
+                    <Link href="/dashboard/settings#demo-reels" className="underline">
+                      Upload demos in Settings
+                    </Link>{" "}
+                    to attach them here.
+                  </p>
+                )}
                 <div className="flex flex-col gap-3">
                   <div className="flex flex-wrap gap-3">
                     {recipientEmail && (
@@ -508,7 +579,12 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
                     <p className="text-sm text-destructive">{sendError}</p>
                   )}
                   {sendSuccess && (
-                    <p className="text-sm text-green-500">Email sent successfully!</p>
+                    <p className="text-sm text-green-500">
+                      Email sent successfully!
+                      {selectedDemoReelIds.length > 0
+                        ? ` (${selectedDemoReelIds.length} demo reel${selectedDemoReelIds.length === 1 ? "" : "s"} attached)`
+                        : ""}
+                    </p>
                   )}
                 </div>
               </div>

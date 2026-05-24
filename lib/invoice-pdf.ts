@@ -1,10 +1,9 @@
-import PDFDocument from "pdfkit"
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib"
 import {
   computeInvoiceAmount,
   formatHours,
   formatUsd,
   parseInvoiceMeta,
-  type RateTemplate,
 } from "@/lib/invoice-billing"
 
 export type InvoicePdfInput = {
@@ -36,81 +35,141 @@ export async function generateInvoicePdfBuffer(input: InvoicePdfInput): Promise<
       ? computeInvoiceAmount(meta.wordCount, meta.wpm, meta.rateTemplate)
       : null
 
-  return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 50, size: "LETTER" })
-    const chunks: Buffer[] = []
+  const pdf = await PDFDocument.create()
+  const page = pdf.addPage([612, 792])
+  const font = await pdf.embedFont(StandardFonts.Helvetica)
+  const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold)
 
-    doc.on("data", (chunk) => chunks.push(chunk as Buffer))
-    doc.on("end", () => resolve(Buffer.concat(chunks)))
-    doc.on("error", reject)
+  const { width, height } = page.getSize()
+  let y = height - 50
 
-    doc.fontSize(22).font("Helvetica-Bold").text("INVOICE", { align: "right" })
-    doc.moveDown(0.5)
-    doc.fontSize(10).font("Helvetica").fillColor("#555555")
-    doc.text(`Invoice #${input.invoiceNumber}`, { align: "right" })
-    doc.text(`Date: ${formatDate(input.createdAt ?? new Date().toISOString())}`, {
-      align: "right",
-    })
-    doc.text(`Due: ${formatDate(input.dueDate)}`, { align: "right" })
-    doc.moveDown(2)
-
-    doc.fillColor("#000000").fontSize(11).font("Helvetica-Bold").text("From")
-    doc.font("Helvetica").fontSize(10)
-    doc.text(input.senderName)
-    if (input.senderEmail) doc.text(input.senderEmail)
-    doc.moveDown(1.5)
-
-    doc.font("Helvetica-Bold").text("Bill To")
-    doc.font("Helvetica")
-    doc.text(meta.clientEmail || "Client")
-    doc.moveDown(2)
-
-    const tableTop = doc.y
-    doc.font("Helvetica-Bold").fontSize(10)
-    doc.text("Description", 50, tableTop)
-    doc.text("Amount", 450, tableTop, { width: 100, align: "right" })
-    doc.moveDown(0.5)
-    doc.moveTo(50, doc.y).lineTo(550, doc.y).strokeColor("#cccccc").stroke()
-    doc.moveDown(0.75)
-
-    doc.font("Helvetica").fillColor("#000000")
-    const lineDescription =
-      input.description?.trim() ||
-      `Voice over services (${meta.rateTemplate.toUpperCase()} rate template)`
-    doc.text(lineDescription, 50, doc.y, { width: 360 })
-
-    const detailY = doc.y + 14
-    if (billed && meta.wordCount) {
-      doc.fontSize(9).fillColor("#555555")
-      doc.text(`Word count: ${meta.wordCount.toLocaleString()}`, 50, detailY)
-      doc.text(`WPM: ${meta.wpm}`, 50, detailY + 12)
-      doc.text(`Estimated session: ${formatHours(billed.durationHours)}`, 50, detailY + 24)
-    }
-
-    doc.fontSize(10).fillColor("#000000").font("Helvetica-Bold")
-    doc.text(formatUsd(input.amount), 450, tableTop + 18, { width: 100, align: "right" })
-
-    doc.moveDown(3)
-    const totalY = Math.max(doc.y, detailY + 40)
-    doc.moveTo(350, totalY).lineTo(550, totalY).strokeColor("#cccccc").stroke()
-    doc.fontSize(12).fillColor("#000000")
-    doc.text("Total Due", 350, totalY + 10)
-    doc.font("Helvetica-Bold").text(formatUsd(input.amount), 450, totalY + 8, {
-      width: 100,
-      align: "right",
-    })
-
-    if (meta.userNotes) {
-      doc.moveDown(2)
-      doc.fontSize(10).font("Helvetica-Bold").text("Notes")
-      doc.font("Helvetica").fillColor("#333333").text(meta.userNotes, { width: 500 })
-    }
-
-    doc.moveDown(3)
-    doc.fontSize(9).fillColor("#777777").text("Thank you for your business.", { align: "center" })
-
-    doc.end()
+  page.drawText("INVOICE", {
+    x: width - 150,
+    y,
+    size: 22,
+    font: fontBold,
+    color: rgb(0, 0, 0),
   })
+  y -= 24
+  page.drawText(`Invoice #${input.invoiceNumber}`, {
+    x: width - 200,
+    y,
+    size: 10,
+    font,
+    color: rgb(0.33, 0.33, 0.33),
+  })
+  y -= 14
+  page.drawText(`Date: ${formatDate(input.createdAt ?? new Date().toISOString())}`, {
+    x: width - 200,
+    y,
+    size: 10,
+    font,
+    color: rgb(0.33, 0.33, 0.33),
+  })
+  y -= 14
+  page.drawText(`Due: ${formatDate(input.dueDate)}`, {
+    x: width - 200,
+    y,
+    size: 10,
+    font,
+    color: rgb(0.33, 0.33, 0.33),
+  })
+
+  y = height - 130
+  page.drawText("From", { x: 50, y, size: 11, font: fontBold })
+  y -= 16
+  page.drawText(input.senderName, { x: 50, y, size: 10, font })
+  if (input.senderEmail) {
+    y -= 14
+    page.drawText(input.senderEmail, { x: 50, y, size: 10, font })
+  }
+
+  y -= 28
+  page.drawText("Bill To", { x: 50, y, size: 11, font: fontBold })
+  y -= 16
+  page.drawText(meta.clientEmail || "Client", { x: 50, y, size: 10, font })
+
+  y -= 40
+  page.drawText("Description", { x: 50, y, size: 10, font: fontBold })
+  page.drawText("Amount", { x: width - 100, y, size: 10, font: fontBold })
+  y -= 8
+  page.drawLine({
+    start: { x: 50, y },
+    end: { x: width - 50, y },
+    thickness: 1,
+    color: rgb(0.8, 0.8, 0.8),
+  })
+  y -= 20
+
+  const lineDescription =
+    input.description?.trim() ||
+    `Voice over services (${meta.rateTemplate.toUpperCase()} rate template)`
+  page.drawText(lineDescription.slice(0, 80), { x: 50, y, size: 10, font })
+  page.drawText(formatUsd(input.amount), {
+    x: width - 100,
+    y,
+    size: 10,
+    font: fontBold,
+  })
+
+  if (billed && meta.wordCount) {
+    y -= 16
+    page.drawText(`Word count: ${meta.wordCount.toLocaleString()}`, {
+      x: 50,
+      y,
+      size: 9,
+      font,
+      color: rgb(0.33, 0.33, 0.33),
+    })
+    y -= 12
+    page.drawText(`WPM: ${meta.wpm}`, { x: 50, y, size: 9, font, color: rgb(0.33, 0.33, 0.33) })
+    y -= 12
+    page.drawText(`Estimated session: ${formatHours(billed.durationHours)}`, {
+      x: 50,
+      y,
+      size: 9,
+      font,
+      color: rgb(0.33, 0.33, 0.33),
+    })
+  }
+
+  y -= 36
+  page.drawLine({
+    start: { x: 350, y },
+    end: { x: width - 50, y },
+    thickness: 1,
+    color: rgb(0.8, 0.8, 0.8),
+  })
+  y -= 18
+  page.drawText("Total Due", { x: 350, y, size: 12, font })
+  page.drawText(formatUsd(input.amount), {
+    x: width - 100,
+    y,
+    size: 12,
+    font: fontBold,
+  })
+
+  if (meta.userNotes) {
+    y -= 36
+    page.drawText("Notes", { x: 50, y, size: 10, font: fontBold })
+    y -= 16
+    const noteLines = meta.userNotes.match(/.{1,90}/g) ?? [meta.userNotes]
+    for (const line of noteLines.slice(0, 8)) {
+      page.drawText(line, { x: 50, y, size: 10, font, color: rgb(0.2, 0.2, 0.2) })
+      y -= 14
+    }
+  }
+
+  page.drawText("Thank you for your business.", {
+    x: width / 2 - 80,
+    y: 40,
+    size: 9,
+    font,
+    color: rgb(0.47, 0.47, 0.47),
+  })
+
+  const bytes = await pdf.save()
+  return Buffer.from(bytes)
 }
 
 export function invoicePdfFilename(invoiceNumber: string) {

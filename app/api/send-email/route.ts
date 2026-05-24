@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { loadDemoReelAttachments } from "@/lib/demo-reels-server"
 import { sendEmailMessage } from "@/lib/send-email-message"
+
+export const runtime = "nodejs"
+export const maxDuration = 60
 
 export async function POST(req: Request) {
   const supabase = await createClient()
@@ -24,6 +28,7 @@ export async function POST(req: Request) {
     in_reply_to: inReplyTo,
     references,
     gmail_thread_id: gmailThreadId,
+    demo_reel_ids: demoReelIds,
   } = body
 
   if (!to || !subject || !textBody) {
@@ -49,11 +54,19 @@ export async function POST(req: Request) {
         }))
     : []
 
-  const maxAttachmentBytes = 10 * 1024 * 1024
-  const totalBytes = attachments.reduce((sum, a) => sum + a.content.length, 0)
+  const demoAttachments = await loadDemoReelAttachments(
+    supabase,
+    user.id,
+    Array.isArray(demoReelIds) ? demoReelIds.map(String) : []
+  )
+
+  const allAttachments = [...attachments, ...demoAttachments]
+
+  const maxAttachmentBytes = 25 * 1024 * 1024
+  const totalBytes = allAttachments.reduce((sum, a) => sum + a.content.length, 0)
   if (totalBytes > maxAttachmentBytes) {
     return NextResponse.json(
-      { error: "Attachments exceed 10 MB total size limit" },
+      { error: "Attachments exceed 25 MB total size limit" },
       { status: 400 }
     )
   }
@@ -67,7 +80,7 @@ export async function POST(req: Request) {
       text: textBody,
       html,
       accountId,
-      attachments,
+      attachments: allAttachments,
       inReplyTo,
       references,
       gmailThreadId,

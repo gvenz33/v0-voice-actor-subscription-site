@@ -11,6 +11,9 @@ import {
 } from "@/lib/email-signature"
 import { sendEmailMessage } from "@/lib/send-email-message"
 
+export const runtime = "nodejs"
+export const maxDuration = 60
+
 export async function POST(req: Request) {
   const supabase = await createClient()
   const {
@@ -30,6 +33,8 @@ export async function POST(req: Request) {
   if (!body.invoiceId) {
     return NextResponse.json({ error: "invoiceId is required" }, { status: 400 })
   }
+
+  const warnings: string[] = []
 
   try {
     const { data: invoice, error: invoiceError } = await supabase
@@ -86,8 +91,15 @@ export async function POST(req: Request) {
           })
           .eq("id", invoice.id)
       } catch (stripeErr) {
+        const msg =
+          stripeErr instanceof Error ? stripeErr.message : "Stripe payment link failed"
+        warnings.push(`Pay link not included: ${msg}`)
         console.warn("[invoices/send] Stripe payment link skipped:", stripeErr)
       }
+    } else {
+      warnings.push(
+        "No pay link included. Connect Stripe under Affiliate to accept online invoice payments."
+      )
     }
 
     const pdfBuffer = await generateInvoicePdfBuffer({
@@ -100,6 +112,10 @@ export async function POST(req: Request) {
       senderName,
       senderEmail: user.email,
     })
+
+    if (!pdfBuffer.length) {
+      throw new Error("Invoice PDF generation produced an empty file.")
+    }
 
     const emailContent = buildInvoiceEmailContent({
       invoiceNumber: invoice.invoice_number,
@@ -139,6 +155,9 @@ export async function POST(req: Request) {
       success: true,
       paymentUrl,
       hasPaymentLink: Boolean(paymentUrl),
+      pdfAttached: true,
+      pdfBytes: pdfBuffer.length,
+      warnings,
       ...sendResult,
     })
   } catch (err) {

@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Plus, Search, Receipt, Trash2, Pencil, DollarSign, Send, Loader2 } from "lucide-react"
+import Link from "next/link"
 import { fetchContactsPicker } from "@/lib/fetch-contacts-picker"
 import {
   BILLING_WORD_COUNT_SESSION_KEY,
@@ -202,6 +203,7 @@ export default function BillingDesk() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Invoice | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
+  const [sendNotice, setSendNotice] = useState<{ success: string[]; warnings: string[] } | null>(null)
   const [saving, setSaving] = useState(false)
   const [sending, setSending] = useState(false)
 
@@ -404,11 +406,23 @@ export default function BillingDesk() {
         error?: string
         hasPaymentLink?: boolean
         paymentUrl?: string | null
+        pdfAttached?: boolean
+        warnings?: string[]
       }
 
       if (!res.ok) {
         throw new Error(data?.error || "Failed to send invoice email")
       }
+
+      const successLines = ["Invoice emailed to client with PDF attached."]
+      if (data.hasPaymentLink) {
+        successLines.push("Online payment link included in the email.")
+      }
+
+      setSendNotice({
+        success: successLines,
+        warnings: data.warnings ?? [],
+      })
 
       setDialogOpen(false)
       setEditing(null)
@@ -429,6 +443,31 @@ export default function BillingDesk() {
 
   return (
     <div className="flex flex-col gap-6">
+      {sendNotice && (
+        <Alert className="border-violet-500/30 bg-violet-500/5">
+          <AlertTitle>Invoice sent</AlertTitle>
+          <AlertDescription className="flex flex-col gap-2">
+            {sendNotice.success.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+            {sendNotice.warnings.map((line) => (
+              <p key={line} className="text-amber-700 dark:text-amber-400">
+                {line.includes("Connect Stripe") ? (
+                  <>
+                    {line}{" "}
+                    <Link href="/dashboard/affiliate" className="underline">
+                      Connect Stripe in Affiliate
+                    </Link>
+                    .
+                  </>
+                ) : (
+                  line
+                )}
+              </p>
+            ))}
+          </AlertDescription>
+        </Alert>
+      )}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="font-[family-name:var(--font-heading)] text-2xl font-bold tracking-tight text-foreground">Billing Desk</h2>
@@ -648,24 +687,33 @@ export default function BillingDesk() {
                   )}
                 </Button>
 
-                <Button
-                  type="button"
-                  size="lg"
-                  className="min-h-[44px]"
-                  variant="secondary"
-                  onClick={handleSendInvoice}
-                  disabled={sending || saving}
-                >
-                  {sending ? (
-                    <>
-                      <Loader2 className="mr-2 size-4 animate-spin" /> Sending...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="mr-2 size-4" /> Send to Client
-                    </>
-                  )}
-                </Button>
+                <div className="flex flex-col items-stretch gap-2 sm:items-end">
+                  <p className="text-xs text-muted-foreground">
+                    Email includes a PDF invoice.{" "}
+                    <Link href="/dashboard/affiliate" className="underline">
+                      Connect Stripe
+                    </Link>{" "}
+                    to add a pay-online button.
+                  </p>
+                  <Button
+                    type="button"
+                    size="lg"
+                    className="min-h-[44px]"
+                    variant="secondary"
+                    onClick={handleSendInvoice}
+                    disabled={sending || saving}
+                  >
+                    {sending ? (
+                      <>
+                        <Loader2 className="mr-2 size-4 animate-spin" /> Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="mr-2 size-4" /> Send to Client
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
 
               <div className="text-xs text-muted-foreground">

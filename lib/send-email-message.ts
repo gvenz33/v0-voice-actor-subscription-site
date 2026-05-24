@@ -50,6 +50,10 @@ function createSmtpTransporter(row: EmailAccountRow) {
   })
 }
 
+function wrapBase64(base64: string): string {
+  return base64.replace(/.{1,76}/g, "$&\r\n").trim()
+}
+
 function buildMimeMultipartMixed(params: {
   to: string
   cc?: string
@@ -109,7 +113,7 @@ function buildMimeMultipartMixed(params: {
       `Content-Disposition: attachment; filename="${attachment.filename}"`,
       `Content-Transfer-Encoding: base64`,
       "",
-      attachment.content.toString("base64"),
+      wrapBase64(attachment.content.toString("base64")),
       "",
       `--${boundary}`
     )
