@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { getNotifyInboxEmail } from "@/lib/notify-inbox"
 import { getSupportSystemPrompt } from "@/lib/support-system-prompt"
+import { isSupportChatEnabled } from "@/lib/system-settings"
 
 export const maxDuration = 30
 
@@ -10,6 +11,14 @@ function isOfflineConversationId(id: string | null | undefined): boolean {
 
 export async function POST(req: Request) {
   try {
+    const chatEnabled = await isSupportChatEnabled()
+    if (!chatEnabled) {
+      return Response.json(
+        { error: "Support chat is currently unavailable." },
+        { status: 503 }
+      )
+    }
+
     const { messages, conversationId, visitorId, visitorName, visitorEmail, requestEscalation } =
       await req.json()
 
