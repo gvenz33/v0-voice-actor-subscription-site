@@ -362,25 +362,32 @@ export default function InboxPage() {
         </p>
       </div>
 
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">Mail folders</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2 p-4 pt-0">
+          {MAIL_FOLDERS.map((f) => {
+            const Icon = FOLDER_ICONS[f.id]
+            const active = mailFolder === f.id
+            return (
+              <Button
+                key={f.id}
+                type="button"
+                variant={active ? "default" : "outline"}
+                size="sm"
+                className="gap-2"
+                onClick={() => setMailFolder(f.id)}
+              >
+                <Icon className="size-4 shrink-0" />
+                {f.label}
+              </Button>
+            )
+          })}
+        </CardContent>
+      </Card>
+
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 md:hidden w-full">
-          <Label className="text-muted-foreground shrink-0">Folder</Label>
-          <Select
-            value={mailFolder}
-            onValueChange={(v) => setMailFolder(v as MailFolder)}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {MAIL_FOLDERS.map((f) => (
-                <SelectItem key={f.id} value={f.id}>
-                  {f.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
         <div className="flex items-center gap-2">
           <Label className="text-muted-foreground">Account</Label>
           <Select value={accountFilter} onValueChange={setAccountFilter}>
@@ -539,37 +546,7 @@ export default function InboxPage() {
         </Card>
       )}
 
-      <div className="flex flex-col gap-4 lg:flex-row">
-        <Card className="hidden md:block lg:w-52 shrink-0">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-              Folders
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-2 pt-0">
-            <nav className="flex flex-col gap-0.5">
-              {MAIL_FOLDERS.map((f) => {
-                const Icon = FOLDER_ICONS[f.id]
-                const active = mailFolder === f.id
-                return (
-                  <Button
-                    key={f.id}
-                    type="button"
-                    variant={active ? "secondary" : "ghost"}
-                    size="sm"
-                    className="w-full justify-start gap-2 font-normal"
-                    onClick={() => setMailFolder(f.id)}
-                  >
-                    <Icon className="size-4 shrink-0" />
-                    {f.label}
-                  </Button>
-                )
-              })}
-            </nav>
-          </CardContent>
-        </Card>
-
-        <div className="min-w-0 flex-1 grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Card className="min-h-[480px]">
           <CardHeader>
             <CardTitle className="text-base">
@@ -708,7 +685,6 @@ export default function InboxPage() {
             )}
           </CardContent>
         </Card>
-        </div>
       </div>
     </div>
   )
