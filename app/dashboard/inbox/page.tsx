@@ -45,6 +45,7 @@ import {
   X,
   FilePenLine,
 } from "lucide-react"
+import { readFileAsBase64 } from "@/lib/read-file-base64"
 
 const FOLDER_ICONS: Record<MailFolder, typeof Inbox> = {
   inbox: Inbox,
@@ -67,18 +68,6 @@ async function fetcher(url: string) {
   const res = await fetch(url)
   if (!res.ok) throw new Error("Failed to load")
   return res.json()
-}
-
-async function readFileAsBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const result = reader.result as string
-      resolve(result.split(",")[1] ?? "")
-    }
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
 }
 
 function ownEmailsForAccount(accounts: AccountOpt[], accountId: string): string[] {

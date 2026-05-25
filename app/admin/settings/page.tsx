@@ -7,13 +7,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
-import { AlertCircle, Database, Mail, MessageCircle, Shield, Save } from "lucide-react"
+import { AlertCircle, Database, Mail, MessageCircle, Shield, Save, Users } from "lucide-react"
 
 export default function AdminSettingsPage() {
   const [maintenanceMode, setMaintenanceMode] = useState(false)
   const [registrationEnabled, setRegistrationEnabled] = useState(true)
   const [emailNotifications, setEmailNotifications] = useState(true)
   const [supportChatEnabled, setSupportChatEnabled] = useState(true)
+  const [affiliateProgramEnabled, setAffiliateProgramEnabled] = useState(true)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState("")
@@ -28,6 +29,7 @@ export default function AdminSettingsPage() {
         const data = (await res.json()) as {
           error?: string
           supportChatEnabled?: boolean
+          affiliateProgramEnabled?: boolean
         }
 
         if (!res.ok) {
@@ -36,6 +38,9 @@ export default function AdminSettingsPage() {
 
         if (!cancelled && typeof data.supportChatEnabled === "boolean") {
           setSupportChatEnabled(data.supportChatEnabled)
+        }
+        if (!cancelled && typeof data.affiliateProgramEnabled === "boolean") {
+          setAffiliateProgramEnabled(data.affiliateProgramEnabled)
         }
       } catch (err) {
         if (!cancelled) {
@@ -64,12 +69,13 @@ export default function AdminSettingsPage() {
       const res = await fetch("/api/admin/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ supportChatEnabled }),
+        body: JSON.stringify({ supportChatEnabled, affiliateProgramEnabled }),
       })
 
       const data = (await res.json()) as {
         error?: string
         supportChatEnabled?: boolean
+        affiliateProgramEnabled?: boolean
       }
 
       if (!res.ok) {
@@ -78,6 +84,9 @@ export default function AdminSettingsPage() {
 
       if (typeof data.supportChatEnabled === "boolean") {
         setSupportChatEnabled(data.supportChatEnabled)
+      }
+      if (typeof data.affiliateProgramEnabled === "boolean") {
+        setAffiliateProgramEnabled(data.affiliateProgramEnabled)
       }
 
       setMessage("Settings saved.")
@@ -130,6 +139,34 @@ export default function AdminSettingsPage() {
                 id="supportChatEnabled"
                 checked={supportChatEnabled}
                 onCheckedChange={setSupportChatEnabled}
+                disabled={loading || saving}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Affiliate Program
+            </CardTitle>
+            <CardDescription>
+              Enable or disable the referral program for all users (Momentum and Command tiers, plus per-user overrides)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="affiliateProgramEnabled">Affiliate referrals</Label>
+                <p className="text-sm text-muted-foreground">
+                  When off, every user sees the affiliate dashboard as disabled regardless of subscription tier
+                </p>
+              </div>
+              <Switch
+                id="affiliateProgramEnabled"
+                checked={affiliateProgramEnabled}
+                onCheckedChange={setAffiliateProgramEnabled}
                 disabled={loading || saving}
               />
             </div>

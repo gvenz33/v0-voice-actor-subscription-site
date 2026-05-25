@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server"
 
 export const SYSTEM_SETTING_KEYS = {
   supportChatEnabled: "support_chat_enabled",
+  affiliateProgramEnabled: "affiliate_program_enabled",
 } as const
 
 type SystemSettingKey =
@@ -39,6 +40,14 @@ export async function getSystemSetting<T = unknown>(
 export async function isSupportChatEnabled(): Promise<boolean> {
   const value = await getSystemSetting(
     SYSTEM_SETTING_KEYS.supportChatEnabled,
+    true
+  )
+  return parseBooleanSetting(value, true)
+}
+
+export async function isAffiliateProgramEnabled(): Promise<boolean> {
+  const value = await getSystemSetting(
+    SYSTEM_SETTING_KEYS.affiliateProgramEnabled,
     true
   )
   return parseBooleanSetting(value, true)

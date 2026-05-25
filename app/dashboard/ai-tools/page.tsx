@@ -24,7 +24,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Checkbox } from "@/components/ui/checkbox"
+import { EmailAttachmentPicker } from "@/components/email-attachment-picker"
+import { readFileAsBase64, MAX_EMAIL_ATTACHMENT_BYTES, totalAttachmentBytes } from "@/lib/read-file-base64"
 import {
   Mail,
   Sparkles,
@@ -41,7 +42,6 @@ import {
   Save,
   FileSignature,
   Award,
-  Paperclip,
 } from "lucide-react"
 import Link from "next/link"
 import { TokenPurchaseModal } from "@/components/token-purchase-modal"
@@ -213,6 +213,7 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
   const [sending, setSending] = useState(false)
   const [sendSuccess, setSendSuccess] = useState(false)
   const [sendError, setSendError] = useState("")
+  const [fileAttachments, setFileAttachments] = useState<File[]>([])
   const [selectedDemoReelIds, setSelectedDemoReelIds] = useState<string[]>([])
 
   const { data: demoReelsData } = useSWR<{ reels?: Array<{ id: string; title: string; file_name: string; file_size: number }> }>(
@@ -262,6 +263,10 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
 
   const handleSendEmail = async () => {
     if (!recipientEmail) return
+    if (totalAttachmentBytes(fileAttachments) > MAX_EMAIL_ATTACHMENT_BYTES) {
+      setSendError("Attachments exceed 25 MB total size limit.")
+      return
+    }
     setSending(true)
     setSendError("")
     setSendSuccess(false)
@@ -278,6 +283,14 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
       .join("<br>")
 
     try {
+      const attachments = await Promise.all(
+        fileAttachments.map(async (file) => ({
+          filename: file.name,
+          contentBase64: await readFileAsBase64(file),
+          contentType: file.type || "application/octet-stream",
+        }))
+      )
+
       const res = await fetch("/api/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -287,6 +300,7 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
           body: plainBody,
           html: htmlBody,
           demo_reel_ids: selectedDemoReelIds,
+          attachments,
         }),
       })
       
@@ -489,55 +503,13 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
                     </div>
                   )}
                 </div>
-                {demoReels.length > 0 && (
-                  <div className="rounded-lg border border-border p-4">
-                    <div className="mb-3 flex items-center gap-2 text-sm font-medium">
-                      <Paperclip className="size-4" />
-                      Attach demo reels from your library
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      {demoReels.map((reel) => (
-                        <label
-                          key={reel.id}
-                          className="flex cursor-pointer items-start gap-3 rounded-md border border-border/60 px-3 py-2 hover:bg-muted/40"
-                        >
-                          <Checkbox
-                            checked={selectedDemoReelIds.includes(reel.id)}
-                            onCheckedChange={(checked) => {
-                              setSelectedDemoReelIds((prev) =>
-                                checked
-                                  ? [...prev, reel.id]
-                                  : prev.filter((id) => id !== reel.id)
-                              )
-                            }}
-                          />
-                          <span className="text-sm">
-                            <span className="font-medium">{reel.title}</span>
-                            <span className="block text-xs text-muted-foreground">
-                              {reel.file_name}
-                            </span>
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      Upload more demos in{" "}
-                      <Link href="/dashboard/settings#demo-reels" className="underline">
-                        Settings → Demo Reels
-                      </Link>
-                      .
-                    </p>
-                  </div>
-                )}
-                {demoReels.length === 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    No demo reels in your library yet.{" "}
-                    <Link href="/dashboard/settings#demo-reels" className="underline">
-                      Upload demos in Settings
-                    </Link>{" "}
-                    to attach them here.
-                  </p>
-                )}
+                <EmailAttachmentPicker
+                  files={fileAttachments}
+                  onFilesChange={setFileAttachments}
+                  demoReels={demoReels}
+                  selectedDemoReelIds={selectedDemoReelIds}
+                  onDemoReelIdsChange={setSelectedDemoReelIds}
+                />
                 <div className="flex flex-col gap-3">
                   <div className="flex flex-wrap gap-3">
                     {recipientEmail && (
@@ -581,9 +553,17 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
                   {sendSuccess && (
                     <p className="text-sm text-green-500">
                       Email sent successfully!
-                      {selectedDemoReelIds.length > 0
-                        ? ` (${selectedDemoReelIds.length} demo reel${selectedDemoReelIds.length === 1 ? "" : "s"} attached)`
-                        : ""}
+                      {(fileAttachments.length > 0 || selectedDemoReelIds.length > 0) &&
+                        ` (${[
+                          fileAttachments.length > 0
+                            ? `${fileAttachments.length} file${fileAttachments.length === 1 ? "" : "s"}`
+                            : null,
+                          selectedDemoReelIds.length > 0
+                            ? `${selectedDemoReelIds.length} demo reel${selectedDemoReelIds.length === 1 ? "" : "s"}`
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(", ")} attached)`}
                     </p>
                   )}
                 </div>

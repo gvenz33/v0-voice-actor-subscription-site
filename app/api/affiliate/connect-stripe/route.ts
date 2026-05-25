@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { getStripe } from "@/lib/stripe"
+import { requireAffiliateEligible } from "@/lib/affiliate-server"
 
 export async function POST() {
   try {
@@ -17,6 +18,14 @@ export async function POST() {
 
     if (!user) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+    }
+
+    const eligibility = await requireAffiliateEligible(supabase, user.id)
+    if (!eligibility.ok) {
+      return NextResponse.json(
+        { error: eligibility.error },
+        { status: eligibility.status }
+      )
     }
 
     // Get user profile

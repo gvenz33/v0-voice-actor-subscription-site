@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/admin-auth"
 import {
   getSystemSetting,
+  isAffiliateProgramEnabled,
   isSupportChatEnabled,
   setSystemSetting,
   SYSTEM_SETTING_KEYS,
@@ -17,9 +18,11 @@ export async function GET() {
   }
 
   const supportChatEnabled = await isSupportChatEnabled()
+  const affiliateProgramEnabled = await isAffiliateProgramEnabled()
 
   return NextResponse.json({
     supportChatEnabled,
+    affiliateProgramEnabled,
   })
 }
 
@@ -34,27 +37,46 @@ export async function PATCH(request: Request) {
 
   const body = (await request.json()) as {
     supportChatEnabled?: boolean
+    affiliateProgramEnabled?: boolean
   }
 
-  if (typeof body.supportChatEnabled !== "boolean") {
+  if (
+    typeof body.supportChatEnabled !== "boolean" &&
+    typeof body.affiliateProgramEnabled !== "boolean"
+  ) {
     return NextResponse.json(
-      { error: "supportChatEnabled must be a boolean" },
+      { error: "Provide supportChatEnabled and/or affiliateProgramEnabled" },
       { status: 400 }
     )
   }
 
-  const { error: saveError } = await setSystemSetting(
-    SYSTEM_SETTING_KEYS.supportChatEnabled,
-    body.supportChatEnabled
-  )
+  if (typeof body.supportChatEnabled === "boolean") {
+    const { error: saveError } = await setSystemSetting(
+      SYSTEM_SETTING_KEYS.supportChatEnabled,
+      body.supportChatEnabled
+    )
+    if (saveError) {
+      return NextResponse.json({ error: saveError }, { status: 500 })
+    }
+  }
 
-  if (saveError) {
-    return NextResponse.json({ error: saveError }, { status: 500 })
+  if (typeof body.affiliateProgramEnabled === "boolean") {
+    const { error: saveError } = await setSystemSetting(
+      SYSTEM_SETTING_KEYS.affiliateProgramEnabled,
+      body.affiliateProgramEnabled
+    )
+    if (saveError) {
+      return NextResponse.json({ error: saveError }, { status: 500 })
+    }
   }
 
   const supportChatEnabled = await getSystemSetting(
     SYSTEM_SETTING_KEYS.supportChatEnabled,
-    body.supportChatEnabled
+    body.supportChatEnabled ?? true
+  )
+  const affiliateProgramEnabled = await getSystemSetting(
+    SYSTEM_SETTING_KEYS.affiliateProgramEnabled,
+    body.affiliateProgramEnabled ?? true
   )
 
   return NextResponse.json({
@@ -63,5 +85,9 @@ export async function PATCH(request: Request) {
       typeof supportChatEnabled === "boolean"
         ? supportChatEnabled
         : body.supportChatEnabled,
+    affiliateProgramEnabled:
+      typeof affiliateProgramEnabled === "boolean"
+        ? affiliateProgramEnabled
+        : body.affiliateProgramEnabled,
   })
 }

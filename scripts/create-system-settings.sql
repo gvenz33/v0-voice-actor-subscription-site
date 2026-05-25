@@ -12,6 +12,10 @@ INSERT INTO public.system_settings (key, value)
 VALUES ('support_chat_enabled', 'true'::jsonb)
 ON CONFLICT (key) DO NOTHING;
 
+INSERT INTO public.system_settings (key, value)
+VALUES ('affiliate_program_enabled', 'true'::jsonb)
+ON CONFLICT (key) DO NOTHING;
+
 ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
 
 -- Anyone can read settings (needed for public pages)

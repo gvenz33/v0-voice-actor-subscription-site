@@ -1,23 +1,27 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getStripe } from '@/lib/stripe'
-import { addPurchasedTokens } from '@/lib/ai-limits'
-import Stripe from 'stripe'
-import { createClient } from '@/lib/supabase/server'
-import { recordPromoRedemption } from '@/lib/promo-codes-server'
+import { NextRequest, NextResponse } from "next/server"
+import { getStripe } from "@/lib/stripe"
+import { addPurchasedTokens } from "@/lib/ai-limits"
+import Stripe from "stripe"
+import { recordPromoRedemption } from "@/lib/promo-codes-server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import {
+  syncTierFromStripeSubscription,
+  updateProfileSubscriptionTier,
+} from "@/lib/stripe-profile-sync"
+import type { SubscriptionTier } from "@/lib/ai-limits"
+import { tierFromProductId } from "@/lib/stripe-subscription-tier"
 
 export async function POST(request: NextRequest) {
   const body = await request.text()
-  const signature = request.headers.get('stripe-signature')
+  const signature = request.headers.get("stripe-signature")
 
   if (!signature) {
-    return NextResponse.json({ error: 'No signature' }, { status: 400 })
+    return NextResponse.json({ error: "No signature" }, { status: 400 })
   }
 
   let event: Stripe.Event
 
   try {
-    // If STRIPE_WEBHOOK_SECRET is set, verify the signature
-    // Otherwise, parse the event directly (for testing)
     if (process.env.STRIPE_WEBHOOK_SECRET) {
       event = getStripe().webhooks.constructEvent(
         body,
@@ -28,46 +32,72 @@ export async function POST(request: NextRequest) {
       event = JSON.parse(body) as Stripe.Event
     }
   } catch (err) {
-    console.error('Webhook signature verification failed:', err)
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+    console.error("Webhook signature verification failed:", err)
+    return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
   }
 
-  // Handle the event
+  let supabase: ReturnType<typeof createAdminClient> | null = null
+  try {
+    supabase = createAdminClient()
+  } catch (err) {
+    console.error("[stripe webhook] Admin client unavailable:", err)
+  }
+
   switch (event.type) {
-    case 'checkout.session.completed': {
+    case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session
-      
-      // Check if this is a token purchase (has tokens in metadata)
+
       if (session.metadata?.tokens && session.metadata?.user_id) {
         const tokens = parseInt(session.metadata.tokens, 10)
         const userId = session.metadata.user_id
-        
+
         if (tokens > 0 && userId) {
           try {
             await addPurchasedTokens(userId, tokens)
-            console.log(`Added ${tokens} tokens to user ${userId}`)
           } catch (error) {
-            console.error('Failed to add tokens:', error)
-            // Don't return error - Stripe will retry
+            console.error("Failed to add tokens:", error)
           }
         }
       }
 
-      // Check if this is a subscription purchase (has tier + user_id in metadata)
-      if (session.metadata?.tier && session.metadata?.user_id) {
-        const userId = session.metadata.user_id
-        const tier = session.metadata.tier
+      if (supabase && session.mode === "subscription") {
+        const userId = session.metadata?.user_id ?? null
+        let tier =
+          (session.metadata?.tier as SubscriptionTier | undefined) ??
+          tierFromProductId(session.metadata?.product_id) ??
+          "free"
+
+        const customerId =
+          typeof session.customer === "string"
+            ? session.customer
+            : session.customer?.id ?? null
 
         if (userId && tier) {
+          const result = await updateProfileSubscriptionTier(supabase, {
+            tier,
+            userId,
+            stripeCustomerIdToSave: customerId,
+          })
+          if (result.error) {
+            console.error("[stripe webhook] Tier update failed:", result.error)
+          }
+        }
+
+        const subscriptionId =
+          typeof session.subscription === "string"
+            ? session.subscription
+            : session.subscription?.id
+
+        if (subscriptionId && session.metadata) {
           try {
-            const supabase = await createClient()
-            await supabase
-              .from('profiles')
-              .update({ subscription_tier: tier })
-              .eq('id', userId)
+            await getStripe().subscriptions.update(subscriptionId, {
+              metadata: {
+                ...session.metadata,
+                user_id: userId ?? session.metadata.user_id ?? "",
+              },
+            })
           } catch (error) {
-            console.error('Failed to update subscription tier:', error)
-            // Don't return error - Stripe will retry
+            console.error("[stripe webhook] Subscription metadata update failed:", error)
           }
         }
       }
@@ -85,21 +115,54 @@ export async function POST(request: NextRequest) {
               : 0,
           })
         } catch (error) {
-          console.error('Failed to record promo redemption:', error)
+          console.error("Failed to record promo redemption:", error)
         }
       }
       break
     }
 
-    case 'payment_intent.succeeded': {
-      // Log successful payments
+    case "customer.subscription.updated": {
+      if (!supabase) break
+      const subscription = event.data.object as Stripe.Subscription
+      const result = await syncTierFromStripeSubscription(supabase, subscription)
+      if (result.error) {
+        console.error("[stripe webhook] subscription.updated sync failed:", result.error)
+      }
+      break
+    }
+
+    case "customer.subscription.deleted": {
+      if (!supabase) break
+      const subscription = event.data.object as Stripe.Subscription
+      const userId = subscription.metadata?.user_id ?? null
+      const customerId =
+        typeof subscription.customer === "string"
+          ? subscription.customer
+          : subscription.customer?.id ?? null
+
+      const result = await updateProfileSubscriptionTier(supabase, {
+        tier: "free",
+        userId,
+        stripeCustomerId: userId ? null : customerId,
+      })
+      if (result.error) {
+        console.error("[stripe webhook] subscription.deleted sync failed:", result.error)
+      }
+      break
+    }
+
+    case "payment_intent.succeeded": {
       const paymentIntent = event.data.object as Stripe.PaymentIntent
       console.log(`Payment succeeded: ${paymentIntent.id}`)
       break
     }
 
+    case "invoice.payment_failed": {
+      console.log("[stripe webhook] invoice.payment_failed", event.id)
+      break
+    }
+
     default:
-      // Unhandled event type
       console.log(`Unhandled event type: ${event.type}`)
   }
 

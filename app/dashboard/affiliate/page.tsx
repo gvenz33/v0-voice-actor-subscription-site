@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { createClient } from "@/lib/supabase/client"
 import Link from "next/link"
+import type { AffiliateLockReason } from "@/lib/affiliate-access"
 
 interface AffiliateStats {
   affiliateCode: string
@@ -41,6 +42,9 @@ export default function AffiliatePage() {
   const [copied, setCopied] = useState(false)
   const [copiedLink, setCopiedLink] = useState(false)
   const [subscriptionTier, setSubscriptionTier] = useState<string>("free")
+  const [tierLabel, setTierLabel] = useState("Free")
+  const [lockReasons, setLockReasons] = useState<AffiliateLockReason[]>([])
+  const [programEnabled, setProgramEnabled] = useState(true)
   const [isEligible, setIsEligible] = useState(false)
   const [payoutDialogOpen, setPayoutDialogOpen] = useState(false)
   const [payoutMethod, setPayoutMethod] = useState<"stripe" | "credit">("stripe")
@@ -52,61 +56,49 @@ export default function AffiliatePage() {
   useEffect(() => {
     async function loadAffiliateData() {
       const supabase = createClient()
-      
-      const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
       if (userError || !user) {
-        console.log("[v0] Auth error or no user:", userError)
         setLoading(false)
         return
       }
 
-      // Get user's affiliate code, subscription tier, feature overrides, and stripe account
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("affiliate_code, subscription_tier, feature_overrides, stripe_connect_account_id")
-        .eq("id", user.id)
-        .single()
-
-      console.log("[v0] Profile data:", JSON.stringify(profile, null, 2))
-      console.log("[v0] Profile error:", profileError)
-
-      // Check if user has connected Stripe account
-      if (profile?.stripe_connect_account_id) {
-        setStripeConnected(true)
-        setStripeAccountId(profile.stripe_connect_account_id)
+      const statusRes = await fetch("/api/affiliate/status")
+      const statusData = (await statusRes.json()) as {
+        error?: string
+        isEligible?: boolean
+        subscriptionTier?: string
+        tierLabel?: string
+        programEnabled?: boolean
+        lockReasons?: AffiliateLockReason[]
+        affiliateCode?: string | null
+        stripeConnectAccountId?: string | null
+        stats?: AffiliateStats
       }
 
-      const tier = profile?.subscription_tier || "free"
-      setSubscriptionTier(tier)
-      console.log("[v0] Subscription tier:", tier)
-      
-      // Check eligibility: tier-based (momentum, command) OR admin override
-      // Parse feature_overrides - it may come as string or object depending on DB
-      let overrides: Record<string, unknown> = {}
-      if (profile?.feature_overrides) {
-        if (typeof profile.feature_overrides === "string") {
-          try {
-            overrides = JSON.parse(profile.feature_overrides)
-          } catch {
-            overrides = {}
-          }
-        } else {
-          overrides = profile.feature_overrides as Record<string, unknown>
+      if (statusRes.ok) {
+        setIsEligible(Boolean(statusData.isEligible))
+        setSubscriptionTier(statusData.subscriptionTier ?? "free")
+        setTierLabel(statusData.tierLabel ?? "Free")
+        setProgramEnabled(statusData.programEnabled !== false)
+        setLockReasons(statusData.lockReasons ?? [])
+
+        if (statusData.stripeConnectAccountId) {
+          setStripeConnected(true)
+          setStripeAccountId(statusData.stripeConnectAccountId)
+        }
+
+        if (statusData.stats) {
+          setStats({
+            ...statusData.stats,
+            affiliateCode: statusData.affiliateCode ?? "",
+          })
         }
       }
-      
-      console.log("[v0] Feature overrides:", JSON.stringify(overrides, null, 2))
-      
-      const tierEligible = ["momentum", "command"].includes(tier)
-      const hasOverride = overrides.hasAffiliate === true
-      const isDisabled = overrides.hasAffiliate === false
-      const eligible = (tierEligible || hasOverride) && !isDisabled
-      
-      console.log("[v0] Tier eligible:", tierEligible, "| Override:", hasOverride, "| Disabled:", isDisabled, "| Final eligible:", eligible)
-      
-      setIsEligible(eligible)
 
-      // Get referrals
       const { data: referralData } = await supabase
         .from("affiliate_referrals")
         .select(`
@@ -118,19 +110,6 @@ export default function AffiliatePage() {
         `)
         .eq("affiliate_user_id", user.id)
         .order("created_at", { ascending: false })
-
-      const totalReferrals = referralData?.length || 0
-      const activeReferrals = referralData?.filter(r => r.status === "active").length || 0
-      const totalEarned = referralData?.filter(r => r.status === "paid").reduce((sum, r) => sum + (r.total_earned || 0), 0) || 0
-      const pendingEarnings = referralData?.filter(r => r.status === "active").reduce((sum, r) => sum + (r.total_earned || 0), 0) || 0
-
-      setStats({
-        affiliateCode: profile?.affiliate_code || "",
-        totalReferrals,
-        activeReferrals,
-        totalEarned,
-        pendingEarnings
-      })
 
       setReferrals(referralData || [])
       setLoading(false)
@@ -176,16 +155,6 @@ export default function AffiliatePage() {
         return <Badge className="bg-red-500/20 text-red-400">Cancelled</Badge>
       default:
         return <Badge variant="secondary">{status}</Badge>
-    }
-  }
-
-  const getTierLabel = (tier: string) => {
-    switch (tier) {
-      case "free": return "Free"
-      case "launch": return "Launch"
-      case "momentum": return "Momentum"
-      case "command": return "Command"
-      default: return tier
     }
   }
 
@@ -261,7 +230,11 @@ export default function AffiliatePage() {
     )
   }
 
-  // Locked state for Free and Launch tiers
+  const programDisabled = lockReasons.includes("program_disabled")
+  const overrideDisabled = lockReasons.includes("override_disabled")
+  const tierLocked = lockReasons.includes("tier_locked")
+  const showUpgradeCta = tierLocked && !programDisabled && !overrideDisabled
+
   if (!isEligible) {
     return (
       <div className="space-y-8">
@@ -272,7 +245,6 @@ export default function AffiliatePage() {
           </p>
         </div>
 
-        {/* Locked Card */}
         <Card className="relative overflow-hidden border-yellow-500/30 bg-gradient-to-br from-yellow-500/5 via-transparent to-yellow-500/10">
           <div className="absolute right-4 top-4">
             <Crown className="h-16 w-16 text-yellow-500/20" />
@@ -284,21 +256,62 @@ export default function AffiliatePage() {
               </div>
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  Unlock Affiliate Referrals
+                  {programDisabled
+                    ? "Affiliate Program Unavailable"
+                    : overrideDisabled
+                      ? "Affiliate Access Disabled"
+                      : "Unlock Affiliate Referrals"}
                   <Crown className="h-5 w-5 text-yellow-500" />
                 </CardTitle>
                 <CardDescription>
-                  Available with Momentum or Command subscription
+                  {programDisabled
+                    ? "The referral program is temporarily turned off"
+                    : overrideDisabled
+                      ? "Your account does not have affiliate access"
+                      : "Available with Momentum or Command subscription"}
                 </CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
             <p className="text-muted-foreground">
-              You&apos;re currently on the <Badge variant="outline" className="mx-1">{getTierLabel(subscriptionTier)}</Badge> plan. 
-              Upgrade to <span className="font-semibold text-yellow-500">Momentum</span> or <span className="font-semibold text-yellow-500">Command</span> to 
-              unlock your unique affiliate code and start earning 20% commission on every referral.
+              {programDisabled ? (
+                <>
+                  The affiliate program is currently disabled site-wide. Your plan is{" "}
+                  <Badge variant="outline" className="mx-1">
+                    {tierLabel}
+                  </Badge>
+                  . Check back later or contact support if you believe this is an error.
+                </>
+              ) : overrideDisabled ? (
+                <>
+                  Affiliate referrals are turned off for your account. Your plan is{" "}
+                  <Badge variant="outline" className="mx-1">
+                    {tierLabel}
+                  </Badge>
+                  . Contact support if you need access restored.
+                </>
+              ) : (
+                <>
+                  You&apos;re currently on the{" "}
+                  <Badge variant="outline" className="mx-1">
+                    {tierLabel}
+                  </Badge>{" "}
+                  plan. Upgrade to{" "}
+                  <span className="font-semibold text-yellow-500">Momentum</span> or{" "}
+                  <span className="font-semibold text-yellow-500">Command</span> to unlock your
+                  unique affiliate code and start earning 20% commission on every referral.
+                </>
+              )}
             </p>
+
+            {(subscriptionTier === "command" || subscriptionTier === "momentum") &&
+              !programEnabled && (
+                <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+                  Your subscription tier qualifies for affiliate referrals, but the program is
+                  disabled by an administrator right now.
+                </p>
+              )}
 
             <div className="rounded-lg border border-border/50 bg-card/50 p-4">
               <h3 className="mb-3 font-semibold">What you&apos;ll unlock:</h3>
@@ -326,20 +339,22 @@ export default function AffiliatePage() {
               </ul>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Button asChild className="flex-1 bg-yellow-500 text-black hover:bg-yellow-400">
-                <Link href="/dashboard/settings">
-                  <Crown className="mr-2 h-4 w-4" />
-                  Upgrade to Momentum - $49/mo
-                </Link>
-              </Button>
-              <Button asChild variant="outline" className="flex-1 border-yellow-500/30 hover:bg-yellow-500/10">
-                <Link href="/dashboard/settings">
-                  <Crown className="mr-2 h-4 w-4" />
-                  Upgrade to Command - $99/mo
-                </Link>
-              </Button>
-            </div>
+            {showUpgradeCta && (
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button asChild className="flex-1 bg-yellow-500 text-black hover:bg-yellow-400">
+                  <Link href="/dashboard/settings">
+                    <Crown className="mr-2 h-4 w-4" />
+                    Upgrade to Momentum - $49/mo
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="flex-1 border-yellow-500/30 hover:bg-yellow-500/10">
+                  <Link href="/dashboard/settings">
+                    <Crown className="mr-2 h-4 w-4" />
+                    Upgrade to Command - $99/mo
+                  </Link>
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
