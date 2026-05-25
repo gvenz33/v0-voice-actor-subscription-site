@@ -21,5 +21,12 @@ export function normalizeSubscriptionTier(
   if (t === "pro" || t === "enterprise") {
     return t === "enterprise" ? "command" : "momentum"
   }
+  if (t.includes("command")) return "command"
+  if (t.includes("momentum") || t.includes("pro")) return "momentum"
+  if (t.includes("launch")) return "launch"
   return "free"
+}
+
+export function tierLabelFromRaw(raw: string | null | undefined): string {
+  return getTierDisplayLabel(normalizeSubscriptionTier(raw))
 }

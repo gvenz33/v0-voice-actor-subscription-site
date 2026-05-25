@@ -32,14 +32,19 @@ export function resolveAffiliateAccess(params: {
   subscriptionTier: string | null | undefined
   featureOverrides?: FeatureOverridesInput
   programEnabled?: boolean
+  /** Superadmins always get affiliate access when the program is enabled. */
+  isSuperadmin?: boolean
 }) {
   const programEnabled = params.programEnabled !== false
   const tier = normalizeSubscriptionTier(params.subscriptionTier)
   const overrides = parseFeatureOverrides(params.featureOverrides)
 
   const tierEligible = tier === "momentum" || tier === "command"
-  const hasOverride = overrides.hasAffiliate === true
+  const hasExplicitEnable = overrides.hasAffiliate === true
   const isDisabled = overrides.hasAffiliate === false
+  const tierDefaultAffiliate = tierEligible
+  const hasAffiliateAccess =
+    hasExplicitEnable || (overrides.hasAffiliate !== false && tierDefaultAffiliate)
 
   const reasons: AffiliateLockReason[] = []
 
@@ -49,19 +54,21 @@ export function resolveAffiliateAccess(params: {
   if (isDisabled) {
     reasons.push("override_disabled")
   }
-  if (programEnabled && !isDisabled && !tierEligible && !hasOverride) {
+  if (programEnabled && !isDisabled && !hasAffiliateAccess && !params.isSuperadmin) {
     reasons.push("tier_locked")
   }
 
   const isEligible =
-    programEnabled && (tierEligible || hasOverride) && !isDisabled
+    programEnabled &&
+    !isDisabled &&
+    (params.isSuperadmin || hasAffiliateAccess)
 
   return {
     isEligible,
     subscriptionTier: tier,
     tierLabel: getTierDisplayLabel(tier),
     tierEligible,
-    hasOverride,
+    hasOverride: hasExplicitEnable,
     isDisabled,
     programEnabled,
     reasons,

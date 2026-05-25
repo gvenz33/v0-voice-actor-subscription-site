@@ -18,7 +18,9 @@ export async function GET() {
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("affiliate_code, subscription_tier, feature_overrides, stripe_connect_account_id")
+      .select(
+        "affiliate_code, subscription_tier, feature_overrides, stripe_connect_account_id, is_superadmin"
+      )
       .eq("id", user.id)
       .single()
 
@@ -31,6 +33,7 @@ export async function GET() {
       subscriptionTier: profile.subscription_tier,
       featureOverrides: profile.feature_overrides,
       programEnabled,
+      isSuperadmin: Boolean(profile.is_superadmin),
     })
 
     const { data: referrals } = await supabase

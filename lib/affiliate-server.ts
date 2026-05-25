@@ -10,7 +10,7 @@ export async function getAffiliateAccessForUser(
 
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("subscription_tier, feature_overrides")
+    .select("subscription_tier, feature_overrides, is_superadmin")
     .eq("id", userId)
     .single()
 
@@ -28,6 +28,7 @@ export async function getAffiliateAccessForUser(
     subscriptionTier: profile.subscription_tier,
     featureOverrides: profile.feature_overrides,
     programEnabled,
+    isSuperadmin: Boolean(profile.is_superadmin),
   })
 
   return { access, error: null }

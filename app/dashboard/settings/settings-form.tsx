@@ -488,14 +488,15 @@ export function SettingsForm() {
     }
   }
 
-  const tierLabel =
-    profile?.subscription_tier === "command"
-      ? "Command ($99/mo)"
-      : profile?.subscription_tier === "momentum"
-        ? "Momentum ($49/mo)"
-        : profile?.subscription_tier === "launch"
-          ? "Launch ($29/mo)"
-          : "Free"
+  const tierLabel = (() => {
+    const base = profile?.subscription_tier
+    if (!base) return "Free"
+    const normalized = base.trim().toLowerCase()
+    if (normalized === "command" || normalized.includes("command")) return "Command ($99/mo)"
+    if (normalized === "momentum" || normalized.includes("momentum")) return "Momentum ($49/mo)"
+    if (normalized === "launch" || normalized.includes("launch")) return "Launch ($29/mo)"
+    return "Free"
+  })()
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
