@@ -12,7 +12,12 @@ import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { createClient } from "@/lib/supabase/client"
 import Link from "next/link"
-import type { AffiliateLockReason } from "@/lib/affiliate-access"
+import {
+  getTierDisplayLabel,
+  normalizeSubscriptionTier,
+  resolveAffiliateAccess,
+  type AffiliateLockReason,
+} from "@/lib/affiliate-access"
 
 interface AffiliateStats {
   affiliateCode: string
@@ -66,6 +71,22 @@ export default function AffiliatePage() {
         return
       }
 
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select(
+          "affiliate_code, subscription_tier, feature_overrides, stripe_connect_account_id"
+        )
+        .eq("id", user.id)
+        .single()
+
+      const profileTier = normalizeSubscriptionTier(profile?.subscription_tier)
+      const profileLabel = getTierDisplayLabel(profileTier)
+
+      if (profile?.stripe_connect_account_id) {
+        setStripeConnected(true)
+        setStripeAccountId(profile.stripe_connect_account_id)
+      }
+
       const statusRes = await fetch("/api/affiliate/status")
       const statusData = (await statusRes.json()) as {
         error?: string
@@ -81,8 +102,8 @@ export default function AffiliatePage() {
 
       if (statusRes.ok) {
         setIsEligible(Boolean(statusData.isEligible))
-        setSubscriptionTier(statusData.subscriptionTier ?? "free")
-        setTierLabel(statusData.tierLabel ?? "Free")
+        setSubscriptionTier(statusData.subscriptionTier ?? profileTier)
+        setTierLabel(statusData.tierLabel ?? profileLabel)
         setProgramEnabled(statusData.programEnabled !== false)
         setLockReasons(statusData.lockReasons ?? [])
 
@@ -94,9 +115,31 @@ export default function AffiliatePage() {
         if (statusData.stats) {
           setStats({
             ...statusData.stats,
-            affiliateCode: statusData.affiliateCode ?? "",
+            affiliateCode: statusData.affiliateCode ?? profile?.affiliate_code ?? "",
           })
         }
+      } else if (profile) {
+        const programEnabled = true
+        const access = resolveAffiliateAccess({
+          subscriptionTier: profile.subscription_tier,
+          featureOverrides: profile.feature_overrides,
+          programEnabled,
+        })
+        setIsEligible(access.isEligible)
+        setSubscriptionTier(access.subscriptionTier)
+        setTierLabel(access.tierLabel)
+        setProgramEnabled(access.programEnabled)
+        setLockReasons(access.reasons)
+        setStats({
+          affiliateCode: profile.affiliate_code ?? "",
+          totalReferrals: 0,
+          activeReferrals: 0,
+          totalEarned: 0,
+          pendingEarnings: 0,
+        })
+      } else {
+        setSubscriptionTier(profileTier)
+        setTierLabel(profileLabel)
       }
 
       const { data: referralData } = await supabase
@@ -396,11 +439,16 @@ export default function AffiliatePage() {
   // Full affiliate dashboard for eligible tiers
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Affiliate Program</h1>
-        <p className="mt-1 text-muted-foreground">
-          Earn 20% commission on every subscription from your referrals
-        </p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Affiliate Program</h1>
+          <p className="mt-1 text-muted-foreground">
+            Earn 20% commission on every subscription from your referrals
+          </p>
+        </div>
+        <Badge variant="outline" className="w-fit text-sm">
+          {tierLabel} plan
+        </Badge>
       </div>
 
       {/* Affiliate Link Card */}

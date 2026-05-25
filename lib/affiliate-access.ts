@@ -1,5 +1,11 @@
-import type { SubscriptionTier } from "@/lib/ai-limits"
-import { TIER_LIMITS } from "@/lib/ai-limits"
+import {
+  getTierDisplayLabel,
+  normalizeSubscriptionTier,
+  type SubscriptionTier,
+} from "@/lib/subscription-tier"
+
+export type { SubscriptionTier }
+export { getTierDisplayLabel, normalizeSubscriptionTier }
 
 export type AffiliateLockReason =
   | "program_disabled"
@@ -28,7 +34,7 @@ export function resolveAffiliateAccess(params: {
   programEnabled?: boolean
 }) {
   const programEnabled = params.programEnabled !== false
-  const tier = (params.subscriptionTier || "free") as SubscriptionTier
+  const tier = normalizeSubscriptionTier(params.subscriptionTier)
   const overrides = parseFeatureOverrides(params.featureOverrides)
 
   const tierEligible = tier === "momentum" || tier === "command"
@@ -50,12 +56,10 @@ export function resolveAffiliateAccess(params: {
   const isEligible =
     programEnabled && (tierEligible || hasOverride) && !isDisabled
 
-  const tierLabel = TIER_LIMITS[tier]?.label ?? tier
-
   return {
     isEligible,
     subscriptionTier: tier,
-    tierLabel,
+    tierLabel: getTierDisplayLabel(tier),
     tierEligible,
     hasOverride,
     isDisabled,

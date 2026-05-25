@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { getAffiliateAccessForUser } from "@/lib/affiliate-server"
+import { isAffiliateProgramEnabled } from "@/lib/system-settings"
+import { resolveAffiliateAccess } from "@/lib/affiliate-access"
 
 export async function GET() {
   try {
@@ -21,11 +22,16 @@ export async function GET() {
       .eq("id", user.id)
       .single()
 
-    if (profileError) {
+    if (profileError || !profile) {
       return NextResponse.json({ error: "Failed to fetch profile" }, { status: 500 })
     }
 
-    const { access } = await getAffiliateAccessForUser(supabase, user.id)
+    const programEnabled = await isAffiliateProgramEnabled()
+    const access = resolveAffiliateAccess({
+      subscriptionTier: profile.subscription_tier,
+      featureOverrides: profile.feature_overrides,
+      programEnabled,
+    })
 
     const { data: referrals } = await supabase
       .from("affiliate_referrals")
@@ -40,7 +46,7 @@ export async function GET() {
     const { data: pendingPayouts } = await supabase
       .from("affiliate_payouts")
       .select("amount")
-      .eq("user_id", user.id)
+      .eq("affiliate_user_id", user.id)
       .eq("status", "pending")
 
     const pendingPaid = pendingPayouts?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0
