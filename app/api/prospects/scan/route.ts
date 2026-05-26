@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { getUserAIAccess, consumeTokens } from "@/lib/ai-limits"
+import { TOKEN_COSTS } from "@/lib/token-products"
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -8,6 +10,34 @@ export async function POST(req: NextRequest) {
   } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  }
+
+  const access = await getUserAIAccess()
+  if (!access) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  }
+
+  if (!access.limits.hasProspectFinder) {
+    return NextResponse.json(
+      {
+        error: "upgrade_required",
+        feature: "Prospect Finder",
+        requiredTier: "Launch",
+      },
+      { status: 403 }
+    )
+  }
+
+  if (!access.canResearch) {
+    return NextResponse.json(
+      {
+        error: "insufficient_tokens",
+        message: "Not enough tokens for a prospect scan this month.",
+        remaining: access.remainingTokens,
+        required: TOKEN_COSTS.WEB_RESEARCH,
+      },
+      { status: 429 }
+    )
   }
 
   const { url, companyName } = await req.json()

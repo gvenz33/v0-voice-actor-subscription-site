@@ -68,7 +68,7 @@ interface User {
 
 const TIER_FEATURES = {
   free: { hasFollowUpWriter: false, hasPitchGenerator: false, hasChatAssistant: false, hasProspectFinder: false, hasVOCoach: false, hasAffiliate: false, voCoachLimit: 0, monthlyTokens: 0 },
-  launch: { hasFollowUpWriter: false, hasPitchGenerator: false, hasChatAssistant: false, hasProspectFinder: false, hasVOCoach: true, hasAffiliate: false, voCoachLimit: 10, monthlyTokens: 25 },
+  launch: { hasFollowUpWriter: false, hasPitchGenerator: false, hasChatAssistant: false, hasProspectFinder: true, hasVOCoach: true, hasAffiliate: false, voCoachLimit: 10, monthlyTokens: 400 },
   momentum: { hasFollowUpWriter: true, hasPitchGenerator: true, hasChatAssistant: false, hasProspectFinder: true, hasVOCoach: true, hasAffiliate: true, voCoachLimit: 50, monthlyTokens: 250 },
   command: { hasFollowUpWriter: true, hasPitchGenerator: true, hasChatAssistant: true, hasProspectFinder: true, hasVOCoach: true, hasAffiliate: true, voCoachLimit: -1, monthlyTokens: -1 },
 }

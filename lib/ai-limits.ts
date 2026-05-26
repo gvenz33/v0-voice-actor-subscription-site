@@ -28,14 +28,14 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     label: "Free",
   },
   launch: {
-    monthlyTokens: 25, // ~5 emails
+    monthlyTokens: 400, // 20 outreach emails (5 each) + 20 prospect scans (15 each)
     hasFollowUpWriter: false,
     hasPitchGenerator: false,
     hasChatAssistant: false,
-    hasProspectFinder: false,
-    hasVOCoach: true, // Available at Launch+
+    hasProspectFinder: true,
+    hasVOCoach: true,
     hasAffiliate: false,
-    voCoachLimit: 10, // 10 messages/month
+    voCoachLimit: 10,
     label: "Launch",
   },
   momentum: {
