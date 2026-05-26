@@ -40,11 +40,19 @@ export function resolveAffiliateAccess(params: {
   const overrides = parseFeatureOverrides(params.featureOverrides)
 
   const tierEligible = tier === "momentum" || tier === "command"
-  const hasExplicitEnable = overrides.hasAffiliate === true
-  const isDisabled = overrides.hasAffiliate === false
+  const affiliateOverride =
+    overrides.hasAffiliate === true || overrides.hasAffiliate === "true"
+      ? true
+      : overrides.hasAffiliate === false || overrides.hasAffiliate === "false"
+        ? false
+        : null
+
+  const hasExplicitEnable = affiliateOverride === true
+  const isDisabled =
+    !params.isSuperadmin && affiliateOverride === false
   const tierDefaultAffiliate = tierEligible
   const hasAffiliateAccess =
-    hasExplicitEnable || (overrides.hasAffiliate !== false && tierDefaultAffiliate)
+    hasExplicitEnable || (affiliateOverride !== false && tierDefaultAffiliate)
 
   const reasons: AffiliateLockReason[] = []
 

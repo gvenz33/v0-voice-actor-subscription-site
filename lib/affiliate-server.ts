@@ -1,10 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { resolveAffiliateAccess } from "@/lib/affiliate-access"
+import {
+  isAffiliateOwnerEmail,
+  resolveAffiliateContext,
+} from "@/lib/affiliate-context"
 import { isAffiliateProgramEnabled } from "@/lib/system-settings"
 
 export async function getAffiliateAccessForUser(
   supabase: SupabaseClient,
-  userId: string
+  userId: string,
+  userEmail?: string | null
 ) {
   const programEnabled = await isAffiliateProgramEnabled()
 
@@ -15,30 +19,36 @@ export async function getAffiliateAccessForUser(
     .single()
 
   if (error || !profile) {
-    return {
-      access: resolveAffiliateAccess({
-        subscriptionTier: "free",
-        programEnabled,
-      }),
-      error: error?.message ?? "Profile not found",
-    }
+    const ctx = resolveAffiliateContext({
+      userEmail,
+      subscriptionTier: "free",
+      programEnabled,
+      isSuperadmin: isAffiliateOwnerEmail(userEmail),
+    })
+    return { access: ctx, error: error?.message ?? "Profile not found" }
   }
 
-  const access = resolveAffiliateAccess({
+  const ctx = resolveAffiliateContext({
+    userEmail,
     subscriptionTier: profile.subscription_tier,
     featureOverrides: profile.feature_overrides,
     programEnabled,
     isSuperadmin: Boolean(profile.is_superadmin),
   })
 
-  return { access, error: null }
+  return { access: ctx, error: null }
 }
 
 export async function requireAffiliateEligible(
   supabase: SupabaseClient,
-  userId: string
+  userId: string,
+  userEmail?: string | null
 ): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
-  const { access, error } = await getAffiliateAccessForUser(supabase, userId)
+  const { access, error } = await getAffiliateAccessForUser(
+    supabase,
+    userId,
+    userEmail
+  )
 
   if (error) {
     return { ok: false, status: 500, error }
@@ -52,7 +62,7 @@ export async function requireAffiliateEligible(
         error: "The affiliate program is temporarily disabled.",
       }
     }
-    if (access.isDisabled) {
+    if (access.lockReasons.includes("override_disabled")) {
       return {
         ok: false,
         status: 403,

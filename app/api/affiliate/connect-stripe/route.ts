@@ -20,7 +20,11 @@ export async function POST() {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    const eligibility = await requireAffiliateEligible(supabase, user.id)
+    const eligibility = await requireAffiliateEligible(
+      supabase,
+      user.id,
+      user.email
+    )
     if (!eligibility.ok) {
       return NextResponse.json(
         { error: eligibility.error },

@@ -2,7 +2,8 @@
 
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { tierLabelFromRaw } from "@/lib/subscription-tier"
+import { getTierDisplayLabel } from "@/lib/subscription-tier"
+import { getEffectiveSubscriptionTier } from "@/lib/affiliate-context"
 import Image from "next/image"
 import type { User } from "@supabase/supabase-js"
 import {
@@ -240,7 +241,13 @@ export function DashboardShell({
       ? `${profile.first_name}${profile.last_name ? ` ${profile.last_name}` : ""}`
       : user.email?.split("@")[0] || "Voice Artist"
 
-  const tierLabel = tierLabelFromRaw(profile?.subscription_tier)
+  const tierLabel = getTierDisplayLabel(
+    getEffectiveSubscriptionTier(
+      profile?.subscription_tier,
+      user.email,
+      profile?.is_superadmin
+    )
+  )
 
   return (
     <SidebarProvider>

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { isAffiliateProgramEnabled } from "@/lib/system-settings"
-import { resolveAffiliateAccess } from "@/lib/affiliate-access"
+import { resolveAffiliateContext } from "@/lib/affiliate-context"
 import AffiliatePageClient from "./affiliate-page-client"
 
 export default async function AffiliatePage() {
@@ -23,7 +23,8 @@ export default async function AffiliatePage() {
     .single()
 
   const programEnabled = await isAffiliateProgramEnabled()
-  const access = resolveAffiliateAccess({
+  const ctx = resolveAffiliateContext({
+    userEmail: user.email,
     subscriptionTier: profile?.subscription_tier,
     featureOverrides: profile?.feature_overrides,
     programEnabled,
@@ -33,11 +34,11 @@ export default async function AffiliatePage() {
   return (
     <AffiliatePageClient
       initial={{
-        subscriptionTier: access.subscriptionTier,
-        tierLabel: access.tierLabel,
-        isEligible: access.isEligible,
-        lockReasons: access.reasons,
-        programEnabled: access.programEnabled,
+        subscriptionTier: ctx.subscriptionTier,
+        tierLabel: ctx.tierLabel,
+        isEligible: ctx.isEligible,
+        lockReasons: ctx.lockReasons,
+        programEnabled: ctx.programEnabled,
         affiliateCode: profile?.affiliate_code ?? "",
         stripeConnectAccountId: profile?.stripe_connect_account_id ?? null,
       }}

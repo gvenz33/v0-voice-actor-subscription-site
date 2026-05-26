@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { isAffiliateProgramEnabled } from "@/lib/system-settings"
-import { resolveAffiliateAccess } from "@/lib/affiliate-access"
+import { resolveAffiliateContext } from "@/lib/affiliate-context"
 
 export async function GET() {
   try {
@@ -29,7 +29,8 @@ export async function GET() {
     }
 
     const programEnabled = await isAffiliateProgramEnabled()
-    const access = resolveAffiliateAccess({
+    const ctx = resolveAffiliateContext({
+      userEmail: user.email,
       subscriptionTier: profile.subscription_tier,
       featureOverrides: profile.feature_overrides,
       programEnabled,
@@ -56,11 +57,11 @@ export async function GET() {
     const pendingEarnings = totalEarned - pendingPaid
 
     return NextResponse.json({
-      isEligible: access.isEligible,
-      subscriptionTier: access.subscriptionTier,
-      tierLabel: access.tierLabel,
-      programEnabled: access.programEnabled,
-      lockReasons: access.reasons,
+      isEligible: ctx.isEligible,
+      subscriptionTier: ctx.subscriptionTier,
+      tierLabel: ctx.tierLabel,
+      programEnabled: ctx.programEnabled,
+      lockReasons: ctx.lockReasons,
       affiliateCode: profile?.affiliate_code || null,
       stripeConnectAccountId: profile?.stripe_connect_account_id || null,
       stats: {

@@ -12,12 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { createClient } from "@/lib/supabase/client"
 import Link from "next/link"
-import {
-  normalizeSubscriptionTier,
-  resolveAffiliateAccess,
-  type AffiliateLockReason,
-} from "@/lib/affiliate-access"
-import { tierLabelFromRaw } from "@/lib/subscription-tier"
+import type { AffiliateLockReason } from "@/lib/affiliate-access"
 
 interface AffiliateStats {
   affiliateCode: string
@@ -87,27 +82,7 @@ export default function AffiliatePageClient({
         return
       }
 
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select(
-          "affiliate_code, subscription_tier, feature_overrides, stripe_connect_account_id, is_superadmin"
-        )
-        .eq("id", user.id)
-        .single()
-
-      const profileTier = normalizeSubscriptionTier(profile?.subscription_tier)
-      const profileLabel = tierLabelFromRaw(profile?.subscription_tier)
-
-      // Always show plan from profile first (sidebar + locked card stay in sync)
-      setSubscriptionTier(profileTier)
-      setTierLabel(profileLabel)
-
-      if (profile?.stripe_connect_account_id) {
-        setStripeConnected(true)
-        setStripeAccountId(profile.stripe_connect_account_id)
-      }
-
-      const statusRes = await fetch("/api/affiliate/status")
+      const statusRes = await fetch("/api/affiliate/status", { cache: "no-store" })
       const statusData = (await statusRes.json()) as {
         error?: string
         isEligible?: boolean
@@ -121,50 +96,27 @@ export default function AffiliatePageClient({
       }
 
       if (statusRes.ok) {
-        setIsEligible(Boolean(statusData.isEligible))
-        if (profile) {
-          setSubscriptionTier(profileTier)
-          setTierLabel(profileLabel)
-        } else {
-          setSubscriptionTier(statusData.subscriptionTier ?? profileTier)
-          setTierLabel(statusData.tierLabel ?? profileLabel)
-        }
-        setProgramEnabled(statusData.programEnabled !== false)
-        setLockReasons(statusData.lockReasons ?? [])
-
+        const s = statusData.stats
+        setStats({
+          affiliateCode: statusData.affiliateCode ?? initial.affiliateCode,
+          totalReferrals: s?.totalReferrals ?? 0,
+          activeReferrals: s?.activeReferrals ?? 0,
+          totalEarned: s?.totalEarned ?? 0,
+          pendingEarnings: s?.pendingEarnings ?? 0,
+        })
         if (statusData.stripeConnectAccountId) {
           setStripeConnected(true)
           setStripeAccountId(statusData.stripeConnectAccountId)
         }
-
-        if (statusData.stats) {
-          setStats({
-            ...statusData.stats,
-            affiliateCode: statusData.affiliateCode ?? profile?.affiliate_code ?? "",
-          })
-        }
-      } else if (profile) {
-        const programEnabled = true
-        const access = resolveAffiliateAccess({
-          subscriptionTier: profile.subscription_tier,
-          featureOverrides: profile.feature_overrides,
-          programEnabled,
-          isSuperadmin: Boolean(profile.is_superadmin),
-        })
-        setIsEligible(access.isEligible)
-        setSubscriptionTier(access.subscriptionTier)
-        setTierLabel(access.tierLabel)
-        setProgramEnabled(access.programEnabled)
-        setLockReasons(access.reasons)
+      } else if (!statusRes.ok) {
+        console.error("[affiliate] status API error:", statusData.error)
         setStats({
-          affiliateCode: profile.affiliate_code ?? "",
+          affiliateCode: initial.affiliateCode,
           totalReferrals: 0,
           activeReferrals: 0,
           totalEarned: 0,
           pendingEarnings: 0,
         })
-      } else if (profileError) {
-        console.error("[affiliate] profile load error:", profileError.message)
       }
 
       const { data: referralData } = await supabase
