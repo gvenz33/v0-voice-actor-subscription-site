@@ -90,7 +90,7 @@ export async function POST(req: Request) {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("subscription_tier")
+      .select("subscription_tier, brand_voice")
       .eq("id", user.id)
       .single()
 
@@ -127,9 +127,14 @@ export async function POST(req: Request) {
     const openai = createOpenAI({ apiKey })
     const modelMessages = await convertToModelMessages(recentMessages)
 
+    const brandVoice = profile?.brand_voice?.trim()
+    const systemPrompt = brandVoice
+      ? `${COACH_SYSTEM_PROMPT}\n\nWhen relevant, align advice with this user's brand voice:\n${brandVoice}`
+      : COACH_SYSTEM_PROMPT
+
     const result = await generateText({
       model: openai(COACH_MODEL),
-      system: COACH_SYSTEM_PROMPT,
+      system: systemPrompt,
       messages: modelMessages,
       maxOutputTokens: 600,
       // If the key is out of quota, retries just burn more quota.

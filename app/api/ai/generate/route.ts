@@ -1,5 +1,6 @@
 import { getUserAIAccess, consumeTokens } from '@/lib/ai-limits'
 import { TOKEN_COSTS } from '@/lib/token-products'
+import { createClient } from '@/lib/supabase/server'
 
 export const maxDuration = 30
 
@@ -86,6 +87,19 @@ export async function POST(req: Request) {
     }
 
     let prompt = ''
+    let brandVoiceBlock = ''
+
+    const supabase = await createClient()
+    const { data: voiceProfile } = await supabase
+      .from('profiles')
+      .select('brand_voice')
+      .eq('id', access.userId)
+      .maybeSingle()
+
+    const brandVoice = voiceProfile?.brand_voice?.trim()
+    if (brandVoice) {
+      brandVoiceBlock = `\nBRAND VOICE (match this style, vocabulary, and tone in every sentence):\n${brandVoice}\n`
+    }
 
     if (type === 'outreach_email') {
       // Add variation elements for unique emails each time
@@ -117,7 +131,7 @@ ${context.contactName ? `Contact person: ${context.contactName}` : ''}
 ${context.genre ? `Type of voice work you specialize in: ${context.genre}` : ''}
 ${context.tone ? `Requested email tone: ${context.tone}` : ''}
 ${context.customNotes ? `Additional notes: ${context.customNotes}` : ''}
-
+${brandVoiceBlock}
 CREATIVE DIRECTION (seed ${randomSeed}):
 1. OPENING: Start with ${openingInstructions[randomOpening]}
 2. TONE: Write in a ${randomTone} voice throughout
@@ -148,7 +162,7 @@ Context:
 ${context.genre ? `Specialization: ${context.genre}` : ''}
 ${context.experience ? `Experience: ${context.experience}` : ''}
 ${context.strengths ? `Strengths: ${context.strengths}` : ''}
-
+${brandVoiceBlock}
 Rules:
 - Under 60 words
 - Memorable and specific
@@ -161,7 +175,7 @@ ${context.companyName ? `Company: ${context.companyName}` : ''}
 ${context.contactName ? `Contact: ${context.contactName}` : ''}
 ${context.daysSince ? `Days since last contact: ${context.daysSince}` : ''}
 ${context.previousContext ? `Previous interaction: ${context.previousContext}` : ''}
-
+${brandVoiceBlock}
 Rules:
 - Under 100 words
 - Reference previous outreach

@@ -28,6 +28,11 @@ export async function getOrCreateAffiliateProfile(
 
   if (selectError) {
     console.error("[affiliate-profile] select", selectError)
+    if (selectError.message?.includes("affiliate_code does not exist")) {
+      throw new Error(
+        "Affiliate database setup is incomplete. Run scripts/ensure-affiliate-schema.sql in the Supabase SQL Editor, then try again."
+      )
+    }
   }
 
   const meta = user.user_metadata ?? {}
@@ -75,7 +80,12 @@ export async function getOrCreateAffiliateProfile(
       }
     }
 
-    const detail = insertError.message?.trim()
+    const detail = insertError.message?.trim() ?? selectError?.message?.trim()
+    if (detail?.includes("affiliate_code does not exist")) {
+      throw new Error(
+        "Affiliate database setup is incomplete. Run scripts/ensure-affiliate-schema.sql in the Supabase SQL Editor, then try again."
+      )
+    }
     throw new Error(
       detail
         ? `Unable to set up your profile: ${detail}`

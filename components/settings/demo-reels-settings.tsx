@@ -49,7 +49,11 @@ function isMissingTableError(message: string): boolean {
   )
 }
 
-export function DemoReelsSettings() {
+export function DemoReelsSettings({
+  onStorageChange,
+}: {
+  onStorageChange?: () => void
+} = {}) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [reels, setReels] = useState<DemoReel[]>([])
   const [loading, setLoading] = useState(true)
@@ -119,6 +123,17 @@ export function DemoReelsSettings() {
       return
     }
 
+    const usageRes = await fetch("/api/media-storage/usage", { cache: "no-store" })
+    if (usageRes.ok) {
+      const usage = await usageRes.json()
+      if (file.size > usage.remainingBytes) {
+        setError(
+          `Not enough storage. You have ${usage.usedLabel} of ${usage.limitLabel} used. Delete files or upgrade your plan.`
+        )
+        return
+      }
+    }
+
     setUploading(true)
     setUploadProgress(0)
 
@@ -164,6 +179,7 @@ export function DemoReelsSettings() {
       setUploadProgress(100)
       setMessage(`Uploaded "${file.name}".`)
       await loadReels()
+      onStorageChange?.()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed.")
     } finally {
@@ -209,6 +225,7 @@ export function DemoReelsSettings() {
       }
       setMessage(`Deleted "${reel.title}".`)
       await loadReels()
+      onStorageChange?.()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Delete failed.")
     } finally {
