@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { isAffiliateProgramEnabled } from "@/lib/system-settings"
 import { resolveAffiliateContext } from "@/lib/affiliate-context"
+import { buildAffiliateReferralUrl } from "@/lib/affiliate-code"
 
 export async function GET() {
   try {
@@ -56,13 +57,20 @@ export async function GET() {
     const pendingPaid = pendingPayouts?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0
     const pendingEarnings = totalEarned - pendingPaid
 
+    const affiliateCode = profile?.affiliate_code?.trim() || null
+    const siteOrigin = process.env.NEXT_PUBLIC_APP_URL || "https://vobizsuite.io"
+
     return NextResponse.json({
       isEligible: ctx.isEligible,
       subscriptionTier: ctx.subscriptionTier,
       tierLabel: ctx.tierLabel,
       programEnabled: ctx.programEnabled,
       lockReasons: ctx.lockReasons,
-      affiliateCode: profile?.affiliate_code || null,
+      affiliateCode,
+      referralUrl: affiliateCode
+        ? buildAffiliateReferralUrl(affiliateCode, siteOrigin)
+        : null,
+      canChangeCode: totalReferrals === 0,
       stripeConnectAccountId: profile?.stripe_connect_account_id || null,
       stats: {
         totalReferrals,

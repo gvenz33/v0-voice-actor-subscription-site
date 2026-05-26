@@ -6,13 +6,30 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Copy, Check, Users, DollarSign, TrendingUp, Share2, Crown, Lock, CreditCard, Wallet, ArrowRight, Loader2 } from "lucide-react"
+import {
+  Copy,
+  Check,
+  Users,
+  DollarSign,
+  TrendingUp,
+  Share2,
+  Crown,
+  Lock,
+  CreditCard,
+  Wallet,
+  ArrowRight,
+  Loader2,
+  Sparkles,
+  Link2,
+  ExternalLink,
+} from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { createClient } from "@/lib/supabase/client"
 import Link from "next/link"
 import type { AffiliateLockReason } from "@/lib/affiliate-access"
+import { buildAffiliateReferralUrl, normalizeAffiliateCodeInput } from "@/lib/affiliate-code"
 
 interface AffiliateStats {
   affiliateCode: string
@@ -42,6 +59,8 @@ export type AffiliatePageInitial = {
   lockReasons: AffiliateLockReason[]
   programEnabled: boolean
   affiliateCode: string
+  referralUrl: string
+  siteOrigin: string
   stripeConnectAccountId: string | null
 }
 
@@ -68,6 +87,25 @@ export default function AffiliatePageClient({
   const [stripeAccountId, setStripeAccountId] = useState<string | null>(
     initial.stripeConnectAccountId
   )
+  const [referralUrl, setReferralUrl] = useState(initial.referralUrl)
+  const [canChangeCode, setCanChangeCode] = useState(true)
+  const [customCodeInput, setCustomCodeInput] = useState("")
+  const [codeSaving, setCodeSaving] = useState(false)
+  const [codeMessage, setCodeMessage] = useState<{
+    type: "success" | "error"
+    text: string
+  } | null>(null)
+  const [showChangeCode, setShowChangeCode] = useState(false)
+
+  const affiliateCode = stats?.affiliateCode || initial.affiliateCode
+  const hasAffiliateCode = Boolean(affiliateCode?.trim())
+
+  const resolveReferralUrl = (code: string) =>
+    buildAffiliateReferralUrl(
+      code,
+      initial.siteOrigin ||
+        (typeof window !== "undefined" ? window.location.origin : "https://vobizsuite.io")
+    )
 
   useEffect(() => {
     async function loadAffiliateData() {
@@ -91,19 +129,30 @@ export default function AffiliatePageClient({
         programEnabled?: boolean
         lockReasons?: AffiliateLockReason[]
         affiliateCode?: string | null
+        referralUrl?: string | null
+        canChangeCode?: boolean
         stripeConnectAccountId?: string | null
         stats?: AffiliateStats
       }
 
       if (statusRes.ok) {
         const s = statusData.stats
+        const code = statusData.affiliateCode ?? initial.affiliateCode
         setStats({
-          affiliateCode: statusData.affiliateCode ?? initial.affiliateCode,
+          affiliateCode: code,
           totalReferrals: s?.totalReferrals ?? 0,
           activeReferrals: s?.activeReferrals ?? 0,
           totalEarned: s?.totalEarned ?? 0,
           pendingEarnings: s?.pendingEarnings ?? 0,
         })
+        if (code) {
+          setReferralUrl(
+            statusData.referralUrl ?? resolveReferralUrl(code)
+          )
+        }
+        if (typeof statusData.canChangeCode === "boolean") {
+          setCanChangeCode(statusData.canChangeCode)
+        }
         if (statusData.stripeConnectAccountId) {
           setStripeConnected(true)
           setStripeAccountId(statusData.stripeConnectAccountId)
@@ -139,19 +188,74 @@ export default function AffiliatePageClient({
   }, [])
 
   const copyCode = () => {
-    if (stats?.affiliateCode && isEligible) {
-      navigator.clipboard.writeText(stats.affiliateCode)
+    if (affiliateCode && isEligible) {
+      navigator.clipboard.writeText(affiliateCode)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }
   }
 
   const copyLink = () => {
-    if (stats?.affiliateCode && isEligible) {
-      const link = `${window.location.origin}/auth/sign-up?ref=${stats.affiliateCode}`
+    const link = referralUrl || (affiliateCode ? resolveReferralUrl(affiliateCode) : "")
+    if (link && isEligible) {
       navigator.clipboard.writeText(link)
       setCopiedLink(true)
       setTimeout(() => setCopiedLink(false), 2000)
+    }
+  }
+
+  const saveAffiliateCode = async (
+    mode: "auto" | "custom",
+    options?: { replace?: boolean }
+  ) => {
+    setCodeSaving(true)
+    setCodeMessage(null)
+    try {
+      const response = await fetch("/api/affiliate/code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode,
+          code: mode === "custom" ? customCodeInput : undefined,
+          replace: options?.replace ?? false,
+        }),
+      })
+      const result = (await response.json()) as {
+        error?: string
+        affiliateCode?: string
+        referralUrl?: string
+      }
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to save referral code")
+      }
+
+      const code = result.affiliateCode ?? ""
+      const url = result.referralUrl ?? resolveReferralUrl(code)
+      setStats((prev) => ({
+        affiliateCode: code,
+        totalReferrals: prev?.totalReferrals ?? 0,
+        activeReferrals: prev?.activeReferrals ?? 0,
+        totalEarned: prev?.totalEarned ?? 0,
+        pendingEarnings: prev?.pendingEarnings ?? 0,
+      }))
+      setReferralUrl(url)
+      setShowChangeCode(false)
+      setCustomCodeInput("")
+      setCodeMessage({
+        type: "success",
+        text:
+          mode === "auto"
+            ? "Your referral code was generated."
+            : "Your custom referral code is ready.",
+      })
+    } catch (error) {
+      setCodeMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Failed to save referral code",
+      })
+    } finally {
+      setCodeSaving(false)
     }
   }
 
@@ -433,46 +537,189 @@ export default function AffiliatePageClient({
         </Badge>
       </div>
 
-      {/* Affiliate Link Card */}
+      {/* Referral code setup or share */}
       <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Share2 className="h-5 w-5 text-primary" />
-            Your Affiliate Link
+            {hasAffiliateCode ? "Your Referral Code & Link" : "Set Up Your Referral Code"}
           </CardTitle>
           <CardDescription>
-            Share this link with other voice actors. When they sign up and subscribe, you earn 20% of their subscription fee.
+            {hasAffiliateCode
+              ? "Share your link anywhere. When someone signs up with it and subscribes, you earn 20% commission."
+              : "Choose a custom code you’ll remember, or let us generate one for you (starts with VOB)."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-col gap-4 sm:flex-row">
-            <div className="flex-1">
-              <label className="mb-2 block text-sm font-medium">Referral Code</label>
-              <div className="flex gap-2">
-                <Input 
-                  value={stats?.affiliateCode || ""} 
-                  readOnly 
-                  className="font-mono text-lg"
-                />
-                <Button variant="outline" size="icon" onClick={copyCode}>
-                  {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                </Button>
+          {codeMessage && (
+            <p
+              className={`rounded-lg border px-4 py-3 text-sm ${
+                codeMessage.type === "success"
+                  ? "border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-300"
+                  : "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300"
+              }`}
+            >
+              {codeMessage.text}
+            </p>
+          )}
+
+          {!hasAffiliateCode || showChangeCode ? (
+            <div className="space-y-6">
+              <div className="rounded-lg border border-border/60 bg-card/50 p-4 space-y-3">
+                <Label htmlFor="custom-affiliate-code" className="text-sm font-medium">
+                  Custom referral code
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  4–20 characters, letters and numbers only, must start with a letter.
+                </p>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Input
+                    id="custom-affiliate-code"
+                    value={customCodeInput}
+                    onChange={(e) =>
+                      setCustomCodeInput(normalizeAffiliateCodeInput(e.target.value))
+                    }
+                    placeholder="e.g. MYSTUDIO"
+                    className="font-mono uppercase"
+                    maxLength={20}
+                    disabled={codeSaving}
+                  />
+                  <Button
+                    onClick={() =>
+                      saveAffiliateCode("custom", {
+                        replace: hasAffiliateCode && canChangeCode,
+                      })
+                    }
+                    disabled={codeSaving || customCodeInput.length < 4}
+                  >
+                    {codeSaving ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : null}
+                    Use custom code
+                  </Button>
+                </div>
               </div>
-            </div>
-            <div className="flex-1">
-              <label className="mb-2 block text-sm font-medium">Referral Link</label>
-              <div className="flex gap-2">
-                <Input 
-                  value={stats?.affiliateCode ? `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/sign-up?ref=${stats.affiliateCode}` : ""} 
-                  readOnly 
-                  className="text-sm"
-                />
-                <Button variant="outline" size="icon" onClick={copyLink}>
-                  {copiedLink ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                </Button>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border/60" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">or</span>
+                </div>
               </div>
+
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() =>
+                  saveAffiliateCode("auto", {
+                    replace: hasAffiliateCode && canChangeCode,
+                  })
+                }
+                disabled={codeSaving}
+              >
+                {codeSaving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-2 h-4 w-4" />
+                )}
+                Generate code for me (VOB + 8 characters)
+              </Button>
+
+              {showChangeCode && hasAffiliateCode && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowChangeCode(false)
+                    setCodeMessage(null)
+                  }}
+                >
+                  Cancel
+                </Button>
+              )}
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="flex flex-col gap-4 sm:flex-row">
+                <div className="flex-1">
+                  <label className="mb-2 block text-sm font-medium">Referral code</label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={affiliateCode}
+                      readOnly
+                      className="font-mono text-lg"
+                    />
+                    <Button variant="outline" size="icon" onClick={copyCode} aria-label="Copy code">
+                      {copied ? (
+                        <Check className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <label className="mb-2 block text-sm font-medium">Referral link</label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={referralUrl}
+                      readOnly
+                      className="text-sm font-mono"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={copyLink}
+                      aria-label="Copy link"
+                    >
+                      {copiedLink ? (
+                        <Check className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" size="sm" asChild>
+                  <a
+                    href={referralUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Preview sign-up page
+                  </a>
+                </Button>
+                <Button variant="outline" size="sm" onClick={copyLink}>
+                  <Link2 className="mr-2 h-4 w-4" />
+                  Copy referral link
+                </Button>
+                {canChangeCode && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowChangeCode(true)
+                      setCustomCodeInput(affiliateCode)
+                      setCodeMessage(null)
+                    }}
+                  >
+                    Change code
+                  </Button>
+                )}
+              </div>
+              {!canChangeCode && (
+                <p className="text-xs text-muted-foreground">
+                  Your code is locked because you already have referrals using it.
+                </p>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
 

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { isAffiliateProgramEnabled } from "@/lib/system-settings"
 import { resolveAffiliateContext } from "@/lib/affiliate-context"
+import { buildAffiliateReferralUrl } from "@/lib/affiliate-code"
 import AffiliatePageClient from "./affiliate-page-client"
 
 export default async function AffiliatePage() {
@@ -31,6 +32,9 @@ export default async function AffiliatePage() {
     isSuperadmin: Boolean(profile?.is_superadmin),
   })
 
+  const siteOrigin = process.env.NEXT_PUBLIC_APP_URL ?? "https://vobizsuite.io"
+  const affiliateCode = profile?.affiliate_code?.trim() ?? ""
+
   return (
     <AffiliatePageClient
       initial={{
@@ -39,7 +43,11 @@ export default async function AffiliatePage() {
         isEligible: ctx.isEligible,
         lockReasons: ctx.lockReasons,
         programEnabled: ctx.programEnabled,
-        affiliateCode: profile?.affiliate_code ?? "",
+        affiliateCode,
+        referralUrl: affiliateCode
+          ? buildAffiliateReferralUrl(affiliateCode, siteOrigin)
+          : "",
+        siteOrigin,
         stripeConnectAccountId: profile?.stripe_connect_account_id ?? null,
       }}
     />
