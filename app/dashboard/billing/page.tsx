@@ -12,9 +12,15 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { EmailAttachmentPicker } from "@/components/email-attachment-picker"
 import { Plus, Search, Receipt, Trash2, Pencil, DollarSign, Send, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { fetchContactsPicker } from "@/lib/fetch-contacts-picker"
+import {
+  MAX_EMAIL_ATTACHMENT_BYTES,
+  readFileAsBase64,
+  totalAttachmentBytes,
+} from "@/lib/read-file-base64"
 import {
   BILLING_WORD_COUNT_SESSION_KEY,
   DEFAULT_WPM,
@@ -198,6 +204,14 @@ function formatHours(durationHours: number) {
 export default function BillingDesk() {
   const { data: invoices, isLoading } = useSWR("invoices", fetchInvoices)
   const { data: contactOptions } = useSWR("contact-picker", fetchContactsPicker)
+  const { data: demoReelsData } = useSWR("/api/demo-reels", async (url) => {
+    const res = await fetch(url)
+    return res.json()
+  })
+  const { data: userMediaData } = useSWR("/api/user-media", async (url) => {
+    const res = await fetch(url)
+    return res.json()
+  })
   const [search, setSearch] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -206,6 +220,9 @@ export default function BillingDesk() {
   const [sendNotice, setSendNotice] = useState<{ success: string[]; warnings: string[] } | null>(null)
   const [saving, setSaving] = useState(false)
   const [sending, setSending] = useState(false)
+  const [invoiceAttachments, setInvoiceAttachments] = useState<File[]>([])
+  const [selectedDemoReelIds, setSelectedDemoReelIds] = useState<string[]>([])
+  const [selectedUserMediaIds, setSelectedUserMediaIds] = useState<string[]>([])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -282,6 +299,9 @@ export default function BillingDesk() {
         contactId: editing.contact_id || "none",
       })
       setFormError(null)
+      setInvoiceAttachments([])
+      setSelectedDemoReelIds([])
+      setSelectedUserMediaIds([])
       return
     }
 
@@ -309,6 +329,9 @@ export default function BillingDesk() {
       contactId: "none",
     })
     setFormError(null)
+    setInvoiceAttachments([])
+    setSelectedDemoReelIds([])
+    setSelectedUserMediaIds([])
   }, [dialogOpen, editing])
 
   const filtered = invoices?.filter((inv) => {
@@ -388,6 +411,24 @@ export default function BillingDesk() {
     setSending(true)
     try {
       if (!form.clientEmail) throw new Error("Client email is required to send the invoice.")
+      const selectedReelBytes = ((demoReelsData?.reels ?? []) as Array<{
+        id: string
+        file_size?: number
+      }>)
+        .filter((r) => selectedDemoReelIds.includes(r.id))
+        .reduce((sum, r) => sum + Number(r.file_size ?? 0), 0)
+      const selectedMediaBytes = ((userMediaData?.media ?? []) as Array<{
+        id: string
+        file_size: number
+      }>)
+        .filter((m) => selectedUserMediaIds.includes(m.id))
+        .reduce((sum, m) => sum + Number(m.file_size || 0), 0)
+      if (
+        totalAttachmentBytes(invoiceAttachments) + selectedReelBytes + selectedMediaBytes >
+        MAX_EMAIL_ATTACHMENT_BYTES
+      ) {
+        throw new Error("Attachments exceed 25 MB total size limit.")
+      }
 
       const invoiceId = await upsertInvoice("draft")
 
@@ -396,10 +437,24 @@ export default function BillingDesk() {
           ? localStorage.getItem("vo_email_signature") || ""
           : ""
 
+      const attachments = await Promise.all(
+        invoiceAttachments.map(async (file) => ({
+          filename: file.name,
+          contentBase64: await readFileAsBase64(file),
+          contentType: file.type || "application/octet-stream",
+        }))
+      )
+
       const res = await fetch("/api/invoices/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ invoiceId, signatureText }),
+        body: JSON.stringify({
+          invoiceId,
+          signatureText,
+          attachments,
+          demo_reel_ids: selectedDemoReelIds,
+          user_media_ids: selectedUserMediaIds,
+        }),
       })
 
       const data = (await res.json()) as {
@@ -673,6 +728,27 @@ export default function BillingDesk() {
                   onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                 />
               </div>
+              <EmailAttachmentPicker
+                files={invoiceAttachments}
+                onFilesChange={setInvoiceAttachments}
+                demoReels={(demoReelsData?.reels ?? []) as Array<{
+                  id: string
+                  title: string
+                  file_name: string
+                  file_size: number
+                }>}
+                selectedDemoReelIds={selectedDemoReelIds}
+                onDemoReelIdsChange={setSelectedDemoReelIds}
+                userMedia={(userMediaData?.media ?? []) as Array<{
+                  id: string
+                  title: string
+                  file_name: string
+                  file_size: number
+                  category: "resume" | "media" | "knowledge_base"
+                }>}
+                selectedUserMediaIds={selectedUserMediaIds}
+                onUserMediaIdsChange={setSelectedUserMediaIds}
+              />
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <Button type="submit" size="lg" className="min-h-[44px]" disabled={saving || sending}>

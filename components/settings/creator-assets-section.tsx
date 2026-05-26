@@ -6,6 +6,7 @@ import { BrandVoiceSettings } from "@/components/settings/brand-voice-settings"
 import { ResumeSettings } from "@/components/settings/resume-settings"
 import { DemoReelsSettings } from "@/components/settings/demo-reels-settings"
 import { MediaRepositorySettings } from "@/components/settings/media-repository-settings"
+import { KnowledgeBaseSettings } from "@/components/settings/knowledge-base-settings"
 
 export function CreatorAssetsSection() {
   const [storageRefreshKey, setStorageRefreshKey] = useState(0)
@@ -23,6 +24,7 @@ export function CreatorAssetsSection() {
       </div>
       <StorageUsageBar refreshKey={storageRefreshKey} />
       <BrandVoiceSettings />
+      <KnowledgeBaseSettings />
       <ResumeSettings onStorageChange={bumpStorage} />
       <DemoReelsSettings onStorageChange={bumpStorage} />
       <MediaRepositorySettings onStorageChange={bumpStorage} />

@@ -215,12 +215,23 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
   const [sendError, setSendError] = useState("")
   const [fileAttachments, setFileAttachments] = useState<File[]>([])
   const [selectedDemoReelIds, setSelectedDemoReelIds] = useState<string[]>([])
+  const [selectedUserMediaIds, setSelectedUserMediaIds] = useState<string[]>([])
 
   const { data: demoReelsData } = useSWR<{ reels?: Array<{ id: string; title: string; file_name: string; file_size: number }> }>(
     "/api/demo-reels",
     fetcher
   )
+  const { data: userMediaData } = useSWR<{
+    media?: Array<{
+      id: string
+      title: string
+      file_name: string
+      file_size: number
+      category: "resume" | "media" | "knowledge_base"
+    }>
+  }>("/api/user-media", fetcher)
   const demoReels = demoReelsData?.reels ?? []
+  const userMedia = userMediaData?.media ?? []
   
   // Token purchase modal
   const [showPurchaseModal, setShowPurchaseModal] = useState(false)
@@ -263,7 +274,16 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
 
   const handleSendEmail = async () => {
     if (!recipientEmail) return
-    if (totalAttachmentBytes(fileAttachments) > MAX_EMAIL_ATTACHMENT_BYTES) {
+    const selectedReelBytes = demoReels
+      .filter((r) => selectedDemoReelIds.includes(r.id))
+      .reduce((sum, r) => sum + Number(r.file_size || 0), 0)
+    const selectedMediaBytes = userMedia
+      .filter((m) => selectedUserMediaIds.includes(m.id))
+      .reduce((sum, m) => sum + Number(m.file_size || 0), 0)
+    if (
+      totalAttachmentBytes(fileAttachments) + selectedReelBytes + selectedMediaBytes >
+      MAX_EMAIL_ATTACHMENT_BYTES
+    ) {
       setSendError("Attachments exceed 25 MB total size limit.")
       return
     }
@@ -300,6 +320,7 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
           body: plainBody,
           html: htmlBody,
           demo_reel_ids: selectedDemoReelIds,
+          user_media_ids: selectedUserMediaIds,
           attachments,
         }),
       })
@@ -509,6 +530,9 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
                   demoReels={demoReels}
                   selectedDemoReelIds={selectedDemoReelIds}
                   onDemoReelIdsChange={setSelectedDemoReelIds}
+                  userMedia={userMedia}
+                  selectedUserMediaIds={selectedUserMediaIds}
+                  onUserMediaIdsChange={setSelectedUserMediaIds}
                 />
                 <div className="flex flex-col gap-3">
                   <div className="flex flex-wrap gap-3">

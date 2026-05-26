@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { loadDemoReelAttachments } from "@/lib/demo-reels-server"
+import { loadUserMediaAttachments } from "@/lib/user-media-server"
 import { sendEmailMessage } from "@/lib/send-email-message"
 
 export const runtime = "nodejs"
@@ -29,6 +30,7 @@ export async function POST(req: Request) {
     references,
     gmail_thread_id: gmailThreadId,
     demo_reel_ids: demoReelIds,
+    user_media_ids: userMediaIds,
   } = body
 
   if (!to || !subject || !textBody) {
@@ -59,8 +61,13 @@ export async function POST(req: Request) {
     user.id,
     Array.isArray(demoReelIds) ? demoReelIds.map(String) : []
   )
+  const mediaAttachments = await loadUserMediaAttachments(
+    supabase,
+    user.id,
+    Array.isArray(userMediaIds) ? userMediaIds.map(String) : []
+  )
 
-  const allAttachments = [...attachments, ...demoAttachments]
+  const allAttachments = [...attachments, ...demoAttachments, ...mediaAttachments]
 
   const maxAttachmentBytes = 25 * 1024 * 1024
   const totalBytes = allAttachments.reduce((sum, a) => sum + a.content.length, 0)

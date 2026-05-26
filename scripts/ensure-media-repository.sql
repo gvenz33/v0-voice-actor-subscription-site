@@ -10,7 +10,7 @@ COMMENT ON COLUMN public.profiles.media_storage_used_bytes IS 'Cached total byte
 CREATE TABLE IF NOT EXISTS public.user_media (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  category text NOT NULL CHECK (category IN ('resume', 'media')),
+  category text NOT NULL CHECK (category IN ('resume', 'media', 'knowledge_base')),
   title text NOT NULL,
   file_name text NOT NULL,
   storage_path text NOT NULL,
@@ -21,6 +21,18 @@ CREATE TABLE IF NOT EXISTS public.user_media (
 
 CREATE INDEX IF NOT EXISTS idx_user_media_user_id ON public.user_media(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_media_category ON public.user_media(user_id, category);
+
+CREATE TABLE IF NOT EXISTS public.user_knowledge_base (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  title text NOT NULL,
+  content text NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_knowledge_base_user_id
+  ON public.user_knowledge_base(user_id);
 
 ALTER TABLE public.user_media ENABLE ROW LEVEL SECURITY;
 
@@ -38,6 +50,24 @@ CREATE POLICY "user_media_update_own" ON public.user_media
 
 DROP POLICY IF EXISTS "user_media_delete_own" ON public.user_media;
 CREATE POLICY "user_media_delete_own" ON public.user_media
+  FOR DELETE USING (auth.uid() = user_id);
+
+ALTER TABLE public.user_knowledge_base ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "user_knowledge_base_select_own" ON public.user_knowledge_base;
+CREATE POLICY "user_knowledge_base_select_own" ON public.user_knowledge_base
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "user_knowledge_base_insert_own" ON public.user_knowledge_base;
+CREATE POLICY "user_knowledge_base_insert_own" ON public.user_knowledge_base
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "user_knowledge_base_update_own" ON public.user_knowledge_base;
+CREATE POLICY "user_knowledge_base_update_own" ON public.user_knowledge_base
+  FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "user_knowledge_base_delete_own" ON public.user_knowledge_base;
+CREATE POLICY "user_knowledge_base_delete_own" ON public.user_knowledge_base
   FOR DELETE USING (auth.uid() = user_id);
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit)

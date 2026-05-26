@@ -1,6 +1,7 @@
 import { generateText, convertToModelMessages, type UIMessage } from "ai"
 import { createOpenAI } from "@ai-sdk/openai"
 import { createClient } from "@/lib/supabase/server"
+import { loadKnowledgeBaseContext } from "@/lib/knowledge-base-server"
 
 export const maxDuration = 30
 
@@ -128,9 +129,18 @@ export async function POST(req: Request) {
     const modelMessages = await convertToModelMessages(recentMessages)
 
     const brandVoice = profile?.brand_voice?.trim()
-    const systemPrompt = brandVoice
-      ? `${COACH_SYSTEM_PROMPT}\n\nWhen relevant, align advice with this user's brand voice:\n${brandVoice}`
-      : COACH_SYSTEM_PROMPT
+    const knowledgeBase = await loadKnowledgeBaseContext(supabase, user.id)
+    const systemPrompt = [
+      COACH_SYSTEM_PROMPT,
+      brandVoice
+        ? `When relevant, align advice with this user's brand voice:\n${brandVoice}`
+        : "",
+      knowledgeBase
+        ? `Use this user knowledge base context naturally when helpful:\n${knowledgeBase}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n")
 
     const result = await generateText({
       model: openai(COACH_MODEL),

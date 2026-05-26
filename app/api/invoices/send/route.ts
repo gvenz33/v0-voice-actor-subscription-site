@@ -9,7 +9,9 @@ import {
   appendSignatureToPlainText,
   getUserEmailSignature,
 } from "@/lib/email-signature"
+import { loadDemoReelAttachments } from "@/lib/demo-reels-server"
 import { sendEmailMessage } from "@/lib/send-email-message"
+import { loadUserMediaAttachments } from "@/lib/user-media-server"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
@@ -28,6 +30,9 @@ export async function POST(req: Request) {
     invoiceId?: string
     account_id?: string
     signatureText?: string
+    attachments?: Array<{ filename: string; contentBase64: string; contentType?: string }>
+    demo_reel_ids?: string[]
+    user_media_ids?: string[]
   }
 
   if (!body.invoiceId) {
@@ -133,6 +138,43 @@ export async function POST(req: Request) {
     const textBody = appendSignatureToPlainText(emailContent.textBody, signature)
     const htmlBody = appendSignatureToHtml(emailContent.htmlBody, signature)
 
+    const customAttachments = Array.isArray(body.attachments)
+      ? body.attachments
+          .filter((a) => a?.filename && a?.contentBase64)
+          .map((a) => ({
+            filename: String(a.filename),
+            content: Buffer.from(String(a.contentBase64), "base64"),
+            contentType: a.contentType || "application/octet-stream",
+          }))
+      : []
+    const demoAttachments = await loadDemoReelAttachments(
+      supabase,
+      user.id,
+      Array.isArray(body.demo_reel_ids) ? body.demo_reel_ids.map(String) : []
+    )
+    const mediaAttachments = await loadUserMediaAttachments(
+      supabase,
+      user.id,
+      Array.isArray(body.user_media_ids) ? body.user_media_ids.map(String) : []
+    )
+    const allAttachments = [
+      {
+        filename: invoicePdfFilename(invoice.invoice_number),
+        content: pdfBuffer,
+        contentType: "application/pdf",
+      },
+      ...customAttachments,
+      ...demoAttachments,
+      ...mediaAttachments,
+    ]
+    const totalBytes = allAttachments.reduce((sum, a) => sum + a.content.length, 0)
+    if (totalBytes > 25 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: "Attachments exceed 25 MB total size limit" },
+        { status: 400 }
+      )
+    }
+
     const sendResult = await sendEmailMessage(supabase, {
       userId: user.id,
       to: clientEmail,
@@ -140,13 +182,7 @@ export async function POST(req: Request) {
       text: textBody,
       html: htmlBody,
       accountId: body.account_id,
-      attachments: [
-        {
-          filename: invoicePdfFilename(invoice.invoice_number),
-          content: pdfBuffer,
-          contentType: "application/pdf",
-        },
-      ],
+      attachments: allAttachments,
     })
 
     await supabase.from("invoices").update({ status: "sent" }).eq("id", invoice.id)

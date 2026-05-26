@@ -1,6 +1,7 @@
 import { getUserAIAccess, consumeTokens } from '@/lib/ai-limits'
 import { TOKEN_COSTS } from '@/lib/token-products'
 import { createClient } from '@/lib/supabase/server'
+import { loadKnowledgeBaseContext } from '@/lib/knowledge-base-server'
 
 export const maxDuration = 30
 
@@ -88,6 +89,7 @@ export async function POST(req: Request) {
 
     let prompt = ''
     let brandVoiceBlock = ''
+    let knowledgeBaseBlock = ''
 
     const supabase = await createClient()
     const { data: voiceProfile } = await supabase
@@ -99,6 +101,10 @@ export async function POST(req: Request) {
     const brandVoice = voiceProfile?.brand_voice?.trim()
     if (brandVoice) {
       brandVoiceBlock = `\nBRAND VOICE (match this style, vocabulary, and tone in every sentence):\n${brandVoice}\n`
+    }
+    const knowledgeBase = await loadKnowledgeBaseContext(supabase, access.userId)
+    if (knowledgeBase) {
+      knowledgeBaseBlock = `\nUSER KNOWLEDGE BASE (facts, style notes, context to reflect naturally where relevant):\n${knowledgeBase}\n`
     }
 
     if (type === 'outreach_email') {
@@ -132,6 +138,7 @@ ${context.genre ? `Type of voice work you specialize in: ${context.genre}` : ''}
 ${context.tone ? `Requested email tone: ${context.tone}` : ''}
 ${context.customNotes ? `Additional notes: ${context.customNotes}` : ''}
 ${brandVoiceBlock}
+${knowledgeBaseBlock}
 CREATIVE DIRECTION (seed ${randomSeed}):
 1. OPENING: Start with ${openingInstructions[randomOpening]}
 2. TONE: Write in a ${randomTone} voice throughout
@@ -163,6 +170,7 @@ ${context.genre ? `Specialization: ${context.genre}` : ''}
 ${context.experience ? `Experience: ${context.experience}` : ''}
 ${context.strengths ? `Strengths: ${context.strengths}` : ''}
 ${brandVoiceBlock}
+${knowledgeBaseBlock}
 Rules:
 - Under 60 words
 - Memorable and specific
@@ -176,6 +184,7 @@ ${context.contactName ? `Contact: ${context.contactName}` : ''}
 ${context.daysSince ? `Days since last contact: ${context.daysSince}` : ''}
 ${context.previousContext ? `Previous interaction: ${context.previousContext}` : ''}
 ${brandVoiceBlock}
+${knowledgeBaseBlock}
 Rules:
 - Under 100 words
 - Reference previous outreach

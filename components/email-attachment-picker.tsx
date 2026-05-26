@@ -12,6 +12,15 @@ export type DemoReelOption = {
   id: string
   title: string
   file_name: string
+  file_size?: number
+}
+
+export type UserMediaOption = {
+  id: string
+  title: string
+  file_name: string
+  file_size: number
+  category: "resume" | "media" | "knowledge_base"
 }
 
 type EmailAttachmentPickerProps = {
@@ -20,6 +29,9 @@ type EmailAttachmentPickerProps = {
   demoReels?: DemoReelOption[]
   selectedDemoReelIds?: string[]
   onDemoReelIdsChange?: (ids: string[]) => void
+  userMedia?: UserMediaOption[]
+  selectedUserMediaIds?: string[]
+  onUserMediaIdsChange?: (ids: string[]) => void
   className?: string
 }
 
@@ -29,11 +41,21 @@ export function EmailAttachmentPicker({
   demoReels = [],
   selectedDemoReelIds = [],
   onDemoReelIdsChange,
+  userMedia = [],
+  selectedUserMediaIds = [],
+  onUserMediaIdsChange,
   className,
 }: EmailAttachmentPickerProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const fileBytes = totalAttachmentBytes(files)
-  const overLimit = fileBytes > MAX_EMAIL_ATTACHMENT_BYTES
+  const selectedReelBytes = demoReels
+    .filter((r) => selectedDemoReelIds.includes(r.id))
+    .reduce((sum, reel) => sum + Number(reel.file_size ?? 0), 0)
+  const selectedMediaBytes = userMedia
+    .filter((m) => selectedUserMediaIds.includes(m.id))
+    .reduce((sum, item) => sum + Number(item.file_size || 0), 0)
+  const totalBytes = fileBytes + selectedReelBytes + selectedMediaBytes
+  const overLimit = totalBytes > MAX_EMAIL_ATTACHMENT_BYTES
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files ?? [])
@@ -152,7 +174,59 @@ export function EmailAttachmentPicker({
             )}
           </div>
         )}
+        {onUserMediaIdsChange && (
+          <div>
+            <Label className="text-xs text-muted-foreground">
+              Files from your Settings library (resume, media, knowledge base)
+            </Label>
+            {userMedia.length > 0 ? (
+              <div className="mt-2 flex flex-col gap-2">
+                {userMedia.map((item) => (
+                  <label
+                    key={item.id}
+                    className="flex cursor-pointer items-start gap-3 rounded-md border border-border/60 px-3 py-2 hover:bg-muted/40"
+                  >
+                    <Checkbox
+                      checked={selectedUserMediaIds.includes(item.id)}
+                      onCheckedChange={(checked) => {
+                        onUserMediaIdsChange(
+                          checked
+                            ? [...selectedUserMediaIds, item.id]
+                            : selectedUserMediaIds.filter((id) => id !== item.id)
+                        )
+                      }}
+                    />
+                    <span className="text-sm">
+                      <span className="font-medium">{item.title}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {item.file_name} · {Math.round(item.file_size / 1024)} KB
+                      </span>
+                    </span>
+                  </label>
+                ))}
+                <p className="text-xs text-muted-foreground">
+                  Upload/manage in{" "}
+                  <Link href="/dashboard/settings#creator-assets" className="underline">
+                    Settings → Creator assets
+                  </Link>
+                  .
+                </p>
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-muted-foreground">
+                No uploaded settings files yet.{" "}
+                <Link href="/dashboard/settings#creator-assets" className="underline">
+                  Upload in Settings
+                </Link>
+                .
+              </p>
+            )}
+          </div>
+        )}
       </div>
+      <p className="text-xs text-muted-foreground">
+        Total selected: {(totalBytes / (1024 * 1024)).toFixed(2)} MB / 25 MB
+      </p>
     </div>
   )
 }

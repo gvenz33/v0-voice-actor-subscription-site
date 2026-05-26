@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { EmailHtmlBody } from "@/components/inbox/email-html-body"
+import { EmailAttachmentPicker } from "@/components/email-attachment-picker"
 import {
   buildQuotedText,
   buildReplyAllRecipients,
@@ -36,7 +37,6 @@ import {
   Loader2,
   Mail,
   MailWarning,
-  Paperclip,
   Reply,
   ReplyAll,
   Send,
@@ -46,6 +46,7 @@ import {
   FilePenLine,
 } from "lucide-react"
 import { readFileAsBase64 } from "@/lib/read-file-base64"
+import { MAX_EMAIL_ATTACHMENT_BYTES, totalAttachmentBytes } from "@/lib/read-file-base64"
 
 const FOLDER_ICONS: Record<MailFolder, typeof Inbox> = {
   inbox: Inbox,
@@ -99,10 +100,10 @@ export default function InboxPage() {
   const [messageContent, setMessageContent] = useState<EmailMessageContent | null>(null)
   const [bodyLoading, setBodyLoading] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
-  const attachmentInputRef = useRef<HTMLInputElement>(null)
-
   const { data: accData } = useSWR("/api/email/accounts", fetcher)
   const accounts: AccountOpt[] = accData?.accounts ?? []
+  const { data: demoReelsData } = useSWR("/api/demo-reels", fetcher)
+  const { data: userMediaData } = useSWR("/api/user-media", fetcher)
 
   const threadsUrl = `/api/email/threads?accountId=${encodeURIComponent(accountFilter)}&folder=${mailFolder}`
   const { data: threadData, isLoading, error, mutate } = useSWR(threadsUrl, fetcher)
@@ -175,6 +176,8 @@ export default function InboxPage() {
   const [sendSubject, setSendSubject] = useState("")
   const [sendBody, setSendBody] = useState("")
   const [sendAttachments, setSendAttachments] = useState<File[]>([])
+  const [selectedDemoReelIds, setSelectedDemoReelIds] = useState<string[]>([])
+  const [selectedUserMediaIds, setSelectedUserMediaIds] = useState<string[]>([])
   const [sendAccountId, setSendAccountId] = useState<string>("")
   const [sendLoading, setSendLoading] = useState(false)
 
@@ -197,12 +200,16 @@ export default function InboxPage() {
     setSendSubject("")
     setSendBody("")
     setSendAttachments([])
+    setSelectedDemoReelIds([])
+    setSelectedUserMediaIds([])
   }
 
   const openCompose = useCallback(
     (mode: ComposeMode = "new") => {
       setComposeMode(mode)
       setSendAttachments([])
+      setSelectedDemoReelIds([])
+      setSelectedUserMediaIds([])
       if (mode === "new") {
         setSendTo("")
         setSendCc("")
@@ -244,22 +251,34 @@ export default function InboxPage() {
       setSendBody(`\n\n${buildQuotedText(messageContent)}`)
     }
     setSendAttachments([])
+    setSelectedDemoReelIds([])
+    setSelectedUserMediaIds([])
     setComposeOpen(true)
-  }
-
-  const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? [])
-    if (files.length === 0) return
-    setSendAttachments((prev) => [...prev, ...files])
-    e.target.value = ""
-  }
-
-  const removeAttachment = (index: number) => {
-    setSendAttachments((prev) => prev.filter((_, i) => i !== index))
   }
 
   const handleSend = async () => {
     if (!sendTo.trim() || !sendSubject.trim() || !sendBody.trim()) return
+    const demoReels = (demoReelsData?.reels ?? []) as Array<{
+      id: string
+      file_size?: number
+    }>
+    const userMedia = (userMediaData?.media ?? []) as Array<{
+      id: string
+      file_size: number
+    }>
+    const selectedReelBytes = demoReels
+      .filter((r) => selectedDemoReelIds.includes(r.id))
+      .reduce((sum, r) => sum + Number(r.file_size ?? 0), 0)
+    const selectedMediaBytes = userMedia
+      .filter((m) => selectedUserMediaIds.includes(m.id))
+      .reduce((sum, m) => sum + Number(m.file_size || 0), 0)
+    if (
+      totalAttachmentBytes(sendAttachments) + selectedReelBytes + selectedMediaBytes >
+      MAX_EMAIL_ATTACHMENT_BYTES
+    ) {
+      alert("Attachments exceed 25 MB total size limit.")
+      return
+    }
     setSendLoading(true)
     try {
       const attachments = await Promise.all(
@@ -278,6 +297,8 @@ export default function InboxPage() {
         body: sendBody,
         account_id: sendAccountId || undefined,
         attachments,
+        demo_reel_ids: selectedDemoReelIds,
+        user_media_ids: selectedUserMediaIds,
       }
 
       if (isReply && messageContent?.messageId) {
@@ -475,48 +496,27 @@ export default function InboxPage() {
                 onChange={(e) => setSendBody(e.target.value)}
               />
             </div>
-            <div className="flex flex-col gap-2">
-              <Label>Attachments</Label>
-              <input
-                ref={attachmentInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={handleAttachmentChange}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-fit"
-                onClick={() => attachmentInputRef.current?.click()}
-              >
-                <Paperclip className="mr-2 size-4" />
-                Add attachment
-              </Button>
-              {sendAttachments.length > 0 && (
-                <ul className="flex flex-col gap-1">
-                  {sendAttachments.map((file, index) => (
-                    <li
-                      key={`${file.name}-${index}`}
-                      className="flex items-center justify-between gap-2 rounded border border-border px-3 py-2 text-sm"
-                    >
-                      <span className="truncate">{file.name}</span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-7 shrink-0"
-                        onClick={() => removeAttachment(index)}
-                        aria-label={`Remove ${file.name}`}
-                      >
-                        <X className="size-4" />
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <EmailAttachmentPicker
+              files={sendAttachments}
+              onFilesChange={setSendAttachments}
+              demoReels={(demoReelsData?.reels ?? []) as Array<{
+                id: string
+                title: string
+                file_name: string
+                file_size: number
+              }>}
+              selectedDemoReelIds={selectedDemoReelIds}
+              onDemoReelIdsChange={setSelectedDemoReelIds}
+              userMedia={(userMediaData?.media ?? []) as Array<{
+                id: string
+                title: string
+                file_name: string
+                file_size: number
+                category: "resume" | "media" | "knowledge_base"
+              }>}
+              selectedUserMediaIds={selectedUserMediaIds}
+              onUserMediaIdsChange={setSelectedUserMediaIds}
+            />
             <div className="flex gap-2">
               <Button onClick={handleSend} disabled={sendLoading}>
                 {sendLoading ? (
