@@ -34,16 +34,20 @@ export async function ensureUserProfile(
   const meta = user.user_metadata ?? {}
   const owner = isAffiliateOwnerEmail(user.email)
 
+  const insertPayload: Record<string, unknown> = {
+    id: user.id,
+    first_name: (meta.first_name as string | undefined) ?? null,
+    last_name: (meta.last_name as string | undefined) ?? null,
+  }
+  if (owner) {
+    insertPayload.subscription_tier = "command"
+    insertPayload.is_superadmin = true
+    insertPayload.is_admin = true
+  }
+
   const { data: created, error: insertError } = await admin
     .from("profiles")
-    .insert({
-      id: user.id,
-      first_name: (meta.first_name as string | undefined) ?? null,
-      last_name: (meta.last_name as string | undefined) ?? null,
-      subscription_tier: owner ? "command" : "free",
-      is_superadmin: owner,
-      is_admin: owner,
-    })
+    .insert(insertPayload)
     .select("id, affiliate_code")
     .single()
 
