@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requireAffiliateEligible } from "@/lib/affiliate-server"
+import { ensureUserProfile } from "@/lib/ensure-user-profile"
 import {
   generateAffiliateCode,
   validateCustomAffiliateCode,
@@ -59,17 +60,27 @@ export async function POST(request: Request) {
       )
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("affiliate_code")
-      .eq("id", user.id)
-      .single()
-
-    if (profileError || !profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 500 })
+    let profile: { affiliate_code: string | null }
+    try {
+      profile = await ensureUserProfile({
+        id: user.id,
+        email: user.email,
+        user_metadata: user.user_metadata,
+      })
+    } catch (ensureError) {
+      console.error("[affiliate/code] ensure profile", ensureError)
+      return NextResponse.json(
+        {
+          error:
+            "Could not load your account profile. Please try again or contact support.",
+        },
+        { status: 500 }
+      )
     }
 
-    const { count: referralCount } = await supabase
+    const admin = createAdminClient()
+
+    const { count: referralCount } = await admin
       .from("affiliate_referrals")
       .select("id", { count: "exact", head: true })
       .eq("affiliate_user_id", user.id)
@@ -109,9 +120,12 @@ export async function POST(request: Request) {
       newCode = await generateUniqueCode()
     }
 
-    const { data: updated, error: updateError } = await supabase
+    const { data: updated, error: updateError } = await admin
       .from("profiles")
-      .update({ affiliate_code: newCode, updated_at: new Date().toISOString() })
+      .update({
+        affiliate_code: newCode,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", user.id)
       .select("affiliate_code")
       .single()
@@ -124,7 +138,10 @@ export async function POST(request: Request) {
         )
       }
       console.error("[affiliate/code] update", updateError)
-      return NextResponse.json({ error: "Failed to save referral code" }, { status: 500 })
+      return NextResponse.json(
+        { error: "Failed to save referral code" },
+        { status: 500 }
+      )
     }
 
     const siteOrigin = process.env.NEXT_PUBLIC_APP_URL || "https://vobizsuite.io"

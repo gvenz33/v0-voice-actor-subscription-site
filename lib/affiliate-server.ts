@@ -50,7 +50,7 @@ export async function requireAffiliateEligible(
     userEmail
   )
 
-  if (error) {
+  if (error && !access.isEligible) {
     return { ok: false, status: 500, error }
   }
 
