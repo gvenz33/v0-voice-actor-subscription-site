@@ -1,5 +1,5 @@
-import { generateText, convertToModelMessages, type UIMessage } from "ai"
-import { getOllamaProvider, OLLAMA_CHAT_MODEL } from "@/lib/ollama-ai"
+import { convertToModelMessages, type UIMessage } from "ai"
+import { generateChatReply } from "@/lib/chat-ai"
 import { getUserAIAccess, consumeTokens } from "@/lib/ai-limits"
 import { TOKEN_COSTS } from "@/lib/token-products"
 
@@ -48,19 +48,11 @@ export async function POST(req: Request) {
     // Cap history to reduce token usage and avoid burning quota.
     const recentMessages = messages.slice(-8)
 
-    const ollama = getOllamaProvider()
     const modelMessages = await convertToModelMessages(recentMessages)
-
-    const result = await generateText({
-      model: ollama(OLLAMA_CHAT_MODEL),
-      system: SYSTEM_PROMPT,
-      messages: modelMessages,
-      maxOutputTokens: 600,
-      maxRetries: 0,
-    })
+    const text = await generateChatReply(SYSTEM_PROMPT, modelMessages)
 
     // Plain text response so the dashboard hook can display it reliably.
-    return new Response(result.text, {
+    return new Response(text, {
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     })
   } catch (err) {
