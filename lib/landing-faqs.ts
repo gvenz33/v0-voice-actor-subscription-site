@@ -19,6 +19,16 @@ export const LANDING_FAQS: LandingFaqItem[] = [
       "Unlike generic CRMs, VOBizSuite is built from the ground up for voice actors. Our features are tailored to the unique workflow of VO professionals — tracking audition submissions, managing booking calendars, generating outreach emails with industry-specific AI, and understanding the nuances of voice over business relationships. We speak your language.",
   },
   {
+    question: "Is VOBizSuite for union and non-union voice actors?",
+    answer:
+      "Yes. VOBizSuite is built for both union and non-union voice actors. You can use the same platform to manage submissions, clients, outreach, bookings, and invoicing while tailoring your workflow to your market, project type, and rate structure.",
+  },
+  {
+    question: "Is VOBizSuite for agent-represented talent or independent voice actors?",
+    answer:
+      "Both. Whether you are represented by an agent, self-represented, or working in a hybrid model, VOBizSuite supports your workflow. Track agent-driven opportunities, direct outreach, and client relationships in one place without changing tools.",
+  },
+  {
     question: "Can I connect my Gmail or Outlook email?",
     answer:
       "Yes! VOBizSuite integrates with Gmail, Outlook 365, and we also offer SMTP integrations for those who prefer custom email setups. This allows you to send professional outreach emails directly from the platform while keeping everything synced with your main inbox.",

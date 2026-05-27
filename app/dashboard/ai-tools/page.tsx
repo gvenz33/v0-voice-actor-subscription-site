@@ -872,7 +872,9 @@ function VOAssistant({ usage }: { usage: UsageData }) {
     <Card className="flex h-[600px] flex-col">
       <CardHeader className="shrink-0">
         <CardTitle className="flex items-center gap-2 text-lg"><MessageSquare className="size-5 text-[oklch(0.70_0.22_295)]" /> VO Business Assistant</CardTitle>
-        <CardDescription>Ask anything about marketing your VO business, rate negotiation, outreach strategies, or industry best practices.</CardDescription>
+        <CardDescription>
+          Ask anything about marketing your VO business, rate negotiation, outreach strategies, or industry best practices for union and non-union voice actors, including both agent-represented and independent talent.
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
         {error && (
@@ -948,7 +950,7 @@ function VOCoach({ usage }: { usage: UsageData }) {
           VO Career Coach
         </CardTitle>
         <CardDescription>
-          Your personal coach with 25+ years in voice acting, producing, and business building. Get advice on craft, career growth, and mindset.
+          Your personal coach with 25+ years in voice acting, producing, and business building. Get advice on craft, career growth, and mindset for union and non-union voice actors, whether agent-represented or independent.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
