@@ -1,11 +1,9 @@
 import { generateText, convertToModelMessages, type UIMessage } from "ai"
-import { createOpenAI } from "@ai-sdk/openai"
+import { getOllamaProvider, OLLAMA_CHAT_MODEL } from "@/lib/ollama-ai"
 import { getUserAIAccess, consumeTokens } from "@/lib/ai-limits"
 import { TOKEN_COSTS } from "@/lib/token-products"
 
 export const maxDuration = 30
-
-const CHAT_MODEL = "gpt-4o-mini"
 
 const SYSTEM_PROMPT = `You are the VO Biz Suite AI Assistant — a knowledgeable, encouraging business coach for voice actors.
 
@@ -38,14 +36,6 @@ export async function POST(req: Request) {
       )
     }
 
-    const apiKey = (process.env.OPENAI_API_KEY || "").trim()
-    if (!apiKey) {
-      return Response.json(
-        { error: "OPENAI_API_KEY is not configured" },
-        { status: 503 }
-      )
-    }
-
     const { messages } = (await req.json()) as { messages: UIMessage[] }
     if (!messages || !Array.isArray(messages)) {
       return Response.json({ error: "messages array required" }, { status: 400 })
@@ -56,15 +46,14 @@ export async function POST(req: Request) {
     // Cap history to reduce token usage and avoid burning quota.
     const recentMessages = messages.slice(-8)
 
-    const openai = createOpenAI({ apiKey })
+    const ollama = getOllamaProvider()
     const modelMessages = await convertToModelMessages(recentMessages)
 
     const result = await generateText({
-      model: openai(CHAT_MODEL),
+      model: ollama(OLLAMA_CHAT_MODEL),
       system: SYSTEM_PROMPT,
       messages: modelMessages,
       maxOutputTokens: 600,
-      // If the key is out of quota, retries just burn more quota.
       maxRetries: 0,
     })
 

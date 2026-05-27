@@ -47,6 +47,7 @@
     "@supabase/supabase-js": "^2.49.4",
     "@vercel/analytics": "1.6.1",
     "ai": "^6.0.0",
+    "ai-sdk-ollama": "^3.8.4",
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

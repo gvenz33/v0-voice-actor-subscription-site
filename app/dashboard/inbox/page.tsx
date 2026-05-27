@@ -15,6 +15,14 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { EmailHtmlBody } from "@/components/inbox/email-html-body"
 import { EmailAttachmentPicker } from "@/components/email-attachment-picker"
 import {
@@ -37,6 +45,7 @@ import {
   Loader2,
   Mail,
   MailWarning,
+  Paperclip,
   Reply,
   ReplyAll,
   Send,
@@ -180,6 +189,9 @@ export default function InboxPage() {
   const [selectedUserMediaIds, setSelectedUserMediaIds] = useState<string[]>([])
   const [sendAccountId, setSendAccountId] = useState<string>("")
   const [sendLoading, setSendLoading] = useState(false)
+  const [libraryDialogOpen, setLibraryDialogOpen] = useState(false)
+  const [pendingDemoReelIds, setPendingDemoReelIds] = useState<string[]>([])
+  const [pendingUserMediaIds, setPendingUserMediaIds] = useState<string[]>([])
 
   const defaultSendId = useMemo(() => {
     const d = accounts.find((a) => a.is_default_for_send)
@@ -254,6 +266,41 @@ export default function InboxPage() {
     setSelectedDemoReelIds([])
     setSelectedUserMediaIds([])
     setComposeOpen(true)
+  }
+
+  const openLibraryDialog = () => {
+    setPendingDemoReelIds([])
+    setPendingUserMediaIds([])
+    setLibraryDialogOpen(true)
+  }
+
+  const confirmReplyWithLibraryAttachments = () => {
+    const demoReels = (demoReelsData?.reels ?? []) as Array<{
+      id: string
+      file_size?: number
+    }>
+    const userMedia = (userMediaData?.media ?? []) as Array<{
+      id: string
+      file_size: number
+    }>
+    const selectedReelBytes = demoReels
+      .filter((r) => pendingDemoReelIds.includes(r.id))
+      .reduce((sum, r) => sum + Number(r.file_size ?? 0), 0)
+    const selectedMediaBytes = userMedia
+      .filter((m) => pendingUserMediaIds.includes(m.id))
+      .reduce((sum, m) => sum + Number(m.file_size || 0), 0)
+    if (pendingDemoReelIds.length === 0 && pendingUserMediaIds.length === 0) {
+      alert("Select at least one file from your library.")
+      return
+    }
+    if (selectedReelBytes + selectedMediaBytes > MAX_EMAIL_ATTACHMENT_BYTES) {
+      alert("Attachments exceed 25 MB total size limit.")
+      return
+    }
+    startReply("reply")
+    setSelectedDemoReelIds(pendingDemoReelIds)
+    setSelectedUserMediaIds(pendingUserMediaIds)
+    setLibraryDialogOpen(false)
   }
 
   const handleSend = async () => {
@@ -615,6 +662,16 @@ export default function InboxPage() {
                   type="button"
                   variant="outline"
                   size="sm"
+                  onClick={openLibraryDialog}
+                  disabled={!messageContent}
+                >
+                  <Paperclip className="mr-1 size-3.5" />
+                  Attach from library
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={() => startReply("forward")}
                   disabled={!messageContent}
                 >
@@ -675,6 +732,51 @@ export default function InboxPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={libraryDialogOpen} onOpenChange={setLibraryDialogOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Attach from library</DialogTitle>
+            <DialogDescription>
+              Choose demo reels or files from Settings, then start a reply with them attached.
+            </DialogDescription>
+          </DialogHeader>
+          <EmailAttachmentPicker
+            className="border-0 p-0"
+            showLocalFiles={false}
+            showHeader={false}
+            compact
+            files={[]}
+            onFilesChange={() => {}}
+            demoReels={(demoReelsData?.reels ?? []) as Array<{
+              id: string
+              title: string
+              file_name: string
+              file_size: number
+            }>}
+            selectedDemoReelIds={pendingDemoReelIds}
+            onDemoReelIdsChange={setPendingDemoReelIds}
+            userMedia={(userMediaData?.media ?? []) as Array<{
+              id: string
+              title: string
+              file_name: string
+              file_size: number
+              category: "resume" | "media" | "knowledge_base"
+            }>}
+            selectedUserMediaIds={pendingUserMediaIds}
+            onUserMediaIdsChange={setPendingUserMediaIds}
+          />
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setLibraryDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={confirmReplyWithLibraryAttachments}>
+              <Reply className="mr-2 size-4" />
+              Reply with attachments
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

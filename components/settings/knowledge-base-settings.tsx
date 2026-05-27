@@ -17,7 +17,10 @@ type KnowledgeRow = {
 }
 
 function missingTable(message: string): boolean {
-  return message.includes("user_knowledge_base") && message.includes("does not exist")
+  return (
+    message.includes("user_knowledge_base") &&
+    (message.includes("does not exist") || message.includes("Could not find"))
+  )
 }
 
 export function KnowledgeBaseSettings() {
@@ -131,8 +134,10 @@ export function KnowledgeBaseSettings() {
       <CardContent className="space-y-4">
         {needsMigration && (
           <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
-            Run <code className="rounded bg-muted px-1">scripts/ensure-media-repository.sql</code>{" "}
-            in Supabase SQL Editor to enable knowledge base storage.
+            Run{" "}
+            <code className="rounded bg-muted px-1">scripts/ensure-knowledge-base.sql</code>{" "}
+            (or the full <code className="rounded bg-muted px-1">scripts/ensure-media-repository.sql</code>)
+            in Supabase SQL Editor, then refresh this page.
           </p>
         )}
 
