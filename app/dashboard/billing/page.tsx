@@ -13,8 +13,9 @@ import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { EmailAttachmentPicker } from "@/components/email-attachment-picker"
-import { Plus, Search, Receipt, Trash2, Pencil, DollarSign, Send, Loader2 } from "lucide-react"
+import { Plus, Search, Receipt, Trash2, Pencil, DollarSign, Send, Loader2, FileDown, Download } from "lucide-react"
 import Link from "next/link"
+import { downloadFromApi } from "@/lib/download-blob"
 import { fetchContactsPicker } from "@/lib/fetch-contacts-picker"
 import {
   MAX_EMAIL_ATTACHMENT_BYTES,
@@ -220,6 +221,8 @@ export default function BillingDesk() {
   const [sendNotice, setSendNotice] = useState<{ success: string[]; warnings: string[] } | null>(null)
   const [saving, setSaving] = useState(false)
   const [sending, setSending] = useState(false)
+  const [exportingId, setExportingId] = useState<string | null>(null)
+  const [exportingAll, setExportingAll] = useState(false)
   const [invoiceAttachments, setInvoiceAttachments] = useState<File[]>([])
   const [selectedDemoReelIds, setSelectedDemoReelIds] = useState<string[]>([])
   const [selectedUserMediaIds, setSelectedUserMediaIds] = useState<string[]>([])
@@ -496,6 +499,31 @@ export default function BillingDesk() {
     mutate("invoices"); mutate("dashboard-stats")
   }
 
+  const handleDownloadPdf = async (inv: Invoice) => {
+    setExportingId(inv.id)
+    try {
+      await downloadFromApi(
+        `/api/invoices/${inv.id}/export`,
+        `Invoice-${inv.invoice_number.replace(/[^a-zA-Z0-9-_]+/g, "-")}.pdf`,
+      )
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not download PDF")
+    } finally {
+      setExportingId(null)
+    }
+  }
+
+  const handleExportSpreadsheet = async () => {
+    setExportingAll(true)
+    try {
+      await downloadFromApi("/api/invoices/export", "vobizsuite-invoices.csv")
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not export spreadsheet")
+    } finally {
+      setExportingAll(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {sendNotice && (
@@ -528,7 +556,23 @@ export default function BillingDesk() {
           <h2 className="font-[family-name:var(--font-heading)] text-2xl font-bold tracking-tight text-foreground">Billing Desk</h2>
           <p className="text-sm text-muted-foreground">Track invoices, payments, and your VO revenue.</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditing(null); setFormError(null) } }}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="min-h-[44px]"
+            disabled={exportingAll || !invoices?.length}
+            onClick={() => void handleExportSpreadsheet()}
+          >
+            {exportingAll ? (
+              <Loader2 className="mr-2 size-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 size-4" />
+            )}
+            Export to Excel
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditing(null); setFormError(null) } }}>
           <DialogTrigger asChild>
             <Button size="lg" className="min-h-[44px]"><Plus className="size-4" /> Create Invoice</Button>
           </DialogTrigger>
@@ -807,6 +851,7 @@ export default function BillingDesk() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
@@ -865,6 +910,20 @@ export default function BillingDesk() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="min-h-[44px] min-w-[44px]"
+                    title="Download PDF"
+                    disabled={exportingId === inv.id}
+                    onClick={() => void handleDownloadPdf(inv)}
+                  >
+                    {exportingId === inv.id ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <FileDown className="size-3.5" />
+                    )}
+                  </Button>
                   <Button variant="ghost" size="sm" className="min-h-[44px] min-w-[44px]" onClick={() => { setEditing(inv); setDialogOpen(true) }}><Pencil className="size-3.5" /></Button>
                   <Button variant="ghost" size="sm" className="min-h-[44px] min-w-[44px] text-destructive hover:text-destructive" onClick={() => handleDelete(inv.id)}><Trash2 className="size-3.5" /></Button>
                 </div>

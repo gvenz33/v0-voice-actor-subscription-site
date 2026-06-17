@@ -2,7 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
-import { useDashboardStreamChat } from "@/hooks/use-dashboard-stream-chat"
+import {
+  usePersistedDashboardStreamChat,
+  savePitchSession,
+} from "@/hooks/use-persisted-dashboard-stream-chat"
+import { AiChatToolbar, PitchExportButtons } from "@/components/ai-chat-toolbar"
 import useSWR from "swr"
 import {
   Card,
@@ -777,6 +781,21 @@ function PitchGenerator({ usage, onGenerated }: { usage: UsageData; onGenerated:
       } else {
         setResult(data.text)
         onGenerated()
+        const promptSummary = [
+          genre && `Specialization: ${genre}`,
+          experience && `Experience: ${experience}`,
+          strengths && `Strengths: ${strengths}`,
+          targetAudience && `Target clients: ${targetAudience}`,
+        ]
+          .filter(Boolean)
+          .join("\n")
+        void savePitchSession({
+          title: `Pitch — ${genre || "VO"}`,
+          messages: [
+            { id: crypto.randomUUID(), role: "user", content: promptSummary || "Elevator pitch request" },
+            { id: crypto.randomUUID(), role: "assistant", content: data.text },
+          ],
+        })
       }
     } catch {
       setError("Something went wrong. Please try again.")
@@ -840,6 +859,24 @@ function PitchGenerator({ usage, onGenerated }: { usage: UsageData; onGenerated:
             <span className="flex items-center gap-2"><Zap className="size-5 text-[oklch(0.65_0.18_265)]" /> Your Elevator Pitch</span>
             {result && (
               <div className="flex gap-2">
+                <PitchExportButtons
+                  title={`Elevator Pitch — ${genre || "VO"}`}
+                  messages={[
+                    {
+                      id: "prompt",
+                      role: "user",
+                      content: [
+                        genre && `Specialization: ${genre}`,
+                        experience && `Experience: ${experience}`,
+                        strengths && `Strengths: ${strengths}`,
+                        targetAudience && `Target clients: ${targetAudience}`,
+                      ]
+                        .filter(Boolean)
+                        .join("\n"),
+                    },
+                    { id: "pitch", role: "assistant", content: result },
+                  ]}
+                />
                 <Button variant="ghost" size="sm" onClick={handleCopy}>{copied ? <Check className="size-4" /> : <Copy className="size-4" />}</Button>
                 <Button variant="ghost" size="sm" onClick={handleGenerate} disabled={loading}><RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} /></Button>
               </div>
@@ -861,8 +898,18 @@ function PitchGenerator({ usage, onGenerated }: { usage: UsageData; onGenerated:
 // --- VO Business Chat Assistant ---
 function VOAssistant({ usage }: { usage: UsageData }) {
   const [input, setInput] = useState("")
-  const { messages, sendText, isLoading, error, clearError } =
-    useDashboardStreamChat("/api/ai/chat")
+  const {
+    messages,
+    sendText,
+    isLoading,
+    error,
+    clearError,
+    sessionId,
+    sessions,
+    historyAvailable,
+    loadSession,
+    startNewSession,
+  } = usePersistedDashboardStreamChat("/api/ai/chat", "assistant")
 
   if (!usage.hasChatAssistant) {
     return <LockedFeature featureName="VO Business Assistant" requiredTier="Command" requiredTierId="command" />
@@ -871,10 +918,25 @@ function VOAssistant({ usage }: { usage: UsageData }) {
   return (
     <Card className="flex h-[600px] flex-col">
       <CardHeader className="shrink-0">
-        <CardTitle className="flex items-center gap-2 text-lg"><MessageSquare className="size-5 text-[oklch(0.70_0.22_295)]" /> VO Business Assistant</CardTitle>
-        <CardDescription>
-          Ask anything about marketing your VO business, rate negotiation, outreach strategies, or industry best practices for union and non-union voice actors, including both agent-represented and independent talent.
-        </CardDescription>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-lg"><MessageSquare className="size-5 text-[oklch(0.70_0.22_295)]" /> VO Business Assistant</CardTitle>
+            <CardDescription className="mt-1.5">
+              Ask anything about marketing your VO business, rate negotiation, outreach strategies, or industry best practices for union and non-union voice actors, including both agent-represented and independent talent.
+            </CardDescription>
+          </div>
+          <AiChatToolbar
+            title="VO Business Assistant"
+            toolLabel="VO Business Assistant"
+            messages={messages}
+            sessionId={sessionId}
+            sessions={sessions}
+            historyAvailable={historyAvailable}
+            onNewChat={() => void startNewSession()}
+            onLoadSession={(id) => void loadSession(id)}
+            disabled={isLoading}
+          />
+        </div>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
         {error && (
@@ -935,8 +997,18 @@ function VOAssistant({ usage }: { usage: UsageData }) {
 // --- VO Coach ---
 function VOCoach({ usage }: { usage: UsageData }) {
   const [input, setInput] = useState("")
-  const { messages, sendText, isLoading, error, clearError } =
-    useDashboardStreamChat("/api/ai/coach")
+  const {
+    messages,
+    sendText,
+    isLoading,
+    error,
+    clearError,
+    sessionId,
+    sessions,
+    historyAvailable,
+    loadSession,
+    startNewSession,
+  } = usePersistedDashboardStreamChat("/api/ai/coach", "coach")
 
   if (!usage.hasVOCoach) {
     return <LockedFeature featureName="VO Career Coach" requiredTier="Launch" requiredTierId="launch" />
@@ -945,13 +1017,28 @@ function VOCoach({ usage }: { usage: UsageData }) {
   return (
     <Card className="flex h-[600px] flex-col">
       <CardHeader className="shrink-0">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Award className="size-5 text-[oklch(0.70_0.22_295)]" /> 
-          VO Career Coach
-        </CardTitle>
-        <CardDescription>
-          Your personal coach with 25+ years in voice acting, producing, and business building. Get advice on craft, career growth, and mindset for union and non-union voice actors, whether agent-represented or independent.
-        </CardDescription>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Award className="size-5 text-[oklch(0.70_0.22_295)]" /> 
+              VO Career Coach
+            </CardTitle>
+            <CardDescription className="mt-1.5">
+              Your personal coach with 25+ years in voice acting, producing, and business building. Get advice on craft, career growth, and mindset for union and non-union voice actors, whether agent-represented or independent.
+            </CardDescription>
+          </div>
+          <AiChatToolbar
+            title="VO Career Coach"
+            toolLabel="VO Career Coach"
+            messages={messages}
+            sessionId={sessionId}
+            sessions={sessions}
+            historyAvailable={historyAvailable}
+            onNewChat={() => void startNewSession()}
+            onLoadSession={(id) => void loadSession(id)}
+            disabled={isLoading}
+          />
+        </div>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
         {error && (

@@ -107,6 +107,11 @@ export async function POST(req: Request) {
       )
     }
 
+    const dbSignature = await getUserEmailSignature(supabase, user.id)
+    const letterheadLines = dbSignature
+      ? dbSignature.split("\n").map((l) => l.trim()).filter(Boolean)
+      : []
+
     const pdfBuffer = await generateInvoicePdfBuffer({
       invoiceNumber: invoice.invoice_number,
       amount: Number(invoice.amount),
@@ -116,6 +121,7 @@ export async function POST(req: Request) {
       createdAt: invoice.created_at,
       senderName,
       senderEmail: user.email,
+      letterheadLines,
     })
 
     if (!pdfBuffer.length) {
@@ -132,7 +138,6 @@ export async function POST(req: Request) {
       senderName,
     })
 
-    const dbSignature = await getUserEmailSignature(supabase, user.id)
     const signature = (body.signatureText?.trim() || dbSignature).trim()
 
     const textBody = appendSignatureToPlainText(emailContent.textBody, signature)

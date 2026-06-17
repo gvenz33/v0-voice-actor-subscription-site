@@ -15,6 +15,8 @@ export type InvoicePdfInput = {
   createdAt?: string | null
   senderName: string
   senderEmail?: string | null
+  /** Extra lines from email signature / business info for letterhead */
+  letterheadLines?: string[]
 }
 
 function formatDate(value: string | null | undefined) {
@@ -75,13 +77,22 @@ export async function generateInvoicePdfBuffer(input: InvoicePdfInput): Promise<
     color: rgb(0.33, 0.33, 0.33),
   })
 
-  y = height - 130
-  page.drawText("From", { x: 50, y, size: 11, font: fontBold })
-  y -= 16
-  page.drawText(input.senderName, { x: 50, y, size: 10, font })
+  y = height - 118
+  page.drawLine({
+    start: { x: 50, y: y + 8 },
+    end: { x: 280, y: y + 8 },
+    thickness: 2,
+    color: rgb(0.45, 0.35, 0.75),
+  })
+  page.drawText(input.senderName, { x: 50, y, size: 14, font: fontBold })
+  y -= 18
   if (input.senderEmail) {
+    page.drawText(input.senderEmail, { x: 50, y, size: 10, font, color: rgb(0.33, 0.33, 0.33) })
     y -= 14
-    page.drawText(input.senderEmail, { x: 50, y, size: 10, font })
+  }
+  for (const line of input.letterheadLines ?? []) {
+    page.drawText(line.slice(0, 70), { x: 50, y, size: 9, font, color: rgb(0.4, 0.4, 0.4) })
+    y -= 12
   }
 
   y -= 28
