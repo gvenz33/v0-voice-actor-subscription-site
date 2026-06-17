@@ -77,25 +77,27 @@ export async function generateInvoicePdfBuffer(input: InvoicePdfInput): Promise<
     color: rgb(0.33, 0.33, 0.33),
   })
 
-  y = height - 118
+  // Letterhead — company name, accent rule, then contact lines
+  let letterheadY = height - 72
+  page.drawText(input.senderName, { x: 50, y: letterheadY, size: 14, font: fontBold })
+  letterheadY -= 8
   page.drawLine({
-    start: { x: 50, y: y + 8 },
-    end: { x: 280, y: y + 8 },
+    start: { x: 50, y: letterheadY },
+    end: { x: 280, y: letterheadY },
     thickness: 2,
     color: rgb(0.45, 0.35, 0.75),
   })
-  page.drawText(input.senderName, { x: 50, y, size: 14, font: fontBold })
-  y -= 18
+  letterheadY -= 18
   if (input.senderEmail) {
-    page.drawText(input.senderEmail, { x: 50, y, size: 10, font, color: rgb(0.33, 0.33, 0.33) })
-    y -= 14
+    page.drawText(input.senderEmail, { x: 50, y: letterheadY, size: 10, font, color: rgb(0.33, 0.33, 0.33) })
+    letterheadY -= 14
   }
   for (const line of input.letterheadLines ?? []) {
-    page.drawText(line.slice(0, 70), { x: 50, y, size: 9, font, color: rgb(0.4, 0.4, 0.4) })
-    y -= 12
+    page.drawText(line.slice(0, 70), { x: 50, y: letterheadY, size: 9, font, color: rgb(0.4, 0.4, 0.4) })
+    letterheadY -= 12
   }
 
-  y -= 28
+  y = letterheadY - 20
   page.drawText("Bill To", { x: 50, y, size: 11, font: fontBold })
   y -= 16
   page.drawText(meta.clientEmail || "Client", { x: 50, y, size: 10, font })
