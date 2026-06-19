@@ -92,6 +92,7 @@ export function SettingsForm() {
   })
   const [smtpSaving, setSmtpSaving] = useState(false)
   const [emailMessage, setEmailMessage] = useState("")
+  const [oauthStatus, setOauthStatus] = useState<{ gmail: boolean; outlook: boolean } | null>(null)
 
   const [caldavForm, setCaldavForm] = useState({
     display_name: "iCloud",
@@ -226,6 +227,18 @@ export function SettingsForm() {
     loadEmailConfig()
   }, [applySmtpAccountToForm])
 
+  useEffect(() => {
+    void fetch("/api/auth/oauth-status", { credentials: "same-origin", cache: "no-store" })
+      .then((res) => res.json())
+      .then((data: { gmail?: boolean; outlook?: boolean }) => {
+        setOauthStatus({
+          gmail: Boolean(data.gmail),
+          outlook: Boolean(data.outlook),
+        })
+      })
+      .catch(() => setOauthStatus({ gmail: false, outlook: false }))
+  }, [])
+
   // Load signature from database (fallback to localStorage)
   useEffect(() => {
     async function loadSignature() {
@@ -278,6 +291,61 @@ export function SettingsForm() {
   const onOAuthError = useCallback((message: string) => {
     setEmailMessage(message)
   }, [])
+
+  useEffect(() => {
+    const reloadAccounts = () => {
+      void fetch("/api/email-config", { credentials: "same-origin", cache: "no-store" })
+        .then((res) => res.json())
+        .then((data: { config?: EmailConfig | null; accounts?: EmailAccountRow[] }) => {
+          setEmailConfig(data.config ?? null)
+          setEmailAccounts(data.accounts ?? [])
+        })
+    }
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return
+      const data = event.data as { type?: string; success?: string | null; error?: string | null }
+      if (data?.type !== "vob-oauth-complete") return
+
+      if (data.success === "gmail_connected") {
+        onGmailConnected()
+      } else if (data.success === "outlook_connected") {
+        onOutlookConnected()
+      } else if (data.error) {
+        if (data.error === "max_email_accounts") {
+          onOAuthError(
+            `You can connect up to ${MAX_EMAIL_ACCOUNTS_PER_USER} mailboxes. Disconnect one to add another.`,
+          )
+        } else if (data.error === "gmail_not_configured") {
+          onOAuthError(
+            "Gmail OAuth is not configured yet. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Vercel, then redeploy.",
+          )
+        } else if (data.error === "outlook_not_configured") {
+          onOAuthError(
+            "Outlook OAuth is not configured yet. Add MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET in Vercel, then redeploy.",
+          )
+        } else {
+          onOAuthError(`Connection failed: ${data.error.replace(/_/g, " ")}`)
+        }
+      }
+      reloadAccounts()
+    }
+
+    window.addEventListener("message", onMessage)
+    return () => window.removeEventListener("message", onMessage)
+  }, [onGmailConnected, onOutlookConnected, onOAuthError])
+
+  const openOAuthPopup = (provider: "gmail" | "outlook") => {
+    if (oauthStatus && !oauthStatus[provider]) {
+      setEmailMessage(
+        provider === "gmail"
+          ? "Gmail OAuth is not configured on the server yet. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Vercel, then redeploy."
+          : "Outlook OAuth is not configured on the server yet. Add MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET in Vercel, then redeploy.",
+      )
+      return
+    }
+    window.open(`/api/auth/${provider}?popup=1`, "_blank", "noopener,noreferrer")
+  }
 
   const handleSaveSmtp = async () => {
     setSmtpSaving(true)
@@ -605,10 +673,13 @@ export function SettingsForm() {
                     disabled={
                       emailConfigLoading ||
                       emailTableNotCreated ||
-                      emailAccounts.length >= MAX_EMAIL_ACCOUNTS_PER_USER
+                      emailAccounts.length >= MAX_EMAIL_ACCOUNTS_PER_USER ||
+                      oauthStatus?.gmail === false
                     }
                     title={
-                      emailConfigLoading
+                      oauthStatus?.gmail === false
+                        ? "Gmail OAuth is not configured on the server"
+                        : emailConfigLoading
                         ? "Wait for connections to finish loading"
                         : emailTableNotCreated
                           ? "Run the SQL migration in Supabase first"
@@ -622,7 +693,7 @@ export function SettingsForm() {
                         !emailTableNotCreated &&
                         emailAccounts.length < MAX_EMAIL_ACCOUNTS_PER_USER
                       ) {
-                        window.location.href = "/api/auth/gmail"
+                        openOAuthPopup("gmail")
                       }
                     }}
                   >
@@ -654,10 +725,13 @@ export function SettingsForm() {
                     disabled={
                       emailConfigLoading ||
                       emailTableNotCreated ||
-                      emailAccounts.length >= MAX_EMAIL_ACCOUNTS_PER_USER
+                      emailAccounts.length >= MAX_EMAIL_ACCOUNTS_PER_USER ||
+                      oauthStatus?.outlook === false
                     }
                     title={
-                      emailConfigLoading
+                      oauthStatus?.outlook === false
+                        ? "Outlook OAuth is not configured on the server"
+                        : emailConfigLoading
                         ? "Wait for connections to finish loading"
                         : emailTableNotCreated
                           ? "Run the SQL migration in Supabase first"
@@ -671,7 +745,7 @@ export function SettingsForm() {
                         !emailTableNotCreated &&
                         emailAccounts.length < MAX_EMAIL_ACCOUNTS_PER_USER
                       ) {
-                        window.location.href = "/api/auth/outlook"
+                        openOAuthPopup("outlook")
                       }
                     }}
                   >
@@ -685,10 +759,21 @@ export function SettingsForm() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Server env: <code className="rounded bg-muted px-1">GOOGLE_CLIENT_ID</code>,{" "}
-                  <code className="rounded bg-muted px-1">MICROSOFT_CLIENT_ID</code>, and their secrets (required for
-                  OAuth).
+                  Opens Google or Microsoft sign-in in a new tab so you stay on VO Biz Suite. Server env:{" "}
+                  <code className="rounded bg-muted px-1">GOOGLE_CLIENT_ID</code>,{" "}
+                  <code className="rounded bg-muted px-1">GOOGLE_CLIENT_SECRET</code>,{" "}
+                  <code className="rounded bg-muted px-1">MICROSOFT_CLIENT_ID</code>, and{" "}
+                  <code className="rounded bg-muted px-1">MICROSOFT_CLIENT_SECRET</code>.
                 </p>
+                {oauthStatus && (!oauthStatus.gmail || !oauthStatus.outlook) && (
+                  <p className="text-sm text-amber-600 dark:text-amber-500">
+                    {!oauthStatus.gmail && !oauthStatus.outlook
+                      ? "Gmail and Outlook OAuth are not configured on production yet. Add the four environment variables in Vercel and redeploy."
+                      : !oauthStatus.gmail
+                        ? "Gmail OAuth is not configured on production yet."
+                        : "Outlook OAuth is not configured on production yet."}
+                  </p>
+                )}
               </div>
 
 

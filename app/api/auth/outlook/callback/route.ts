@@ -4,12 +4,10 @@ import {
   countEmailAccountsForUser,
   MAX_EMAIL_ACCOUNTS_PER_USER,
 } from "@/lib/email-account-limits"
+import { oauthCompleteUrl, outlookRedirectUri } from "@/lib/oauth-config"
 
 const MICROSOFT_CLIENT_ID = process.env.MICROSOFT_CLIENT_ID
 const MICROSOFT_CLIENT_SECRET = process.env.MICROSOFT_CLIENT_SECRET
-const REDIRECT_URI = process.env.NEXT_PUBLIC_APP_URL
-  ? `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/outlook/callback`
-  : "http://localhost:3000/api/auth/outlook/callback"
 
 export async function GET(req: Request) {
   const url = new URL(req.url)
@@ -17,7 +15,7 @@ export async function GET(req: Request) {
   const error = url.searchParams.get("error")
 
   if (error || !code) {
-    return NextResponse.redirect(new URL("/dashboard/settings?error=outlook_auth_failed", req.url))
+    return NextResponse.redirect(oauthCompleteUrl({ error: "outlook_auth_failed" }, req.url))
   }
 
   try {
@@ -28,7 +26,7 @@ export async function GET(req: Request) {
         code,
         client_id: MICROSOFT_CLIENT_ID!,
         client_secret: MICROSOFT_CLIENT_SECRET!,
-        redirect_uri: REDIRECT_URI,
+        redirect_uri: outlookRedirectUri(),
         grant_type: "authorization_code",
       }),
     })
@@ -41,7 +39,7 @@ export async function GET(req: Request) {
 
     if (!tokenRes.ok || !tokens.access_token) {
       console.error("Outlook token exchange failed:", tokens)
-      return NextResponse.redirect(new URL("/dashboard/settings?error=outlook_token_failed", req.url))
+      return NextResponse.redirect(oauthCompleteUrl({ error: "outlook_token_failed" }, req.url))
     }
 
     const userInfoRes = await fetch("https://graph.microsoft.com/v1.0/me", {
@@ -54,7 +52,7 @@ export async function GET(req: Request) {
 
     const oauthEmail = userInfo.mail || userInfo.userPrincipalName
     if (!oauthEmail) {
-      return NextResponse.redirect(new URL("/dashboard/settings?error=outlook_save_failed", req.url))
+      return NextResponse.redirect(oauthCompleteUrl({ error: "outlook_save_failed" }, req.url))
     }
 
     const supabase = await createClient()
@@ -104,13 +102,13 @@ export async function GET(req: Request) {
 
       if (dbError) {
         console.error("Failed to save Outlook tokens:", dbError)
-        return NextResponse.redirect(new URL("/dashboard/settings?error=outlook_save_failed", req.url))
+        return NextResponse.redirect(oauthCompleteUrl({ error: "outlook_save_failed" }, req.url))
       }
     } else {
       const n = await countEmailAccountsForUser(supabase, user.id)
       if (n >= MAX_EMAIL_ACCOUNTS_PER_USER) {
         return NextResponse.redirect(
-          new URL("/dashboard/settings?error=max_email_accounts", req.url)
+          oauthCompleteUrl({ error: "max_email_accounts" }, req.url),
         )
       }
       const { error: dbError } = await supabase.from("email_accounts").insert({
@@ -121,13 +119,13 @@ export async function GET(req: Request) {
 
       if (dbError) {
         console.error("Failed to save Outlook tokens:", dbError)
-        return NextResponse.redirect(new URL("/dashboard/settings?error=outlook_save_failed", req.url))
+        return NextResponse.redirect(oauthCompleteUrl({ error: "outlook_save_failed" }, req.url))
       }
     }
 
-    return NextResponse.redirect(new URL("/dashboard/settings?success=outlook_connected", req.url))
+    return NextResponse.redirect(oauthCompleteUrl({ success: "outlook_connected" }, req.url))
   } catch (err) {
     console.error("Outlook OAuth error:", err)
-    return NextResponse.redirect(new URL("/dashboard/settings?error=outlook_error", req.url))
+    return NextResponse.redirect(oauthCompleteUrl({ error: "outlook_error" }, req.url))
   }
 }

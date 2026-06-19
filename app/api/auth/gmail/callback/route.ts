@@ -4,12 +4,10 @@ import {
   countEmailAccountsForUser,
   MAX_EMAIL_ACCOUNTS_PER_USER,
 } from "@/lib/email-account-limits"
+import { gmailRedirectUri, oauthCompleteUrl } from "@/lib/oauth-config"
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET
-const REDIRECT_URI = process.env.NEXT_PUBLIC_APP_URL
-  ? `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/gmail/callback`
-  : "http://localhost:3000/api/auth/gmail/callback"
 
 export async function GET(req: Request) {
   const url = new URL(req.url)
@@ -17,7 +15,7 @@ export async function GET(req: Request) {
   const error = url.searchParams.get("error")
 
   if (error || !code) {
-    return NextResponse.redirect(new URL("/dashboard/settings?error=gmail_auth_failed", req.url))
+    return NextResponse.redirect(oauthCompleteUrl({ error: "gmail_auth_failed" }, req.url))
   }
 
   try {
@@ -28,7 +26,7 @@ export async function GET(req: Request) {
         code,
         client_id: GOOGLE_CLIENT_ID!,
         client_secret: GOOGLE_CLIENT_SECRET!,
-        redirect_uri: REDIRECT_URI,
+        redirect_uri: gmailRedirectUri(),
         grant_type: "authorization_code",
       }),
     })
@@ -41,7 +39,7 @@ export async function GET(req: Request) {
 
     if (!tokenRes.ok || !tokens.access_token) {
       console.error("Gmail token exchange failed:", tokens)
-      return NextResponse.redirect(new URL("/dashboard/settings?error=gmail_token_failed", req.url))
+      return NextResponse.redirect(oauthCompleteUrl({ error: "gmail_token_failed" }, req.url))
     }
 
     const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
@@ -50,7 +48,7 @@ export async function GET(req: Request) {
     const userInfo = (await userInfoRes.json()) as { email?: string }
     const oauthEmail = userInfo.email
     if (!oauthEmail) {
-      return NextResponse.redirect(new URL("/dashboard/settings?error=gmail_save_failed", req.url))
+      return NextResponse.redirect(oauthCompleteUrl({ error: "gmail_save_failed" }, req.url))
     }
 
     const supabase = await createClient()
@@ -100,13 +98,13 @@ export async function GET(req: Request) {
 
       if (dbError) {
         console.error("Failed to save Gmail tokens:", dbError)
-        return NextResponse.redirect(new URL("/dashboard/settings?error=gmail_save_failed", req.url))
+        return NextResponse.redirect(oauthCompleteUrl({ error: "gmail_save_failed" }, req.url))
       }
     } else {
       const n = await countEmailAccountsForUser(supabase, user.id)
       if (n >= MAX_EMAIL_ACCOUNTS_PER_USER) {
         return NextResponse.redirect(
-          new URL("/dashboard/settings?error=max_email_accounts", req.url)
+          oauthCompleteUrl({ error: "max_email_accounts" }, req.url),
         )
       }
       const { error: dbError } = await supabase.from("email_accounts").insert({
@@ -117,13 +115,13 @@ export async function GET(req: Request) {
 
       if (dbError) {
         console.error("Failed to save Gmail tokens:", dbError)
-        return NextResponse.redirect(new URL("/dashboard/settings?error=gmail_save_failed", req.url))
+        return NextResponse.redirect(oauthCompleteUrl({ error: "gmail_save_failed" }, req.url))
       }
     }
 
-    return NextResponse.redirect(new URL("/dashboard/settings?success=gmail_connected", req.url))
+    return NextResponse.redirect(oauthCompleteUrl({ success: "gmail_connected" }, req.url))
   } catch (err) {
     console.error("Gmail OAuth error:", err)
-    return NextResponse.redirect(new URL("/dashboard/settings?error=gmail_error", req.url))
+    return NextResponse.redirect(oauthCompleteUrl({ error: "gmail_error" }, req.url))
   }
 }

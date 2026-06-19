@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server"
+import {
+  isOutlookOAuthConfigured,
+  oauthCompleteUrl,
+  OAUTH_POPUP_STATE,
+  outlookRedirectUri,
+  wantsPopup,
+} from "@/lib/oauth-config"
 
 const MICROSOFT_CLIENT_ID = process.env.MICROSOFT_CLIENT_ID
-const REDIRECT_URI = process.env.NEXT_PUBLIC_APP_URL 
-  ? `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/outlook/callback`
-  : "http://localhost:3000/api/auth/outlook/callback"
 
-export async function GET() {
-  if (!MICROSOFT_CLIENT_ID) {
-    return NextResponse.json({ error: "Outlook OAuth not configured" }, { status: 500 })
+export async function GET(req: Request) {
+  if (!isOutlookOAuthConfigured()) {
+    return NextResponse.redirect(
+      oauthCompleteUrl({ error: "outlook_not_configured" }, req.url),
+    )
   }
 
   const scopes = [
@@ -20,11 +26,14 @@ export async function GET() {
   ].join(" ")
 
   const authUrl = new URL("https://login.microsoftonline.com/common/oauth2/v2.0/authorize")
-  authUrl.searchParams.set("client_id", MICROSOFT_CLIENT_ID)
-  authUrl.searchParams.set("redirect_uri", REDIRECT_URI)
+  authUrl.searchParams.set("client_id", MICROSOFT_CLIENT_ID!)
+  authUrl.searchParams.set("redirect_uri", outlookRedirectUri())
   authUrl.searchParams.set("response_type", "code")
   authUrl.searchParams.set("scope", scopes)
   authUrl.searchParams.set("response_mode", "query")
+  if (wantsPopup(req)) {
+    authUrl.searchParams.set("state", OAUTH_POPUP_STATE)
+  }
 
   return NextResponse.redirect(authUrl.toString())
 }
