@@ -7,10 +7,10 @@ export function Hero() {
   return (
     <section className="section-hero relative overflow-hidden px-6 py-24 md:py-32">
       <div className="absolute inset-0">
-        <div className="absolute left-1/4 top-1/4 h-72 w-72 rounded-full bg-artist-violet opacity-25 blur-[100px]" />
-        <div className="absolute bottom-1/3 right-1/4 h-56 w-56 rounded-full bg-artist-indigo opacity-20 blur-[80px]" />
-        <div className="absolute right-1/3 top-1/2 h-40 w-40 rounded-full bg-artist-teal opacity-15 blur-[60px]" />
-        <div className="absolute bottom-1/4 left-1/3 h-36 w-36 rounded-full bg-artist-coral opacity-12 blur-[70px]" />
+        <div className="absolute left-1/4 top-1/4 h-72 w-72 rounded-full bg-artist-violet opacity-40 blur-[100px]" />
+        <div className="absolute bottom-1/3 right-1/4 h-56 w-56 rounded-full bg-artist-indigo opacity-32 blur-[80px]" />
+        <div className="absolute right-1/3 top-1/2 h-40 w-40 rounded-full bg-artist-teal opacity-25 blur-[60px]" />
+        <div className="absolute bottom-1/4 left-1/3 h-36 w-36 rounded-full bg-artist-coral opacity-22 blur-[70px]" />
       </div>
       <div className="relative mx-auto max-w-5xl text-center">
         <div className="mb-10 flex justify-center">
