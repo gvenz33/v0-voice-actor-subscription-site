@@ -40,7 +40,8 @@ export function Hero() {
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Button
             size="lg"
-            className="bg-brand-gradient text-foreground shadow-lg shadow-artist-violet/25 hover:opacity-90"
+            variant="success"
+            className="shadow-lg shadow-artist-green/30"
             asChild
           >
             <Link href="/auth/sign-up">

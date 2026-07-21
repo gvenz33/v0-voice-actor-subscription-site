@@ -117,11 +117,7 @@ export function TokenPurchaseModal({ open, onOpenChange, onSuccess, remainingTok
 
                     <Button
                       onClick={() => handleSelectPackage(pkg.id)}
-                      className={pkg.popular 
-                        ? 'bg-[oklch(0.65_0.18_265)] hover:bg-[oklch(0.55_0.18_265)]' 
-                        : ''
-                      }
-                      variant={pkg.popular ? 'default' : 'outline'}
+                      variant={pkg.popular ? 'success' : 'outline'}
                     >
                       Select
                     </Button>

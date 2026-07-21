@@ -177,7 +177,7 @@ export default function CheckoutFlow({
           </div>
           <Button
             type="button"
-            variant="outline"
+            variant="success"
             disabled={promoLoading || !promoInput.trim()}
             onClick={() => void applyPromoCode()}
           >

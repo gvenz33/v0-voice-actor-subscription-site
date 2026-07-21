@@ -79,7 +79,7 @@ export function Navbar() {
               <Button variant="ghost" asChild>
                 <Link href="/auth/login">Sign In</Link>
               </Button>
-              <Button asChild>
+              <Button variant="success" asChild>
                 <Link href="/auth/sign-up">Start Free Trial</Link>
               </Button>
             </>
@@ -136,7 +136,7 @@ export function Navbar() {
                   <Button variant="ghost" asChild>
                     <Link href="/auth/login" onClick={() => setMobileOpen(false)}>Sign In</Link>
                   </Button>
-                  <Button asChild>
+                  <Button variant="success" asChild>
                     <Link href="/auth/sign-up" onClick={() => setMobileOpen(false)}>Start Free Trial</Link>
                   </Button>
                 </>

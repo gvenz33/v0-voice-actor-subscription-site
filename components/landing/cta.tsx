@@ -20,7 +20,8 @@ export function CTA() {
         <div className="mt-8">
           <Button
             size="lg"
-            className="bg-brand-gradient text-foreground shadow-lg shadow-artist-violet/25 hover:opacity-90"
+            variant="success"
+            className="shadow-lg shadow-artist-green/30"
             asChild
           >
             <Link href="/auth/sign-up">

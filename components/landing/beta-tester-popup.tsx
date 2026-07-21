@@ -37,7 +37,7 @@ export function BetaTesterPopup() {
       <DialogContent className="max-w-md border-accent/30 sm:max-w-lg">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <div className="flex size-10 items-center justify-center rounded-full bg-brand-gradient">
+            <div className="flex size-10 items-center justify-center rounded-full bg-artist-violet">
               <Sparkles className="size-5 text-foreground" />
             </div>
             <Badge variant="secondary" className="bg-accent/15 text-accent-foreground">
@@ -70,7 +70,7 @@ export function BetaTesterPopup() {
         <DialogFooter className="flex-col gap-2 sm:flex-col">
           <Button
             asChild
-            className="w-full bg-brand-gradient text-foreground hover:opacity-90"
+            variant="default" className="w-full"
             onClick={dismiss}
           >
             <Link href="/?promo=BETA&interval=year#pricing">View Beta Pricing</Link>

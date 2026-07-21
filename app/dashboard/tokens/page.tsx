@@ -104,7 +104,8 @@ export default function TokensPage() {
             </div>
             <Button 
               onClick={() => setPurchaseModalOpen(true)}
-              className="gap-2 bg-[oklch(0.65_0.18_265)] hover:bg-[oklch(0.55_0.18_265)]"
+              variant="success"
+              className="gap-2"
             >
               <Coins className="size-4" />
               Buy More Tokens
@@ -180,11 +181,7 @@ export default function TokensPage() {
 
                   <Button
                     onClick={() => setPurchaseModalOpen(true)}
-                    className={pkg.popular 
-                      ? 'bg-[oklch(0.65_0.18_265)] hover:bg-[oklch(0.55_0.18_265)]' 
-                      : ''
-                    }
-                    variant={pkg.popular ? 'default' : 'outline'}
+                    variant={pkg.popular ? 'success' : 'outline'}
                   >
                     Purchase
                   </Button>

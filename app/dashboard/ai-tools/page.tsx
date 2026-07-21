@@ -82,7 +82,7 @@ function UsageMeter({ usage }: { usage: UsageData }) {
               Upgrade to Launch ($29/mo) to start generating AI outreach emails.
             </p>
           </div>
-          <Button asChild className="mt-2 bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90">
+          <Button asChild variant="accent" className="mt-2">
             <Link href="/checkout/launch">
               Upgrade Now <ArrowUpRight className="ml-1 size-4" />
             </Link>
@@ -148,7 +148,7 @@ function LockedFeature({ featureName, requiredTier, requiredTierId }: {
             This feature is available on the {requiredTier} plan and above. Upgrade to unlock it.
           </p>
         </div>
-        <Button asChild className="mt-2 bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90">
+        <Button asChild variant="accent" className="mt-2">
           <Link href={`/checkout/${requiredTierId}`}>
             Upgrade to {requiredTier} <ArrowUpRight className="ml-1 size-4" />
           </Link>
@@ -173,7 +173,7 @@ function LimitReached({ usage }: { usage: UsageData }) {
             Upgrade to {nextTier.name} for {nextTier.limit === "Unlimited" ? "unlimited" : `${nextTier.limit}/mo`} generations.
           </p>
         </div>
-        <Button asChild className="mt-2 bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90">
+        <Button asChild variant="accent" className="mt-2">
           <Link href={`/checkout/${nextTier.id}`}>
             Upgrade to {nextTier.name} <ArrowUpRight className="ml-1 size-4" />
           </Link>
@@ -459,7 +459,7 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
             <Textarea id="notes" placeholder="Any specifics - your demo reel link, a project you admired from them, etc." value={customNotes} onChange={(e) => setCustomNotes(e.target.value)} rows={3} />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button onClick={handleGenerate} disabled={loading} className="min-h-[48px] bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90">
+          <Button onClick={handleGenerate} disabled={loading} variant="accent" className="min-h-[48px]">
             {loading ? (<><Loader2 className="mr-2 size-4 animate-spin" /> Generating...</>) : (<><Sparkles className="mr-2 size-4" /> Generate Email</>)}
           </Button>
         </CardContent>
@@ -543,7 +543,7 @@ function OutreachEmailWriter({ usage, onGenerated, prefillCompany, prefillName, 
                     {recipientEmail && (
                       <>
                         <Button
-                          className="gap-2 bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90"
+                          variant="accent" className="gap-2"
                           onClick={handleSendEmail}
                           disabled={sending}
                         >
@@ -718,7 +718,7 @@ function FollowUpWriter({ usage, onGenerated }: { usage: UsageData; onGenerated:
           <div className="flex flex-col gap-1.5"><Label>What Was Your Last Interaction?</Label><Textarea placeholder="e.g. Sent initial cold email with demo reel link" value={previousContext} onChange={(e) => setPreviousContext(e.target.value)} rows={2} /></div>
           <div className="flex flex-col gap-1.5"><Label>Additional Notes (optional)</Label><Textarea placeholder="Any new updates - new demo, recent booking, seasonal angle" value={customNotes} onChange={(e) => setCustomNotes(e.target.value)} rows={2} /></div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button onClick={handleGenerate} disabled={loading} className="min-h-[48px] bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90">
+          <Button onClick={handleGenerate} disabled={loading} variant="accent" className="min-h-[48px]">
             {loading ? (<><Loader2 className="mr-2 size-4 animate-spin" /> Writing...</>) : (<><Send className="mr-2 size-4" /> Generate Follow-Up</>)}
           </Button>
         </CardContent>
@@ -848,7 +848,7 @@ function PitchGenerator({ usage, onGenerated }: { usage: UsageData; onGenerated:
           <div className="flex flex-col gap-1.5"><Label htmlFor="strengths">Your Key Strengths</Label><Textarea id="strengths" placeholder="e.g. warm conversational tone, character range, quick turnarounds, home studio" value={strengths} onChange={(e) => setStrengths(e.target.value)} rows={2} /></div>
           <div className="flex flex-col gap-1.5"><Label htmlFor="target">Target Clients</Label><Input id="target" placeholder="e.g. ad agencies, e-learning companies, indie game studios" value={targetAudience} onChange={(e) => setTargetAudience(e.target.value)} /></div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button onClick={handleGenerate} disabled={loading} className="min-h-[48px] bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90">
+          <Button onClick={handleGenerate} disabled={loading} variant="accent" className="min-h-[48px]">
             {loading ? (<><Loader2 className="mr-2 size-4 animate-spin" /> Crafting...</>) : (<><Sparkles className="mr-2 size-4" /> Generate Pitch</>)}
           </Button>
         </CardContent>
@@ -969,7 +969,7 @@ function VOAssistant({ usage }: { usage: UsageData }) {
             <div className="flex flex-col gap-4">
               {messages.map((message) => (
                 <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${message.role === "user" ? "bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground" : "border border-border bg-card text-card-foreground"}`}>
+                  <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${message.role === "user" ? "bg-artist-violet text-white" : "border border-border bg-card text-card-foreground"}`}>
                     <div className="whitespace-pre-wrap">
                       {message.role === "assistant" && message.content === "" && isLoading ? (
                         <Loader2 className="size-4 animate-spin text-muted-foreground" />
@@ -985,7 +985,7 @@ function VOAssistant({ usage }: { usage: UsageData }) {
         </div>
         <form className="flex shrink-0 gap-2" onSubmit={(e) => { e.preventDefault(); if (!input.trim() || isLoading) return; void sendText(input); setInput("") }}>
           <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask about rates, outreach, marketing, industry tips..." disabled={isLoading} className="min-h-[48px] text-base" />
-          <Button type="submit" disabled={!input.trim() || isLoading} className="min-h-[48px] bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90">
+          <Button type="submit" disabled={!input.trim() || isLoading} variant="accent" className="min-h-[48px]">
             <Send className="size-4" /><span className="sr-only">Send message</span>
           </Button>
         </form>
@@ -1094,7 +1094,7 @@ function VOCoach({ usage }: { usage: UsageData }) {
                   <div
                     className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
                       message.role === "user"
-                        ? "bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground"
+                        ? "bg-artist-violet text-white"
                         : "border border-border bg-card text-card-foreground"
                     }`}
                   >
@@ -1130,7 +1130,7 @@ function VOCoach({ usage }: { usage: UsageData }) {
           <Button
             type="submit"
             disabled={!input.trim() || isLoading}
-            className="min-h-[48px] bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90"
+            variant="accent" className="min-h-[48px]"
           >
             <Send className="size-4" />
             <span className="sr-only">Send message</span>

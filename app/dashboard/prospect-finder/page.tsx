@@ -251,7 +251,7 @@ export default function ProspectFinder() {
               type="submit"
               size="lg"
               disabled={isSearching || !searchQuery.trim()}
-              className="min-h-[48px] gap-2 bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90"
+              variant="accent" className="min-h-[48px] gap-2"
             >
               {isSearching ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -356,7 +356,7 @@ export default function ProspectFinder() {
                     </Button>
                     <Button
                       size="sm"
-                      className="min-h-[40px] gap-1.5 bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90"
+                      variant="accent" className="min-h-[40px] gap-1.5"
                       disabled={isScanning && scanningUrl === result.link}
                       onClick={() => handleScan(result.link, result.title)}
                     >
@@ -546,7 +546,7 @@ export default function ProspectFinder() {
                             <div className="flex items-center gap-2 shrink-0">
                               <Button
                                 size="sm"
-                                variant="outline"
+                                variant="success"
                                 className="min-h-[40px] shrink-0 gap-1.5"
                                 disabled={
                                   savedContacts.has(contactKey) ||
@@ -562,7 +562,7 @@ export default function ProspectFinder() {
                               >
                                 {savedContacts.has(contactKey) ? (
                                   <>
-                                    <CheckCircle2 className="size-3.5 text-violet-400" />
+                                    <CheckCircle2 className="size-3.5" />
                                     Saved
                                   </>
                                 ) : savingContact === contactKey ? (
@@ -577,7 +577,7 @@ export default function ProspectFinder() {
                               {contact.email && (
                                 <Button
                                   size="sm"
-                                  className="min-h-[40px] shrink-0 gap-1.5 bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90"
+                                  variant="accent" className="min-h-[40px] shrink-0 gap-1.5"
                                   onClick={() => {
                                     const params = new URLSearchParams()
                                     params.set("company", scanResult.companyName || "")

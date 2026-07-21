@@ -101,7 +101,7 @@ export function Pricing() {
               )}
             >
               Annual
-              <span className="absolute -right-2 -top-2 rounded-full bg-brand-gradient px-2 py-0.5 text-[10px] font-semibold text-foreground">
+              <span className="absolute -right-2 -top-2 rounded-full bg-artist-orange px-2 py-0.5 text-[10px] font-semibold text-white">
                 2 mo free
               </span>
             </button>
@@ -141,12 +141,12 @@ export function Pricing() {
                   'relative flex flex-col rounded-2xl border p-8 transition-all',
                   tierTint,
                   product.highlighted
-                    ? 'shadow-xl shadow-accent/15 ring-1 ring-accent'
+                    ? 'shadow-xl shadow-artist-coral/20 ring-1 ring-artist-coral'
                     : 'hover:shadow-lg',
                 )}
               >
                 {product.highlighted && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-brand-gradient px-4 py-1 text-xs font-semibold text-foreground">
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-artist-coral px-4 py-1 text-xs font-semibold text-white">
                     Most Popular
                   </div>
                 )}
@@ -230,13 +230,8 @@ export function Pricing() {
                   ))}
                 </ul>
                 <Button
-                  className={cn(
-                    'w-full',
-                    product.highlighted
-                      ? 'bg-brand-gradient text-foreground hover:opacity-90 border-0'
-                      : '',
-                  )}
-                  variant={product.highlighted ? 'default' : 'outline'}
+                  className="w-full"
+                  variant={product.highlighted ? 'success' : 'outline'}
                   asChild
                 >
                   <Link href={checkoutHref}>

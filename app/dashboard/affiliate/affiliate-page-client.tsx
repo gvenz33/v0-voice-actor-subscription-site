@@ -470,13 +470,13 @@ export default function AffiliatePageClient({
 
             {showUpgradeCta && (
               <div className="flex flex-col gap-3 sm:flex-row">
-                <Button asChild className="flex-1 bg-yellow-500 text-black hover:bg-yellow-400">
+                <Button asChild variant="warning" className="flex-1">
                   <Link href="/dashboard/settings">
                     <Crown className="mr-2 h-4 w-4" />
                     Upgrade to Momentum - $49/mo
                   </Link>
                 </Button>
-                <Button asChild variant="outline" className="flex-1 border-yellow-500/30 hover:bg-yellow-500/10">
+                <Button asChild variant="outline" className="flex-1">
                   <Link href="/dashboard/settings">
                     <Crown className="mr-2 h-4 w-4" />
                     Upgrade to Command - $99/mo
@@ -785,7 +785,7 @@ export default function AffiliatePageClient({
           <CardContent>
             <Dialog open={payoutDialogOpen} onOpenChange={setPayoutDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-green-600 hover:bg-green-500">
+                <Button variant="success">
                   <DollarSign className="mr-2 h-4 w-4" />
                   Request Payout
                   <ArrowRight className="ml-2 h-4 w-4" />
