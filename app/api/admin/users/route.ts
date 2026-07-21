@@ -1,28 +1,19 @@
-import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/admin-auth"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function GET() {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
+  const { error: authError } = await requireAdmin()
+  if (authError === "Unauthorized") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("is_admin")
-    .eq("id", user.id)
-    .single()
-
-  if (!profile?.is_admin) {
+  if (authError === "Forbidden") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  const { data: profiles, error } = await supabase
+  // Service role bypasses RLS so admins always see every profile.
+  const admin = createAdminClient()
+  const { data: profiles, error } = await admin
     .from("profiles")
     .select("*")
     .order("created_at", { ascending: false })
@@ -33,7 +24,6 @@ export async function GET() {
 
   const emailById = new Map<string, string>()
   try {
-    const admin = createAdminClient()
     let page = 1
     const perPage = 200
     for (let i = 0; i < 20; i++) {
@@ -61,21 +51,11 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const supabase = await createClient()
-  
-  // Check if user is authenticated and is admin
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
+  const { error: authError } = await requireAdmin()
+  if (authError === "Unauthorized") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
-
-  const { data: adminProfile } = await supabase
-    .from("profiles")
-    .select("is_admin")
-    .eq("id", user.id)
-    .single()
-
-  if (!adminProfile?.is_admin) {
+  if (authError === "Forbidden") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -86,10 +66,8 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Missing userId or updates" }, { status: 400 })
   }
 
-  const { error } = await supabase
-    .from("profiles")
-    .update(updates)
-    .eq("id", userId)
+  const admin = createAdminClient()
+  const { error } = await admin.from("profiles").update(updates).eq("id", userId)
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })

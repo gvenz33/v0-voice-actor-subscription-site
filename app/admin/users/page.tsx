@@ -83,6 +83,7 @@ export default function AdminUsersPage() {
   const [addUserDialogOpen, setAddUserDialogOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState("")
+  const [loadError, setLoadError] = useState("")
   const [currentUserIsSuperadmin, setCurrentUserIsSuperadmin] = useState(false)
   const [newUser, setNewUser] = useState({
     email: "",
@@ -94,6 +95,7 @@ export default function AdminUsersPage() {
 
   const fetchUsers = async () => {
     setLoading(true)
+    setLoadError("")
     const supabase = createClient()
 
     const {
@@ -114,19 +116,25 @@ export default function AdminUsersPage() {
         users?: User[]
         error?: string
       }
-      if (response.ok && result.users) {
-        setUsers(
-          result.users.map((p) => ({
-            ...p,
-            email: p.email || "",
-            feature_overrides: p.feature_overrides || {},
-          })),
-        )
+      if (!response.ok) {
+        setUsers([])
+        setLoadError(result.error || `Failed to load users (${response.status})`)
+        return
       }
+      setUsers(
+        (result.users ?? []).map((p) => ({
+          ...p,
+          email: p.email || "",
+          feature_overrides: p.feature_overrides || {},
+        })),
+      )
     } catch (err) {
       console.error("Failed to load admin users:", err)
+      setUsers([])
+      setLoadError("Failed to load users. Please refresh and try again.")
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   useEffect(() => {
@@ -323,6 +331,9 @@ export default function AdminUsersPage() {
             <div>
               <CardTitle>All Users</CardTitle>
               <CardDescription>{users.length} total users</CardDescription>
+              {loadError && (
+                <p className="mt-2 text-sm text-destructive">{loadError}</p>
+              )}
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setAddUserDialogOpen(true)}>
@@ -341,7 +352,7 @@ export default function AdminUsersPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search by name or business..."
+                placeholder="Search by name, email, or business..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10"
