@@ -101,7 +101,7 @@ export function Pricing() {
               )}
             >
               Annual
-              <span className="absolute -right-2 -top-2 rounded-full bg-artist-orange px-2 py-0.5 text-[10px] font-semibold text-white">
+              <span className="absolute -right-2 -top-2 rounded-full bg-artist-orange px-2 py-0.5 text-[10px] font-semibold text-[oklch(0.15_0.06_285)]">
                 2 mo free
               </span>
             </button>
@@ -146,7 +146,7 @@ export function Pricing() {
                 )}
               >
                 {product.highlighted && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-artist-coral px-4 py-1 text-xs font-semibold text-white">
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-artist-coral px-4 py-1 text-xs font-semibold text-[oklch(0.15_0.06_285)]">
                     Most Popular
                   </div>
                 )}

@@ -23,9 +23,9 @@ const buttonVariants = cva(
         accent:
           'bg-artist-violet text-white hover:bg-artist-violet/90 shadow-sm',
         success:
-          'bg-artist-green text-white hover:bg-artist-green/90 shadow-sm',
+          'bg-artist-green text-[oklch(0.15_0.06_285)] hover:bg-artist-green/90 shadow-sm',
         warning:
-          'bg-artist-orange text-white hover:bg-artist-orange/90 shadow-sm',
+          'bg-artist-orange text-[oklch(0.15_0.06_285)] hover:bg-artist-orange/90 shadow-sm',
         destructive:
           'bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 shadow-sm',
         outline:
