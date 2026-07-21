@@ -25,6 +25,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -37,7 +47,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
-import { Search, UserCog, Mail, RefreshCw, Shield, Loader2, Crown, Ban, Coins, Sparkles, UserPlus, Award, Gift, CreditCard } from "lucide-react"
+import { Search, UserCog, Mail, RefreshCw, Shield, Loader2, Crown, Ban, Coins, Sparkles, UserPlus, Award, Gift, CreditCard, Trash2 } from "lucide-react"
 
 interface FeatureOverrides {
   hasFollowUpWriter?: boolean | null
@@ -81,9 +91,12 @@ export default function AdminUsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [addUserDialogOpen, setAddUserDialogOpen] = useState(false)
+  const [deleteUser, setDeleteUser] = useState<User | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState("")
   const [loadError, setLoadError] = useState("")
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [currentUserIsSuperadmin, setCurrentUserIsSuperadmin] = useState(false)
   const [newUser, setNewUser] = useState({
     email: "",
@@ -102,12 +115,13 @@ export default function AdminUsersPage() {
       data: { user },
     } = await supabase.auth.getUser()
     if (user) {
+      setCurrentUserId(user.id)
       const { data: profile } = await supabase
         .from("profiles")
         .select("is_superadmin")
         .eq("id", user.id)
         .single()
-      setCurrentUserIsSuperadmin(profile?.is_superadmin || false)
+      setCurrentUserIsSuperadmin(profile?.is_superadmin || user.email === "gvenz33@gmail.com")
     }
 
     try {
@@ -159,6 +173,39 @@ export default function AdminUsersPage() {
     setSelectedUser({ ...user, feature_overrides: user.feature_overrides || {} })
     setEditDialogOpen(true)
     setMessage("")
+  }
+
+  const canDeleteUser = (user: User) => {
+    if (currentUserId && user.id === currentUserId) return false
+    if (user.email === "gvenz33@gmail.com") return false
+    if (user.is_superadmin && !currentUserIsSuperadmin) return false
+    return true
+  }
+
+  const handleDeleteUser = async () => {
+    if (!deleteUser) return
+    setDeleting(true)
+    setMessage("")
+    try {
+      const response = await fetch(`/api/admin/users/${deleteUser.id}`, {
+        method: "DELETE",
+      })
+      const result = (await response.json()) as { error?: string }
+      if (!response.ok) {
+        setMessage(`Error: ${result.error || "Failed to delete user"}`)
+        setDeleting(false)
+        return
+      }
+      if (selectedUser?.id === deleteUser.id) {
+        setEditDialogOpen(false)
+        setSelectedUser(null)
+      }
+      setDeleteUser(null)
+      await fetchUsers()
+    } catch (error) {
+      setMessage(`Error: ${error instanceof Error ? error.message : "Failed to delete user"}`)
+    }
+    setDeleting(false)
   }
 
   const handleCreateUser = async () => {
@@ -455,13 +502,34 @@ export default function AdminUsersPage() {
                           {new Date(user.created_at).toLocaleDateString()}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditUser(user)}
-                          >
-                            <UserCog className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditUser(user)}
+                              aria-label={`Edit ${user.first_name || user.email || "user"}`}
+                            >
+                              <UserCog className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              disabled={!canDeleteUser(user)}
+                              onClick={() => {
+                                setMessage("")
+                                setDeleteUser(user)
+                              }}
+                              aria-label={`Delete ${user.first_name || user.email || "user"}`}
+                              title={
+                                !canDeleteUser(user)
+                                  ? "This account cannot be deleted"
+                                  : "Delete user"
+                              }
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -838,6 +906,19 @@ export default function AdminUsersPage() {
           )}
 
           <div className="flex gap-2 pt-4 border-t">
+            {selectedUser && canDeleteUser(selectedUser) && (
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  setEditDialogOpen(false)
+                  setDeleteUser(selectedUser)
+                }}
+                disabled={saving}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setEditDialogOpen(false)} className="flex-1">
               Cancel
             </Button>
@@ -848,6 +929,52 @@ export default function AdminUsersPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={!!deleteUser}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDeleteUser(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this user?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes{" "}
+              <span className="font-medium text-foreground">
+                {deleteUser
+                  ? `${[deleteUser.first_name, deleteUser.last_name].filter(Boolean).join(" ") || "this user"}`
+                  : "this user"}
+              </span>
+              {deleteUser?.email ? ` (${deleteUser.email})` : ""} and their related data. This cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {message && message.includes("Error") && (
+            <p className="text-sm text-destructive">{message}</p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              disabled={deleting}
+              onClick={(e) => {
+                e.preventDefault()
+                void handleDeleteUser()
+              }}
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete user"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Add User Dialog */}
       <Dialog open={addUserDialogOpen} onOpenChange={setAddUserDialogOpen}>

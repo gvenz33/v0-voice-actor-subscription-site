@@ -8,7 +8,13 @@ export async function requireAdmin() {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { supabase, user: null, error: "Unauthorized" as const }
+    return {
+      supabase,
+      user: null,
+      profile: null,
+      isSuperadmin: false,
+      error: "Unauthorized" as const,
+    }
   }
 
   const isSuperadminEmail = user.email === "gvenz33@gmail.com"
@@ -19,9 +25,17 @@ export async function requireAdmin() {
     .eq("id", user.id)
     .single()
 
-  if (!profile?.is_admin && !profile?.is_superadmin && !isSuperadminEmail) {
-    return { supabase, user, error: "Forbidden" as const }
+  const isSuperadmin = Boolean(profile?.is_superadmin || isSuperadminEmail)
+
+  if (!profile?.is_admin && !isSuperadmin) {
+    return {
+      supabase,
+      user,
+      profile,
+      isSuperadmin: false,
+      error: "Forbidden" as const,
+    }
   }
 
-  return { supabase, user, error: null }
+  return { supabase, user, profile, isSuperadmin, error: null }
 }
