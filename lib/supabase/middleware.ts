@@ -1,5 +1,9 @@
 import { createServerClient, type SetAllCookies } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import {
+  getTrialStatus,
+  isTrialExpiredAllowlistedPath,
+} from '@/lib/trial'
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -33,14 +37,30 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Protect dashboard routes
-  if (
-    request.nextUrl.pathname.startsWith('/dashboard') &&
-    !user
-  ) {
+  const pathname = request.nextUrl.pathname
+
+  if (pathname.startsWith('/dashboard') && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     return NextResponse.redirect(url)
+  }
+
+  if (user && pathname.startsWith('/dashboard') && !isTrialExpiredAllowlistedPath(pathname)) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select(
+        'subscription_tier, trial_ends_at, trial_exempt, is_admin, is_superadmin',
+      )
+      .eq('id', user.id)
+      .maybeSingle()
+
+    const trial = getTrialStatus(profile)
+    if (trial.isExpired) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/dashboard/billing'
+      url.searchParams.set('trial', 'expired')
+      return NextResponse.redirect(url)
+    }
   }
 
   return supabaseResponse

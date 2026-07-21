@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAppUrl } from '@/lib/oauth-config'
+import { getTransactionalFromAddress } from '@/lib/resend-from'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
     const resend = new Resend(resendApiKey)
 
     const { error: sendError } = await resend.emails.send({
-      from: 'VO Biz Suite <noreply@vobizsuite.io>',
+      from: getTransactionalFromAddress(),
       to: email,
       subject: 'Reset your VO Biz Suite password',
       text: `We received a request to reset your VO Biz Suite password.

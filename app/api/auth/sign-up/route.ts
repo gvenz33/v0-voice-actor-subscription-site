@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAppUrl } from '@/lib/oauth-config'
 import { ensureUserProfile } from '@/lib/ensure-user-profile'
+import { getTransactionalFromAddress } from '@/lib/resend-from'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,12 +39,12 @@ async function sendBrandedConfirmEmail(opts: {
   const { Resend } = await import('resend')
   const resend = new Resend(opts.resendApiKey)
   return resend.emails.send({
-    from: 'VO Biz Suite <noreply@vobizsuite.io>',
+    from: getTransactionalFromAddress(),
     to: opts.to,
     subject: 'Confirm your VO Biz Suite account',
     text: `Hi ${opts.displayName},
 
-Welcome to VO Biz Suite! Confirm your email to finish creating your account:
+Welcome to VO Biz Suite! Confirm your email to finish creating your account and start your 14-day free trial:
 
 ${opts.confirmUrl}
 
@@ -54,7 +55,7 @@ If you did not sign up, you can ignore this email.
       <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #1a1428;">
         <h2 style="margin-bottom: 8px;">Confirm your email</h2>
         <p>Hi ${escapeHtml(opts.displayName)},</p>
-        <p>Welcome to <strong>VO Biz Suite</strong>. Confirm your email to finish creating your account and start your free trial.</p>
+          <p>Welcome to <strong>VO Biz Suite</strong>. Confirm your email to finish creating your account and start your 14-day free trial.</p>
         <p style="margin: 28px 0;">
           <a href="${escapeHtml(opts.confirmUrl)}"
              style="display: inline-block; background: #2f6b45; color: #f4f0ff; text-decoration: none; padding: 12px 20px; border-radius: 8px; font-weight: 600;">

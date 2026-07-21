@@ -86,13 +86,21 @@ export async function POST(request: Request) {
 
     // If admin API worked, update the profile
     if (authData?.user) {
+      const chosenTier = tier || "free"
+      const now = new Date()
+      const trialEnd = new Date(now.getTime())
+      trialEnd.setUTCDate(trialEnd.getUTCDate() + 14)
+
       await supabase
         .from("profiles")
         .update({
-          subscription_tier: tier || "free",
+          subscription_tier: chosenTier,
           first_name: firstName || null,
           last_name: lastName || null,
-          feature_overrides: tier !== "free" ? { paymentBypass: true } : {},
+          feature_overrides: chosenTier !== "free" ? { paymentBypass: true } : {},
+          trial_exempt: chosenTier !== "free",
+          trial_started_at: chosenTier === "free" ? now.toISOString() : null,
+          trial_ends_at: chosenTier === "free" ? trialEnd.toISOString() : null,
         })
         .eq("id", authData.user.id)
 

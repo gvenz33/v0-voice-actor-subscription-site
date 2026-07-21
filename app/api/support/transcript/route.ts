@@ -1,5 +1,6 @@
 import "server-only"
 import { getNotifyInboxEmail } from "@/lib/notify-inbox"
+import { getTransactionalFromAddress } from "@/lib/resend-from"
 
 export const dynamic = "force-dynamic"
 
@@ -74,7 +75,7 @@ export async function POST(req: Request) {
 
     const inbox = getNotifyInboxEmail()
     await resend.emails.send({
-      from: "VOBizSuite Support <noreply@vobizsuite.io>",
+      from: getTransactionalFromAddress("VOBizSuite Support"),
       to: visitorEmail,
       bcc: inbox,
       subject: "Your VOBizSuite support chat transcript",

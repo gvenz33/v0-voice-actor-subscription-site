@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getNotifyInboxEmail } from "@/lib/notify-inbox"
+import { getTransactionalFromAddress } from "@/lib/resend-from"
 
 /** Lazy-load Resend so builds succeed without RESEND_API_KEY (same pattern as support/notify). */
 export const dynamic = "force-dynamic"
@@ -53,7 +54,7 @@ Sent from VOBizSuite Contact Form
     const resend = new Resend(resendApiKey)
 
     await resend.emails.send({
-      from: "VOBizSuite Contact <noreply@vobizsuite.io>",
+      from: getTransactionalFromAddress("VOBizSuite Contact"),
       to: toEmail,
       replyTo: email,
       subject,

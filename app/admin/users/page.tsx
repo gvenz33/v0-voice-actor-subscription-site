@@ -74,6 +74,8 @@ interface User {
   purchased_tokens: number
   feature_overrides: FeatureOverrides
   created_at: string
+  trial_ends_at?: string | null
+  trial_exempt?: boolean | null
 }
 
 const TIER_FEATURES = {
@@ -500,6 +502,11 @@ export default function AdminUsersPage() {
                         </TableCell>
                         <TableCell>
                           {new Date(user.created_at).toLocaleDateString()}
+                          {user.subscription_tier === "free" && !user.trial_exempt && user.trial_ends_at && (
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              Trial ends {new Date(user.trial_ends_at).toLocaleDateString()}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">

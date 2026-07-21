@@ -22,9 +22,14 @@ export async function updateProfileSubscriptionTier(
   }
 
   if (params.userId) {
+    const payloadWithTrial: Record<string, unknown> = { ...payload }
+    if (params.tier !== "free") {
+      payloadWithTrial.trial_exempt = true
+    }
+
     const { error } = await supabase
       .from("profiles")
-      .update(payload)
+      .update(payloadWithTrial)
       .eq("id", params.userId)
 
     if (error) return { updated: false, error: error.message }
@@ -32,9 +37,14 @@ export async function updateProfileSubscriptionTier(
   }
 
   if (params.stripeCustomerId) {
+    const payloadWithTrial: Record<string, unknown> = { ...payload }
+    if (params.tier !== "free") {
+      payloadWithTrial.trial_exempt = true
+    }
+
     const { error } = await supabase
       .from("profiles")
-      .update(payload)
+      .update(payloadWithTrial)
       .eq("stripe_customer_id", params.stripeCustomerId)
 
     if (error) return { updated: false, error: error.message }

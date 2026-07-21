@@ -1,5 +1,6 @@
 import "server-only"
 import { getNotifyInboxEmail } from "@/lib/notify-inbox"
+import { getTransactionalFromAddress } from "@/lib/resend-from"
 
 /** Avoid loading Resend at module scope — build has no RESEND_API_KEY and the SDK throws. */
 export const dynamic = "force-dynamic"
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
     const { conversationId, visitorName, visitorEmail } = await req.json()
 
     await resend.emails.send({
-      from: "VOBizSuite Support <noreply@vobizsuite.io>",
+      from: getTransactionalFromAddress("VOBizSuite Support"),
       to: getNotifyInboxEmail(),
       subject: `[Action Required] Support Escalation - ${visitorName}`,
       html: `

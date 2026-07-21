@@ -59,9 +59,9 @@ export const LANDING_FAQS: LandingFaqItem[] = [
       "Security is a top priority. We use industry-standard encryption, secure authentication through Supabase, and row-level security policies to ensure your data is protected. Your client information and business data are never shared with third parties.",
   },
   {
-    question: "What's included in the free plan?",
+    question: "What's included in the free trial?",
     answer:
-      "The free plan gives you access to our core CRM features including client management, audition tracking, booking calendar, and invoicing. AI features require a paid subscription. It's a great way to get organized and see if VOBizSuite is right for you before upgrading.",
+      "New accounts without a promo or discount code get a 14-day free trial with core CRM features: client management, audition tracking, booking calendar, and invoicing. AI features require a paid plan. When the trial ends, upgrade to Launch, Momentum, or Command to keep access. Promo and paid subscribers are not on this free-trial clock.",
   },
   {
     question: "Can I cancel or change my plan anytime?",
