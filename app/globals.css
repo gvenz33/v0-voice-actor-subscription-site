@@ -25,7 +25,10 @@
   --input: oklch(0.86 0.04 290);
   --ring: oklch(0.62 0.28 305);
   --artist-coral: oklch(0.68 0.25 35);
+  --artist-orange: oklch(0.68 0.22 50);
   --artist-amber: oklch(0.78 0.21 75);
+  --artist-yellow: oklch(0.8 0.19 100);
+  --artist-green: oklch(0.62 0.18 145);
   --artist-teal: oklch(0.65 0.17 195);
   --artist-rose: oklch(0.68 0.23 15);
   --artist-violet: oklch(0.62 0.3 305);
@@ -33,7 +36,7 @@
   --brand-gradient: linear-gradient(
     115deg,
     oklch(0.64 0.3 305) 0%,
-    oklch(0.6 0.26 280) 45%,
+    oklch(0.62 0.2 145) 50%,
     oklch(0.58 0.26 250) 100%
   );
   --page-artist: radial-gradient(
@@ -43,20 +46,25 @@
     ),
     radial-gradient(
       ellipse 70% 50% at 92% 8%,
-      oklch(0.82 0.12 195 / 0.42),
+      oklch(0.82 0.12 145 / 0.38),
       transparent 50%
     ),
     radial-gradient(
+      ellipse 55% 40% at 40% 100%,
+      oklch(0.88 0.14 100 / 0.28),
+      transparent 45%
+    ),
+    radial-gradient(
       ellipse 60% 45% at 70% 100%,
-      oklch(0.86 0.12 35 / 0.32),
+      oklch(0.86 0.12 50 / 0.28),
       transparent 45%
     ),
     var(--background);
   --chart-1: oklch(0.62 0.3 305);
   --chart-2: oklch(0.58 0.27 265);
-  --chart-3: oklch(0.65 0.17 195);
-  --chart-4: oklch(0.78 0.21 75);
-  --chart-5: oklch(0.68 0.25 35);
+  --chart-3: oklch(0.62 0.18 145);
+  --chart-4: oklch(0.8 0.19 100);
+  --chart-5: oklch(0.68 0.22 50);
   --radius: 0.625rem;
   --sidebar: oklch(0.98 0.018 285);
   --sidebar-foreground: oklch(0.28 0.04 285);
@@ -90,7 +98,10 @@
   --input: oklch(0.32 0.08 290);
   --ring: oklch(0.74 0.3 305);
   --artist-coral: oklch(0.78 0.24 35);
+  --artist-orange: oklch(0.8 0.22 50);
   --artist-amber: oklch(0.86 0.21 75);
+  --artist-yellow: oklch(0.9 0.2 100);
+  --artist-green: oklch(0.78 0.2 145);
   --artist-teal: oklch(0.82 0.18 195);
   --artist-rose: oklch(0.8 0.24 15);
   --artist-violet: oklch(0.74 0.3 305);
@@ -98,7 +109,7 @@
   --brand-gradient: linear-gradient(
     115deg,
     oklch(0.72 0.3 305) 0%,
-    oklch(0.74 0.26 280) 45%,
+    oklch(0.76 0.22 145) 50%,
     oklch(0.72 0.26 250) 100%
   );
   --page-artist: radial-gradient(
@@ -108,20 +119,25 @@
     ),
     radial-gradient(
       ellipse 70% 50% at 92% 8%,
-      oklch(0.55 0.18 195 / 0.3),
+      oklch(0.55 0.2 145 / 0.32),
       transparent 50%
     ),
     radial-gradient(
+      ellipse 55% 40% at 35% 100%,
+      oklch(0.6 0.2 100 / 0.24),
+      transparent 45%
+    ),
+    radial-gradient(
       ellipse 60% 45% at 70% 100%,
-      oklch(0.5 0.18 35 / 0.22),
+      oklch(0.55 0.2 50 / 0.22),
       transparent 45%
     ),
     var(--background);
   --chart-1: oklch(0.74 0.3 305);
   --chart-2: oklch(0.78 0.26 265);
-  --chart-3: oklch(0.82 0.18 195);
-  --chart-4: oklch(0.86 0.21 75);
-  --chart-5: oklch(0.78 0.24 35);
+  --chart-3: oklch(0.78 0.2 145);
+  --chart-4: oklch(0.9 0.2 100);
+  --chart-5: oklch(0.8 0.22 50);
   --sidebar: oklch(0.12 0.055 285);
   --sidebar-foreground: oklch(0.94 0.02 270);
   --sidebar-primary: oklch(0.74 0.3 305);
@@ -161,7 +177,10 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
   --color-artist-coral: var(--artist-coral);
+  --color-artist-orange: var(--artist-orange);
   --color-artist-amber: var(--artist-amber);
+  --color-artist-yellow: var(--artist-yellow);
+  --color-artist-green: var(--artist-green);
   --color-artist-teal: var(--artist-teal);
   --color-artist-rose: var(--artist-rose);
   --color-artist-violet: var(--artist-violet);
@@ -338,11 +357,32 @@
   border-color: color-mix(in oklch, var(--artist-coral) 48%, var(--border));
 }
 
+.artist-card-orange {
+  background:
+    linear-gradient(160deg, color-mix(in oklch, var(--artist-orange) 34%, transparent), transparent 55%),
+    var(--card);
+  border-color: color-mix(in oklch, var(--artist-orange) 52%, var(--border));
+}
+
 .artist-card-amber {
   background:
     linear-gradient(160deg, color-mix(in oklch, var(--artist-amber) 34%, transparent), transparent 55%),
     var(--card);
   border-color: color-mix(in oklch, var(--artist-amber) 52%, var(--border));
+}
+
+.artist-card-yellow {
+  background:
+    linear-gradient(160deg, color-mix(in oklch, var(--artist-yellow) 34%, transparent), transparent 55%),
+    var(--card);
+  border-color: color-mix(in oklch, var(--artist-yellow) 52%, var(--border));
+}
+
+.artist-card-green {
+  background:
+    linear-gradient(160deg, color-mix(in oklch, var(--artist-green) 34%, transparent), transparent 55%),
+    var(--card);
+  border-color: color-mix(in oklch, var(--artist-green) 52%, var(--border));
 }
 
 .artist-card-teal {

@@ -99,8 +99,8 @@ export default function CommandCenter() {
       icon: CalendarCheck,
       href: "/dashboard/bookings",
       description: "jobs in progress",
-      tint: "artist-card-amber",
-      iconClass: "text-artist-amber",
+      tint: "artist-card-yellow",
+      iconClass: "text-artist-yellow",
     },
     {
       label: "Pending Revenue",
@@ -108,8 +108,8 @@ export default function CommandCenter() {
       icon: Receipt,
       href: "/dashboard/billing",
       description: "awaiting payment",
-      tint: "artist-card-teal",
-      iconClass: "text-artist-teal",
+      tint: "artist-card-orange",
+      iconClass: "text-artist-orange",
     },
   ]
 
@@ -144,10 +144,10 @@ export default function CommandCenter() {
       </div>
 
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
-        <Card className="artist-card-violet">
+        <Card className="artist-card-green">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="size-4 text-artist-violet" />
+              <TrendingUp className="size-4 text-artist-green" />
               Revenue Summary
             </CardTitle>
           </CardHeader>
@@ -155,13 +155,13 @@ export default function CommandCenter() {
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Total Earned</span>
-                <span className="text-lg font-bold text-foreground">
+                <span className="text-lg font-bold text-artist-green">
                   ${stats.earnedRevenue.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Pending</span>
-                <span className="text-lg font-semibold text-artist-amber">
+                <span className="text-lg font-semibold text-artist-orange">
                   ${stats.pendingRevenue.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                 </span>
               </div>
