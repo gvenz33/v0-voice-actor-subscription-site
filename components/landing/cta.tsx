@@ -21,7 +21,7 @@ export function CTA() {
           <Button
             size="lg"
             variant="success"
-            className="shadow-lg shadow-artist-green/30"
+            className="shadow-lg shadow-[oklch(0.42_0.16_145)]/35"
             asChild
           >
             <Link href="/auth/sign-up">

@@ -23,7 +23,7 @@ const buttonVariants = cva(
         accent:
           'bg-artist-violet text-white hover:bg-artist-violet/90 shadow-sm',
         success:
-          'bg-artist-green text-[oklch(0.15_0.06_285)] hover:bg-artist-green/90 shadow-sm',
+          'bg-[oklch(0.42_0.16_145)] text-[oklch(0.15_0.06_285)] hover:bg-[oklch(0.38_0.16_145)] shadow-sm',
         warning:
           'bg-artist-orange text-[oklch(0.15_0.06_285)] hover:bg-artist-orange/90 shadow-sm',
         destructive:
