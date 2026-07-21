@@ -24,6 +24,7 @@ function SignUpForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [showRepeatPassword, setShowRepeatPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [referralCode, setReferralCode] = useState<string | null>(null)
   const router = useRouter()
@@ -40,6 +41,7 @@ function SignUpForm() {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
+    setAlreadyRegistered(false)
 
     if (password !== repeatPassword) {
       setError('Passwords do not match')
@@ -59,11 +61,21 @@ function SignUpForm() {
           referralCode,
         }),
       })
-      const result = (await response.json()) as { error?: string }
+      const result = (await response.json()) as {
+        error?: string
+        code?: string
+        resent?: boolean
+      }
       if (!response.ok) {
+        if (result.code === 'already_registered' || response.status === 409) {
+          setAlreadyRegistered(true)
+        }
         throw new Error(result.error || 'An error occurred')
       }
-      router.push('/auth/sign-up-success')
+      const successUrl = result.resent
+        ? '/auth/sign-up-success?resent=1'
+        : '/auth/sign-up-success'
+      router.push(successUrl)
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : 'An error occurred')
     } finally {
@@ -178,7 +190,21 @@ function SignUpForm() {
                       </button>
                     </div>
                   </div>
-                  {error && <p className="text-sm text-destructive">{error}</p>}
+                  {error && (
+                    <div className="space-y-2">
+                      <p className="text-sm text-destructive">{error}</p>
+                      {alreadyRegistered && (
+                        <p className="text-sm text-muted-foreground">
+                          <Link
+                            href="/auth/login"
+                            className="text-primary underline underline-offset-4 hover:text-accent"
+                          >
+                            Sign in with this email
+                          </Link>
+                        </p>
+                      )}
+                    </div>
+                  )}
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? 'Creating Account...' : 'Start Free Trial'}
                   </Button>

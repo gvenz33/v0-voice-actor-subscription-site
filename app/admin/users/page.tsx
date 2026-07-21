@@ -95,9 +95,10 @@ export default function AdminUsersPage() {
   const fetchUsers = async () => {
     setLoading(true)
     const supabase = createClient()
-    
-    // Check if current user is superadmin
-    const { data: { user } } = await supabase.auth.getUser()
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     if (user) {
       const { data: profile } = await supabase
         .from("profiles")
@@ -107,17 +108,23 @@ export default function AdminUsersPage() {
       setCurrentUserIsSuperadmin(profile?.is_superadmin || false)
     }
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .order("created_at", { ascending: false })
-
-    if (!error && data) {
-      setUsers(data.map(p => ({
-        ...p,
-        email: p.id,
-        feature_overrides: p.feature_overrides || {},
-      })))
+    try {
+      const response = await fetch("/api/admin/users")
+      const result = (await response.json()) as {
+        users?: User[]
+        error?: string
+      }
+      if (response.ok && result.users) {
+        setUsers(
+          result.users.map((p) => ({
+            ...p,
+            email: p.email || "",
+            feature_overrides: p.feature_overrides || {},
+          })),
+        )
+      }
+    } catch (err) {
+      console.error("Failed to load admin users:", err)
     }
     setLoading(false)
   }
@@ -127,11 +134,13 @@ export default function AdminUsersPage() {
   }, [])
 
   const filteredUsers = users.filter((user) => {
+    const q = search.toLowerCase()
     const matchesSearch =
-      user.first_name?.toLowerCase().includes(search.toLowerCase()) ||
-      user.last_name?.toLowerCase().includes(search.toLowerCase()) ||
-      user.business_name?.toLowerCase().includes(search.toLowerCase()) ||
-      user.id.toLowerCase().includes(search.toLowerCase())
+      user.first_name?.toLowerCase().includes(q) ||
+      user.last_name?.toLowerCase().includes(q) ||
+      user.business_name?.toLowerCase().includes(q) ||
+      user.email?.toLowerCase().includes(q) ||
+      user.id.toLowerCase().includes(q)
 
     const matchesTier = filterTier === "all" || user.subscription_tier === filterTier
 
@@ -388,8 +397,8 @@ export default function AdminUsersPage() {
                                 : "No name"}
                               {user.is_superadmin && <Crown className="h-3.5 w-3.5 text-amber-500" />}
                             </div>
-                            <div className="text-sm text-muted-foreground truncate max-w-[200px]">
-                              {user.id.substring(0, 8)}...
+                            <div className="text-sm text-muted-foreground truncate max-w-[220px]">
+                              {user.email || user.id.substring(0, 8) + "..."}
                             </div>
                           </div>
                         </TableCell>
