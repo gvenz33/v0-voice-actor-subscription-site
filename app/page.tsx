@@ -7,7 +7,6 @@ import { Pricing } from '@/components/landing/pricing'
 import { CTA } from '@/components/landing/cta'
 import { FAQ } from '@/components/landing/faq'
 import { Footer } from '@/components/landing/footer'
-import { BetaTesterPopup } from '@/components/landing/beta-tester-popup'
 import type { Metadata } from 'next'
 
 const siteUrl = 'https://vobizsuite.io'
@@ -48,7 +47,6 @@ export default function HomePage() {
         <FAQ />
       </main>
       <Footer />
-      <BetaTesterPopup />
     </div>
   )
 }

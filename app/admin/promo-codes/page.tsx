@@ -53,7 +53,7 @@ type PromoFormState = {
   discount_type: "percent" | "fixed"
   discount_value: string
   applies_to_tiers: string[]
-  billing_interval_restriction: "month" | "year" | "any"
+  billing_interval_restriction: "month" | "year" | "quarter" | "any"
   requires_feedback_acknowledgement: boolean
   max_redemptions: string
   valid_from: string
@@ -422,7 +422,7 @@ export default function AdminPromoCodesPage() {
               <Label htmlFor="billing_interval">Billing interval restriction</Label>
               <Select
                 value={form.billing_interval_restriction}
-                onValueChange={(value: "month" | "year" | "any") =>
+                onValueChange={(value: "month" | "year" | "quarter" | "any") =>
                   setForm((f) => ({ ...f, billing_interval_restriction: value }))
                 }
               >
@@ -433,6 +433,7 @@ export default function AdminPromoCodesPage() {
                   <SelectItem value="any">Any interval</SelectItem>
                   <SelectItem value="year">Annual only</SelectItem>
                   <SelectItem value="month">Monthly only</SelectItem>
+                  <SelectItem value="quarter">3-month prepay only</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -6,7 +6,7 @@ import {
   validatePromoForCheckout,
   type SubscriptionTierId,
 } from "@/lib/promo-codes"
-import { getProductPrice, PRODUCTS } from "@/lib/products"
+import { getProductPrice, PRODUCTS, type BillingInterval } from "@/lib/products"
 
 export async function fetchPromoCodeByCode(code: string): Promise<PromoCodeRecord | null> {
   const normalized = normalizePromoCode(code)
@@ -26,7 +26,7 @@ export async function fetchPromoCodeByCode(code: string): Promise<PromoCodeRecor
 export async function validatePromoCodeForCheckout(
   code: string,
   productId: string,
-  interval: "month" | "year"
+  interval: BillingInterval
 ): Promise<PromoValidationResult> {
   const product = PRODUCTS.find((p) => p.id === productId)
   if (!product) {
@@ -75,7 +75,7 @@ export type PromoCodeInput = {
   discount_type: "percent" | "fixed"
   discount_value: number
   applies_to_tiers?: string[]
-  billing_interval_restriction?: "month" | "year" | "any"
+  billing_interval_restriction?: "month" | "year" | "quarter" | "any"
   requires_feedback_acknowledgement?: boolean
   max_redemptions?: number | null
   valid_from?: string | null

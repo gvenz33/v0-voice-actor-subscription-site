@@ -38,12 +38,23 @@ async function getAdminStats() {
     .select("*", { count: "exact", head: true })
     .eq("status", "escalated")
 
+  const { count: betaEnrollments } = await supabase
+    .from("beta_enrollments")
+    .select("*", { count: "exact", head: true })
+
+  const { count: betaPending } = await supabase
+    .from("beta_enrollments")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "active_beta")
+
   return {
     totalUsers: totalUsers || 0,
     tierCounts,
     recentSignups: recentSignups || 0,
     paidUsers: (tierCounts.launch || 0) + (tierCounts.momentum || 0) + (tierCounts.command || 0),
     escalatedSupport: escalatedSupport || 0,
+    betaEnrollments: betaEnrollments || 0,
+    betaPending: betaPending || 0,
   }
 }
 
@@ -131,6 +142,23 @@ export default async function AdminDashboard() {
           </CardContent>
         </Card>
       )}
+
+      <Card className="artist-card-green">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>BVS Beta Feedback Progress</CardTitle>
+            <CardDescription>
+              {stats.betaEnrollments} BlumVox student{stats.betaEnrollments === 1 ? "" : "s"} enrolled ·{" "}
+              {stats.betaPending} in active beta
+            </CardDescription>
+          </div>
+          <Link href="/admin/beta-feedback">
+            <Button size="sm" variant="outline">
+              Open feedback
+            </Button>
+          </Link>
+        </CardHeader>
+      </Card>
 
       {/* Subscription Breakdown */}
       <Card>

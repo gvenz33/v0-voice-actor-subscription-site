@@ -1,7 +1,7 @@
-import type { Product } from "@/lib/products"
+import type { BillingInterval, Product } from "@/lib/products"
 
 export type PromoDiscountType = "percent" | "fixed"
-export type BillingIntervalRestriction = "month" | "year" | "any"
+export type BillingIntervalRestriction = "month" | "year" | "quarter" | "any"
 export type SubscriptionTierId = Product["tier"]
 
 export const PAID_TIER_IDS: SubscriptionTierId[] = ["launch", "momentum", "command"]
@@ -12,8 +12,10 @@ export const TIER_MARKETING_NAMES: Record<SubscriptionTierId, string> = {
   command: "Enterprise (Command)",
 }
 
+export const BLUMVOX_PROMO_CODE = "BLUMVOX"
+
 export const BETA_DISCLAIMER =
-  "As a Beta tester, you agree to provide product feedback during your subscription and maintain an active annual subscription for 12 months. Beta pricing applies to yearly plans only."
+  "As a BlumVox / BVS beta participant, you agree to active beta participation: complete one short monthly feedback form during the first three months (thoughtful, usable responses). After three months, students who completed all three months keep the discounted rate month-to-month. Students who did not participate can continue at the regular monthly rate. Promo applies to Momentum and Command plans on monthly or 3-month prepay billing."
 
 export interface PromoCodeRecord {
   id: string
@@ -89,7 +91,7 @@ export function calculateDiscountedPrice(
 export function validatePromoForCheckout(
   promo: PromoCodeRecord,
   tier: SubscriptionTierId,
-  interval: "month" | "year",
+  interval: BillingInterval,
   priceInCents: number,
   now = new Date()
 ): PromoValidationResult {
@@ -116,12 +118,20 @@ export function validatePromoForCheckout(
     promo.billing_interval_restriction !== "any" &&
     promo.billing_interval_restriction !== interval
   ) {
+    const msg =
+      promo.billing_interval_restriction === "year"
+        ? "This promo code is only valid on annual subscriptions."
+        : promo.billing_interval_restriction === "quarter"
+          ? "This promo code is only valid on 3-month prepay subscriptions."
+          : "This promo code is only valid on monthly subscriptions."
+    return { valid: false, error: msg }
+  }
+
+  // BlumVox students: monthly or 3-month prepay only (not annual)
+  if (normalizePromoCode(promo.code) === BLUMVOX_PROMO_CODE && interval === "year") {
     return {
       valid: false,
-      error:
-        promo.billing_interval_restriction === "year"
-          ? "This promo code is only valid on annual subscriptions."
-          : "This promo code is only valid on monthly subscriptions.",
+      error: "BLUMVOX applies to monthly or 3-month prepay plans — not annual billing.",
     }
   }
 
@@ -148,4 +158,10 @@ export function formatPromoDiscount(promo: Pick<PromoCodeRecord, "discount_type"
 
 export function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`
+}
+
+export const MIN_FEEDBACK_CHARS = 12
+
+export function isThoughtfulFeedback(text: string): boolean {
+  return text.trim().length >= MIN_FEEDBACK_CHARS
 }

@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       code?: string
       productId?: string
-      interval?: "month" | "year"
+      interval?: "month" | "year" | "quarter"
     }
 
     if (!body.code?.trim() || !body.productId || !body.interval) {

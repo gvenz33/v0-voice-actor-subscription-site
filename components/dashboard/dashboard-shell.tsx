@@ -26,6 +26,7 @@ import {
   Calendar,
   FileText,
   Menu,
+  MessageSquareHeart,
 } from "lucide-react"
 import {
   SidebarProvider,
@@ -134,6 +135,11 @@ const NAV_ITEMS = [
     title: "Affiliate",
     href: "/dashboard/affiliate",
     icon: Gift,
+  },
+  {
+    title: "BVS Beta Feedback",
+    href: "/dashboard/beta-feedback",
+    icon: MessageSquareHeart,
   },
 ]
 

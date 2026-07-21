@@ -80,12 +80,27 @@ export const PRODUCTS: Product[] = [
   },
 ]
 
+export type BillingInterval = 'month' | 'year' | 'quarter'
+
+/** 3-month prepay = 3 × monthly list price (before promo). */
+export function getQuarterPriceInCents(product: Product) {
+  return product.monthlyPriceInCents * 3
+}
+
 // Helper to get price based on billing interval
-export function getProductPrice(product: Product, interval: 'month' | 'year') {
-  return interval === 'year' ? product.annualPriceInCents : product.monthlyPriceInCents
+export function getProductPrice(product: Product, interval: BillingInterval) {
+  if (interval === 'year') return product.annualPriceInCents
+  if (interval === 'quarter') return getQuarterPriceInCents(product)
+  return product.monthlyPriceInCents
 }
 
 // Helper to get effective monthly price for annual plans
 export function getEffectiveMonthlyPrice(product: Product) {
   return Math.round(product.annualPriceInCents / 12)
+}
+
+export function billingIntervalLabel(interval: BillingInterval): string {
+  if (interval === 'year') return 'Annual'
+  if (interval === 'quarter') return '3-month prepay'
+  return 'Monthly'
 }

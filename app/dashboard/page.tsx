@@ -9,15 +9,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Users, Send, CalendarCheck, Receipt, TrendingUp, Clock } from "lucide-react"
+import { Users, Send, CalendarCheck, Receipt, TrendingUp, Clock, MessageSquareHeart } from "lucide-react"
 import Link from "next/link"
+import { Badge } from "@/components/ui/badge"
+import { monthStatuses, type BetaEnrollment, type BetaFeedbackSubmission } from "@/lib/beta-feedback-shared"
+import { BLUMVOX_PROMO_CODE } from "@/lib/promo-codes"
 
 async function fetchDashboardStats() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Not authenticated")
 
-  const [contacts, submissions, bookings, invoices, actionItems, touchpoints] =
+  const [contacts, submissions, bookings, invoices, actionItems, touchpoints, enrollmentRes] =
     await Promise.all([
       supabase.from("contacts").select("id, status", { count: "exact" }).eq("user_id", user.id),
       supabase.from("submissions").select("id, status", { count: "exact" }).eq("user_id", user.id),
@@ -25,6 +28,12 @@ async function fetchDashboardStats() {
       supabase.from("invoices").select("id, status, amount", { count: "exact" }).eq("user_id", user.id),
       supabase.from("action_items").select("id, status, title, due_date, priority").eq("user_id", user.id).eq("status", "todo").order("due_date", { ascending: true }).limit(5),
       supabase.from("touchpoints").select("id, status").eq("user_id", user.id).eq("status", "planned"),
+      supabase
+        .from("beta_enrollments")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("promo_code", BLUMVOX_PROMO_CODE)
+        .maybeSingle(),
     ])
 
   const activeBookings = bookings.data?.filter((b) => b.status !== "completed" && b.status !== "cancelled") || []
@@ -32,6 +41,21 @@ async function fetchDashboardStats() {
   const pendingAmount = pendingInvoices.reduce((sum, inv) => sum + Number(inv.amount || 0), 0)
   const paidInvoices = invoices.data?.filter((i) => i.status === "paid") || []
   const earnedAmount = paidInvoices.reduce((sum, inv) => sum + Number(inv.amount || 0), 0)
+
+  let betaFeedback: { enrollment: BetaEnrollment; months: ReturnType<typeof monthStatuses> } | null = null
+  if (enrollmentRes.data) {
+    const { data: feedbackRows } = await supabase
+      .from("beta_feedback_submissions")
+      .select("month_number")
+      .eq("enrollment_id", enrollmentRes.data.id)
+    betaFeedback = {
+      enrollment: enrollmentRes.data as BetaEnrollment,
+      months: monthStatuses(
+        enrollmentRes.data as BetaEnrollment,
+        (feedbackRows as Pick<BetaFeedbackSubmission, "month_number">[]) ?? []
+      ),
+    }
+  }
 
   return {
     totalContacts: contacts.count || 0,
@@ -41,6 +65,7 @@ async function fetchDashboardStats() {
     earnedRevenue: earnedAmount,
     upcomingActions: actionItems.data || [],
     plannedTouchpoints: touchpoints.count || 0,
+    betaFeedback,
   }
 }
 
@@ -142,6 +167,32 @@ export default function CommandCenter() {
           </Link>
         ))}
       </div>
+
+      {stats.betaFeedback && (
+        <Link href="/dashboard/beta-feedback">
+          <Card className="artist-card-green cursor-pointer transition-shadow hover:shadow-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <MessageSquareHeart className="size-4 text-artist-green" />
+                BVS Beta Feedback Progress
+              </CardTitle>
+              <CardDescription>
+                Active beta participation — one short feedback form each month for three months.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-3">
+              {([1, 2, 3] as const).map((m) => (
+                <div key={m} className="rounded-lg border border-border px-3 py-2 text-sm">
+                  <span className="font-medium text-foreground">Month {m}: </span>
+                  <Badge variant="outline" className="ml-1 capitalize">
+                    {stats.betaFeedback!.months[m]}
+                  </Badge>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </Link>
+      )}
 
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
         <Card className="artist-card-green">

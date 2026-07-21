@@ -3,6 +3,8 @@ import { getStripe } from "@/lib/stripe"
 import { addPurchasedTokens } from "@/lib/ai-limits"
 import Stripe from "stripe"
 import { recordPromoRedemption } from "@/lib/promo-codes-server"
+import { ensureBetaEnrollmentForUser } from "@/lib/beta-feedback"
+import { BLUMVOX_PROMO_CODE, normalizePromoCode } from "@/lib/promo-codes"
 import { createAdminClient } from "@/lib/supabase/admin"
 import {
   syncTierFromStripeSubscription,
@@ -114,6 +116,20 @@ export async function POST(request: NextRequest) {
               ? parseInt(session.metadata.discount_applied_cents, 10)
               : 0,
           })
+
+          const promoCode = session.metadata.promo_code
+            ? normalizePromoCode(session.metadata.promo_code)
+            : ""
+          if (
+            session.metadata.user_id &&
+            (promoCode === BLUMVOX_PROMO_CODE ||
+              session.metadata.beta_acknowledged === "true")
+          ) {
+            await ensureBetaEnrollmentForUser(
+              session.metadata.user_id,
+              promoCode || BLUMVOX_PROMO_CODE
+            )
+          }
         } catch (error) {
           console.error("Failed to record promo redemption:", error)
         }

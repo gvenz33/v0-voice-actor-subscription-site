@@ -1,10 +1,22 @@
-import { PRODUCTS, getProductPrice } from '@/lib/products'
+import { PRODUCTS, getProductPrice, billingIntervalLabel, type BillingInterval } from '@/lib/products'
 import { notFound, redirect } from 'next/navigation'
 import CheckoutFlow from '@/components/checkout-flow'
 import { Mic, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { validatePromoCodeForCheckout } from '@/lib/promo-codes-server'
 import { formatCents } from '@/lib/promo-codes'
+
+function parseInterval(raw?: string): BillingInterval {
+  if (raw === 'year') return 'year'
+  if (raw === 'quarter') return 'quarter'
+  return 'month'
+}
+
+function priceSuffix(interval: BillingInterval): string {
+  if (interval === 'year') return 'year'
+  if (interval === 'quarter') return '3 months'
+  return 'month'
+}
 
 export default async function CheckoutPage({
   params,
@@ -21,7 +33,7 @@ export default async function CheckoutPage({
     notFound()
   }
 
-  let billingInterval: 'month' | 'year' = interval === 'year' ? 'year' : 'month'
+  let billingInterval = parseInterval(interval)
   const initialPromoCode = promo?.trim() ?? ''
 
   if (initialPromoCode) {
@@ -38,14 +50,18 @@ export default async function CheckoutPage({
     ) {
       redirect(`/checkout/${productId}?interval=year&promo=${encodeURIComponent(initialPromoCode)}`)
     }
+
+    if (
+      validation.valid === false &&
+      billingInterval === 'year' &&
+      initialPromoCode.toUpperCase() === 'BLUMVOX'
+    ) {
+      redirect(`/checkout/${productId}?interval=month&promo=${encodeURIComponent(initialPromoCode)}`)
+    }
   }
 
   const priceInCents = getProductPrice(product, billingInterval)
-  let displayPrice =
-    billingInterval === 'year'
-      ? `$${(priceInCents / 100).toFixed(0)}/year`
-      : `$${(priceInCents / 100).toFixed(0)}/month`
-
+  let displayPrice = `${formatCents(priceInCents)}/${priceSuffix(billingInterval)}`
   let promoNote: string | null = null
 
   if (initialPromoCode) {
@@ -55,7 +71,7 @@ export default async function CheckoutPage({
       billingInterval
     )
     if (validation.valid && validation.discountedPriceInCents != null) {
-      displayPrice = `${formatCents(validation.discountedPriceInCents)}/${billingInterval === 'year' ? 'year' : 'month'}`
+      displayPrice = `${formatCents(validation.discountedPriceInCents)}/${priceSuffix(billingInterval)}`
       promoNote = `Promo ${validation.promo?.code} applied at checkout`
     }
   }
@@ -84,9 +100,17 @@ export default async function CheckoutPage({
           <p className="mt-2 text-muted-foreground">
             {product.description} &mdash; {displayPrice}
           </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Billing: {billingIntervalLabel(billingInterval)}
+          </p>
           {billingInterval === 'year' && (
             <p className="mt-1 text-sm font-medium text-accent">
               2 months free with annual billing
+            </p>
+          )}
+          {billingInterval === 'quarter' && (
+            <p className="mt-1 text-sm font-medium text-accent">
+              Pay for 3 months upfront — billed every quarter
             </p>
           )}
           {promoNote && (

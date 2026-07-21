@@ -6,23 +6,35 @@ import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Check } from 'lucide-react'
-import { PRODUCTS, getEffectiveMonthlyPrice } from '@/lib/products'
-import { TIER_MARKETING_NAMES } from '@/lib/promo-codes'
+import { PRODUCTS, getEffectiveMonthlyPrice, getProductPrice, type BillingInterval } from '@/lib/products'
+import { BLUMVOX_PROMO_CODE, TIER_MARKETING_NAMES, formatCents } from '@/lib/promo-codes'
 import { cn } from '@/lib/utils'
+
+function parseInterval(raw: string | null): BillingInterval {
+  if (raw === 'year') return 'year'
+  if (raw === 'quarter') return 'quarter'
+  return 'month'
+}
 
 export function Pricing() {
   const searchParams = useSearchParams()
   const promoFromUrl = searchParams.get('promo') ?? ''
   const intervalFromUrl = searchParams.get('interval')
-  const [billingInterval, setBillingInterval] = useState<'month' | 'year'>(
-    intervalFromUrl === 'year' ? 'year' : 'month'
-  )
+  const isBlumvox = promoFromUrl.trim().toUpperCase() === BLUMVOX_PROMO_CODE
+  const [billingInterval, setBillingInterval] = useState<BillingInterval>(() => {
+    const parsed = parseInterval(intervalFromUrl)
+    if (isBlumvox && parsed === 'year') return 'month'
+    return parsed
+  })
 
   useEffect(() => {
-    if (intervalFromUrl === 'year') {
-      setBillingInterval('year')
+    const parsed = parseInterval(intervalFromUrl)
+    if (isBlumvox && parsed === 'year') {
+      setBillingInterval('month')
+      return
     }
-  }, [intervalFromUrl])
+    if (intervalFromUrl) setBillingInterval(parsed)
+  }, [intervalFromUrl, isBlumvox])
 
   const promoQuery = promoFromUrl
     ? `&promo=${encodeURIComponent(promoFromUrl)}`
@@ -39,16 +51,21 @@ export function Pricing() {
             Whether you are just starting out or scaling a six-figure voice over business, there is a plan that fits.
           </p>
           {promoFromUrl && (
-            <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-2 text-sm">
-              <Badge variant="secondary" className="bg-accent/20">Beta Promo</Badge>
+            <div className="mt-6 inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-2 text-sm">
+              <Badge variant="secondary" className="bg-accent/20">
+                {isBlumvox ? 'BlumVox Student' : 'Promo'}
+              </Badge>
               <span>
-                Code <span className="font-mono font-semibold">{promoFromUrl.toUpperCase()}</span> will be applied at checkout on eligible annual plans.
+                Code <span className="font-mono font-semibold">{promoFromUrl.toUpperCase()}</span>
+                {isBlumvox
+                  ? ' — 50% off Momentum & Command (monthly or 3-month prepay).'
+                  : ' will be applied at checkout on eligible plans.'}
               </span>
             </div>
           )}
         </div>
 
-        <div className="mt-10 flex items-center justify-center gap-4">
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
           <button
             onClick={() => setBillingInterval('month')}
             className={cn(
@@ -60,25 +77,40 @@ export function Pricing() {
           >
             Monthly
           </button>
-          <button
-            onClick={() => setBillingInterval('year')}
-            className={cn(
-              'relative rounded-full px-4 py-2 text-sm font-medium transition-colors',
-              billingInterval === 'year'
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            Annual
-            <span className="absolute -right-2 -top-2 rounded-full bg-brand-gradient px-2 py-0.5 text-[10px] font-semibold text-foreground">
-              2 mo free
-            </span>
-          </button>
+          {(isBlumvox || promoFromUrl) && (
+            <button
+              onClick={() => setBillingInterval('quarter')}
+              className={cn(
+                'relative rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                billingInterval === 'quarter'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              3-month prepay
+            </button>
+          )}
+          {!isBlumvox && (
+            <button
+              onClick={() => setBillingInterval('year')}
+              className={cn(
+                'relative rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                billingInterval === 'year'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              Annual
+              <span className="absolute -right-2 -top-2 rounded-full bg-brand-gradient px-2 py-0.5 text-[10px] font-semibold text-foreground">
+                2 mo free
+              </span>
+            </button>
+          )}
         </div>
 
-        {promoFromUrl && billingInterval === 'month' && (
-          <p className="mt-4 text-center text-sm text-amber-600 dark:text-amber-400">
-            Beta promo codes require annual billing. Switch to Annual to use code {promoFromUrl.toUpperCase()}.
+        {isBlumvox && (
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            BlumVox students: choose monthly or 3-month prepay. Active beta participation includes one feedback form each month for three months.
           </p>
         )}
 
@@ -87,9 +119,13 @@ export function Pricing() {
             const monthlyPrice = product.monthlyPriceInCents / 100
             const annualPrice = product.annualPriceInCents / 100
             const effectiveMonthly = getEffectiveMonthlyPrice(product) / 100
-            const savings = (monthlyPrice * 12) - annualPrice
+            const savings = monthlyPrice * 12 - annualPrice
             const marketingName = TIER_MARKETING_NAMES[product.tier]
             const checkoutHref = `/checkout/${product.id}?interval=${billingInterval}${promoQuery}`
+            const listPrice = getProductPrice(product, billingInterval)
+            const blumvoxEligible =
+              isBlumvox && (product.tier === 'momentum' || product.tier === 'command')
+            const displayCents = blumvoxEligible ? Math.round(listPrice * 0.5) : listPrice
 
             const tierTint =
               product.tier === 'launch'
@@ -124,10 +160,49 @@ export function Pricing() {
                 <div className="mb-6">
                   {billingInterval === 'month' ? (
                     <>
-                      <span className="text-4xl font-bold text-card-foreground">
-                        ${monthlyPrice.toFixed(0)}
-                      </span>
-                      <span className="text-muted-foreground">/mo</span>
+                      {blumvoxEligible ? (
+                        <>
+                          <span className="mr-2 text-lg text-muted-foreground line-through">
+                            ${monthlyPrice.toFixed(0)}
+                          </span>
+                          <span className="text-4xl font-bold text-card-foreground">
+                            {formatCents(displayCents).replace('.00', '')}
+                          </span>
+                          <span className="text-muted-foreground">/mo</span>
+                          <p className="mt-1 text-xs font-medium text-artist-green">BlumVox 50% off</p>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-4xl font-bold text-card-foreground">
+                            ${monthlyPrice.toFixed(0)}
+                          </span>
+                          <span className="text-muted-foreground">/mo</span>
+                        </>
+                      )}
+                    </>
+                  ) : billingInterval === 'quarter' ? (
+                    <>
+                      {blumvoxEligible ? (
+                        <>
+                          <span className="mr-2 text-lg text-muted-foreground line-through">
+                            {formatCents(listPrice).replace('.00', '')}
+                          </span>
+                          <span className="text-4xl font-bold text-card-foreground">
+                            {formatCents(displayCents).replace('.00', '')}
+                          </span>
+                          <span className="text-muted-foreground">/3 mo</span>
+                          <p className="mt-1 text-xs font-medium text-artist-green">
+                            BlumVox 50% off · billed quarterly
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-4xl font-bold text-card-foreground">
+                            {formatCents(listPrice).replace('.00', '')}
+                          </span>
+                          <span className="text-muted-foreground">/3 mo</span>
+                        </>
+                      )}
                     </>
                   ) : (
                     <>

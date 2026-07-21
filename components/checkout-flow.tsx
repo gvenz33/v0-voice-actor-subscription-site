@@ -32,7 +32,7 @@ export default function CheckoutFlow({
   initialPromoCode = '',
 }: {
   productId: string
-  billingInterval: 'month' | 'year'
+  billingInterval: 'month' | 'year' | 'quarter'
   initialPromoCode?: string
 }) {
   const [promoInput, setPromoInput] = useState(initialPromoCode)
@@ -171,7 +171,7 @@ export default function CheckoutFlow({
               id="promo-code"
               value={promoInput}
               onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
-              placeholder="Enter code (e.g. BETA)"
+              placeholder="Enter code (e.g. BLUMVOX)"
               disabled={promoLoading}
             />
           </div>
@@ -214,7 +214,7 @@ export default function CheckoutFlow({
             <AlertCircle className="mt-0.5 size-5 shrink-0 text-amber-500" />
             <div className="space-y-3">
               <div>
-                <h2 className="text-sm font-semibold text-foreground">Beta Tester Agreement</h2>
+                <h2 className="text-sm font-semibold text-foreground">Active Beta Participation</h2>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                   {appliedPromo?.disclaimer ?? BETA_DISCLAIMER}
                 </p>

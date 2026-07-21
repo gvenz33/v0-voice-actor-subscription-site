@@ -1,7 +1,7 @@
 'use server'
 
 import { getStripe } from '@/lib/stripe'
-import { PRODUCTS, getProductPrice } from '@/lib/products'
+import { PRODUCTS, getProductPrice, billingIntervalLabel, type BillingInterval } from '@/lib/products'
 import { TOKEN_PACKAGES } from '@/lib/token-products'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -9,9 +9,15 @@ import {
 } from '@/lib/promo-codes-server'
 import { BETA_DISCLAIMER } from '@/lib/promo-codes'
 
+function stripeRecurring(interval: BillingInterval): { interval: 'month' | 'year'; interval_count?: number } {
+  if (interval === 'year') return { interval: 'year' }
+  if (interval === 'quarter') return { interval: 'month', interval_count: 3 }
+  return { interval: 'month' }
+}
+
 export async function startCheckoutSession(
   productId: string,
-  billingInterval: 'month' | 'year' = 'month',
+  billingInterval: BillingInterval = 'month',
   userId?: string | null,
   promoCode?: string | null,
   betaAcknowledged?: boolean,
@@ -38,7 +44,7 @@ export async function startCheckoutSession(
     }
 
     if (validation.promo.requires_feedback_acknowledgement && !betaAcknowledged) {
-      throw new Error('You must accept the Beta tester agreement before checkout.')
+      throw new Error('You must accept the beta participation agreement before checkout.')
     }
 
     priceInCents = validation.discountedPriceInCents ?? priceInCents
@@ -47,7 +53,7 @@ export async function startCheckoutSession(
     promoCodeNormalized = validation.promo.code
   }
 
-  const intervalLabel = billingInterval === 'year' ? 'Annual' : 'Monthly'
+  const intervalLabel = billingIntervalLabel(billingInterval)
   const discountNote =
     discountAppliedCents > 0
       ? ` (${promoCodeNormalized} discount applied)`
@@ -77,9 +83,7 @@ export async function startCheckoutSession(
             description: product.description,
           },
           unit_amount: priceInCents,
-          recurring: {
-            interval: billingInterval,
-          },
+          recurring: stripeRecurring(billingInterval),
         },
         quantity: 1,
       },
@@ -92,7 +96,7 @@ export async function startCheckoutSession(
 
 export async function getCheckoutPromoDetails(
   productId: string,
-  billingInterval: 'month' | 'year',
+  billingInterval: BillingInterval,
   promoCode?: string | null,
 ) {
   if (!promoCode?.trim()) {
