@@ -1,4 +1,5 @@
 import { UserPlus, Rocket, TrendingUp } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 const steps = [
   {
@@ -6,18 +7,24 @@ const steps = [
     step: '01',
     title: 'Create Your Account',
     description: 'Sign up in seconds. Choose the plan that matches where you are in your VO career.',
+    well: 'bg-artist-violet/15 text-artist-violet',
+    label: 'text-artist-violet',
   },
   {
     icon: Rocket,
     step: '02',
     title: 'Set Up Your Pipeline',
     description: 'Import your contacts, log your first submissions, and set up your outreach templates.',
+    well: 'bg-artist-coral/15 text-artist-coral',
+    label: 'text-artist-coral',
   },
   {
     icon: TrendingUp,
     step: '03',
     title: 'Grow Your Business',
     description: 'Track every audition, follow up on time, invoice clients, and watch your VO career take off.',
+    well: 'bg-artist-teal/15 text-artist-teal',
+    label: 'text-artist-teal',
   },
 ]
 
@@ -36,10 +43,20 @@ export function HowItWorks() {
         <div className="mt-16 grid grid-cols-1 gap-12 md:grid-cols-3">
           {steps.map((step) => (
             <div key={step.step} className="relative text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/10">
-                <step.icon className="h-8 w-8 text-accent" />
+              <div
+                className={cn(
+                  'mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl',
+                  step.well,
+                )}
+              >
+                <step.icon className="h-8 w-8" />
               </div>
-              <div className="mb-2 text-xs font-bold uppercase tracking-widest text-accent">
+              <div
+                className={cn(
+                  'mb-2 text-xs font-bold uppercase tracking-widest',
+                  step.label,
+                )}
+              >
                 Step {step.step}
               </div>
               <h3 className="mb-2 text-xl font-semibold text-foreground">{step.title}</h3>

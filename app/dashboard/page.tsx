@@ -81,6 +81,8 @@ export default function CommandCenter() {
       icon: Users,
       href: "/dashboard/clients",
       description: "in your Client Hub",
+      tint: "artist-card-indigo",
+      iconClass: "text-artist-indigo",
     },
     {
       label: "Submissions",
@@ -88,6 +90,8 @@ export default function CommandCenter() {
       icon: Send,
       href: "/dashboard/submissions",
       description: "auditions tracked",
+      tint: "artist-card-coral",
+      iconClass: "text-artist-coral",
     },
     {
       label: "Active Bookings",
@@ -95,6 +99,8 @@ export default function CommandCenter() {
       icon: CalendarCheck,
       href: "/dashboard/bookings",
       description: "jobs in progress",
+      tint: "artist-card-amber",
+      iconClass: "text-artist-amber",
     },
     {
       label: "Pending Revenue",
@@ -102,6 +108,8 @@ export default function CommandCenter() {
       icon: Receipt,
       href: "/dashboard/billing",
       description: "awaiting payment",
+      tint: "artist-card-teal",
+      iconClass: "text-artist-teal",
     },
   ]
 
@@ -119,12 +127,12 @@ export default function CommandCenter() {
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat) => (
           <Link key={stat.label} href={stat.href}>
-            <Card className="transition-shadow hover:shadow-md cursor-pointer">
+            <Card className={`cursor-pointer transition-shadow hover:shadow-md ${stat.tint}`}>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardDescription className="text-xs font-medium uppercase tracking-wider">
                   {stat.label}
                 </CardDescription>
-                <stat.icon className="size-4 text-muted-foreground" />
+                <stat.icon className={`size-4 ${stat.iconClass}`} />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-foreground">{stat.value}</div>
@@ -136,10 +144,10 @@ export default function CommandCenter() {
       </div>
 
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
-        <Card>
+        <Card className="artist-card-violet">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="size-4 text-accent" />
+              <TrendingUp className="size-4 text-artist-violet" />
               Revenue Summary
             </CardTitle>
           </CardHeader>
@@ -153,7 +161,7 @@ export default function CommandCenter() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Pending</span>
-                <span className="text-lg font-semibold text-accent">
+                <span className="text-lg font-semibold text-artist-amber">
                   ${stats.pendingRevenue.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                 </span>
               </div>
@@ -165,10 +173,10 @@ export default function CommandCenter() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="artist-card-coral">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Clock className="size-4 text-accent" />
+              <Clock className="size-4 text-artist-coral" />
               Upcoming Actions
             </CardTitle>
           </CardHeader>

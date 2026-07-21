@@ -5,6 +5,7 @@ import { MAX_EMAIL_ACCOUNTS_PER_USER } from "@/lib/email-account-limits"
 import { createClient } from "@/lib/supabase/client"
 import { OAuthCallbackMessages } from "./oauth-callback-messages"
 import { CreatorAssetsSection } from "@/components/settings/creator-assets-section"
+import { AppearanceSettings } from "@/components/settings/appearance-settings"
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from "@/components/ui/card"
@@ -580,9 +581,11 @@ export function SettingsForm() {
           Settings
         </h2>
         <p className="text-sm text-muted-foreground">
-          Profile and subscription first, then creator assets (demo reels, resume, brand voice, media), email, calendar, and signature.
+          Appearance, email, creator assets, profile, calendar, and signature.
         </p>
       </div>
+
+      <AppearanceSettings />
 
       <Card id="email-connect" className="scroll-mt-24">
         <CardHeader>

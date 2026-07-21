@@ -9,52 +9,71 @@ import {
   ScanSearch,
   BarChart3,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 const features = [
   {
     icon: ScanSearch,
     title: 'Prospect Finder',
     description: 'Search for production companies, studios, and agencies. AI scans their websites and extracts emails, names, and roles so you can start pitching.',
+    tint: 'artist-card-teal',
+    iconWell: 'bg-artist-teal/15 text-artist-teal',
   },
   {
     icon: Sparkles,
     title: 'AI Outreach Writer',
     description: 'Generate compelling cold emails, follow-ups, and elevator pitches with AI trained on voice over industry best practices.',
+    tint: 'artist-card-violet',
+    iconWell: 'bg-artist-violet/15 text-artist-violet',
   },
   {
     icon: Users,
     title: 'Client Hub',
     description: 'Your full CRM for production companies, studios, ad agencies, and direct clients. Track every relationship in one place.',
+    tint: 'artist-card-indigo',
+    iconWell: 'bg-artist-indigo/15 text-artist-indigo',
   },
   {
     icon: Send,
     title: 'Submissions',
     description: 'Log every audition and demo you send out. Track status from submitted to callback to booked.',
+    tint: 'artist-card-coral',
+    iconWell: 'bg-artist-coral/15 text-artist-coral',
   },
   {
     icon: Briefcase,
     title: 'Bookings',
     description: 'Manage confirmed gigs with session dates, rates, usage rights, and delivery status all organized.',
+    tint: 'artist-card-amber',
+    iconWell: 'bg-artist-amber/15 text-artist-amber',
   },
   {
     icon: Receipt,
     title: 'Billing Desk',
     description: 'Generate and track invoices tied to your bookings. Know exactly what is paid, pending, or overdue.',
+    tint: 'artist-card-rose',
+    iconWell: 'bg-artist-rose/15 text-artist-rose',
   },
   {
     icon: MessageSquare,
     title: 'Touchpoints',
     description: 'Log every outreach email, call, and follow-up. Never let a warm lead go cold again.',
+    tint: 'artist-card-teal',
+    iconWell: 'bg-artist-teal/15 text-artist-teal',
   },
   {
     icon: CheckSquare,
     title: 'Action Items',
     description: 'Your VO-specific task list with priorities and due dates. Stay on top of your business to-dos.',
+    tint: 'artist-card-coral',
+    iconWell: 'bg-artist-coral/15 text-artist-coral',
   },
   {
     icon: BarChart3,
     title: 'Command Center',
     description: 'Your business dashboard at a glance. See submissions, revenue, bookings, and follow-ups in real time.',
+    tint: 'artist-card-violet',
+    iconWell: 'bg-artist-violet/15 text-artist-violet',
   },
 ]
 
@@ -74,10 +93,18 @@ export function Features() {
           {features.map((feature) => (
             <div
               key={feature.title}
-              className="group rounded-xl border border-border bg-card p-6 transition-all hover:border-accent/50 hover:shadow-lg"
+              className={cn(
+                'group rounded-xl border p-6 transition-all hover:-translate-y-0.5 hover:shadow-lg',
+                feature.tint,
+              )}
             >
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-accent/10">
-                <feature.icon className="h-6 w-6 text-accent" />
+              <div
+                className={cn(
+                  'mb-4 flex h-12 w-12 items-center justify-center rounded-lg',
+                  feature.iconWell,
+                )}
+              >
+                <feature.icon className="h-6 w-6" />
               </div>
               <h3 className="mb-2 text-lg font-semibold text-card-foreground">{feature.title}</h3>
               <p className="text-sm leading-relaxed text-muted-foreground">{feature.description}</p>

@@ -339,8 +339,8 @@ export function DashboardShell({
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset className="min-h-dvh">
-        <header className="sticky top-0 z-20 flex shrink-0 items-center gap-2 border-b bg-background/95 px-4 pt-[env(safe-area-inset-top,0px)] backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <SidebarInset className="page-artist min-h-dvh">
+        <header className="sticky top-0 z-20 flex shrink-0 items-center gap-2 border-b bg-background/80 px-4 pt-[env(safe-area-inset-top,0px)] backdrop-blur supports-[backdrop-filter]:bg-background/70">
           <div className="flex h-14 min-h-14 w-full items-center gap-2">
           <SidebarTrigger className="-ml-1 size-10 shrink-0 md:size-7" />
           <Separator orientation="vertical" className="mr-2 h-4" />

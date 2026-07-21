@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter, Space_Grotesk } from 'next/font/google'
+import { ThemeProvider } from '@/components/theme-provider'
 import './globals.css'
 
 const _inter = Inter({ subsets: ["latin"] })
@@ -11,7 +12,7 @@ export const viewport: Viewport = {
   viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: dark)", color: "#1a1530" },
-    { media: "(prefers-color-scheme: light)", color: "#1a1530" },
+    { media: "(prefers-color-scheme: light)", color: "#f4f2f8" },
   ],
 }
 
@@ -90,9 +91,11 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className="bg-background">
+    <html lang="en" className="bg-background" suppressHydrationWarning>
       <body className="font-sans antialiased">
-        {children}
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="vobiz-theme">
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   )

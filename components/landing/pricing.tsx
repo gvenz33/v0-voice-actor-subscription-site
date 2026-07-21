@@ -70,7 +70,7 @@ export function Pricing() {
             )}
           >
             Annual
-            <span className="absolute -right-2 -top-2 rounded-full bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] px-2 py-0.5 text-[10px] font-semibold text-foreground">
+            <span className="absolute -right-2 -top-2 rounded-full bg-brand-gradient px-2 py-0.5 text-[10px] font-semibold text-foreground">
               2 mo free
             </span>
           </button>
@@ -91,18 +91,26 @@ export function Pricing() {
             const marketingName = TIER_MARKETING_NAMES[product.tier]
             const checkoutHref = `/checkout/${product.id}?interval=${billingInterval}${promoQuery}`
 
+            const tierTint =
+              product.tier === 'launch'
+                ? 'artist-card-teal'
+                : product.tier === 'momentum'
+                  ? 'artist-card-violet'
+                  : 'artist-card-coral'
+
             return (
               <div
                 key={product.id}
                 className={cn(
-                  'relative flex flex-col rounded-2xl border bg-card p-8 transition-all',
+                  'relative flex flex-col rounded-2xl border p-8 transition-all',
+                  tierTint,
                   product.highlighted
-                    ? 'border-accent shadow-xl shadow-accent/10 ring-1 ring-accent'
-                    : 'border-border hover:border-accent/30 hover:shadow-lg',
+                    ? 'shadow-xl shadow-accent/15 ring-1 ring-accent'
+                    : 'hover:shadow-lg',
                 )}
               >
                 {product.highlighted && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] px-4 py-1 text-xs font-semibold text-foreground">
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-brand-gradient px-4 py-1 text-xs font-semibold text-foreground">
                     Most Popular
                   </div>
                 )}
@@ -150,7 +158,7 @@ export function Pricing() {
                   className={cn(
                     'w-full',
                     product.highlighted
-                      ? 'bg-gradient-to-r from-[oklch(0.55_0.22_295)] to-[oklch(0.55_0.18_265)] text-foreground hover:opacity-90 border-0'
+                      ? 'bg-brand-gradient text-foreground hover:opacity-90 border-0'
                       : '',
                   )}
                   variant={product.highlighted ? 'default' : 'outline'}
