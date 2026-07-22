@@ -62,9 +62,9 @@ export function BetaTesterPopup() {
         </div>
 
         <ul className="space-y-2 text-sm text-muted-foreground">
-          <li>• Provide product feedback during your subscription</li>
-          <li>• Maintain an active annual plan for 12 months</li>
-          <li>• Yearly subscription required for beta promo codes</li>
+          <li>• Active beta participation: one short feedback form for Months 1, 2, and 3</li>
+          <li>• 12-month annual prepay on Momentum (Pro) or Command (Enterprise)</li>
+          <li>• After 12 months, participants who completed feedback can keep the discounted rate</li>
         </ul>
 
         <DialogFooter className="flex-col gap-2 sm:flex-col">

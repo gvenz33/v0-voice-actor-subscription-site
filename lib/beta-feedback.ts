@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { BLUMVOX_PROMO_CODE, isThoughtfulFeedback } from "@/lib/promo-codes"
+import {
+  BETA_FEEDBACK_PROGRAM_CODES,
+  isThoughtfulFeedback,
+  normalizePromoCode,
+} from "@/lib/promo-codes"
 import type {
   BetaEnrollment,
   BetaEnrollmentStatus,
@@ -28,13 +32,14 @@ export async function getMyBetaEnrollment(): Promise<{
   } = await supabase.auth.getUser()
   if (!user) return { enrollment: null, submissions: [] }
 
-  const { data: enrollment } = await supabase
+  const { data: enrollments } = await supabase
     .from("beta_enrollments")
     .select("*")
     .eq("user_id", user.id)
-    .eq("promo_code", BLUMVOX_PROMO_CODE)
-    .maybeSingle()
+    .in("promo_code", [...BETA_FEEDBACK_PROGRAM_CODES])
+    .order("started_at", { ascending: false })
 
+  const enrollment = (enrollments?.[0] as BetaEnrollment | undefined) ?? null
   if (!enrollment) return { enrollment: null, submissions: [] }
 
   const { data: submissions } = await supabase
@@ -44,7 +49,7 @@ export async function getMyBetaEnrollment(): Promise<{
     .order("month_number", { ascending: true })
 
   return {
-    enrollment: enrollment as BetaEnrollment,
+    enrollment,
     submissions: (submissions as BetaFeedbackSubmission[]) ?? [],
   }
 }
@@ -72,15 +77,9 @@ export async function submitBetaFeedback(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: "Not authenticated." }
 
-  const { data: enrollment } = await supabase
-    .from("beta_enrollments")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("promo_code", BLUMVOX_PROMO_CODE)
-    .maybeSingle()
-
+  const { enrollment } = await getMyBetaEnrollment()
   if (!enrollment) {
-    return { ok: false, error: "No BVS Beta enrollment found for your account." }
+    return { ok: false, error: "No beta enrollment found for your account." }
   }
 
   const { currentBetaMonth } = await import("@/lib/beta-feedback-shared")
@@ -88,6 +87,12 @@ export async function submitBetaFeedback(
   if (input.monthNumber > current) {
     return { ok: false, error: `Month ${input.monthNumber} is not open yet.` }
   }
+
+  const referralNote =
+    input.wouldRecommend
+      ? input.referralNote?.trim() ||
+        "Interested in referring — see Affiliate tab for unique URL."
+      : input.referralNote?.trim() || null
 
   const { error } = await supabase.from("beta_feedback_submissions").insert({
     enrollment_id: enrollment.id,
@@ -98,7 +103,7 @@ export async function submitBetaFeedback(
     more_useful: input.moreUseful.trim(),
     saved_time_or_organized: input.savedTimeOrOrganized.trim(),
     would_recommend: input.wouldRecommend,
-    referral_note: input.referralNote?.trim() || null,
+    referral_note: referralNote,
   })
 
   if (error) {
@@ -129,10 +134,11 @@ export async function ensureBetaEnrollmentForUser(
   promoCode: string,
   promoRedemptionId?: string | null
 ) {
+  const code = normalizePromoCode(promoCode)
   const admin = createAdminClient()
   const { data, error } = await admin.rpc("ensure_beta_enrollment", {
     p_user_id: userId,
-    p_promo_code: promoCode,
+    p_promo_code: code,
     p_promo_redemption_id: promoRedemptionId ?? null,
   })
   if (error) {

@@ -13,7 +13,7 @@ import { Users, Send, CalendarCheck, Receipt, TrendingUp, Clock, MessageSquareHe
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { monthStatuses, type BetaEnrollment, type BetaFeedbackSubmission } from "@/lib/beta-feedback-shared"
-import { BLUMVOX_PROMO_CODE } from "@/lib/promo-codes"
+import { BETA_FEEDBACK_PROGRAM_CODES } from "@/lib/promo-codes"
 
 async function fetchDashboardStats() {
   const supabase = createClient()
@@ -32,7 +32,9 @@ async function fetchDashboardStats() {
         .from("beta_enrollments")
         .select("*")
         .eq("user_id", user.id)
-        .eq("promo_code", BLUMVOX_PROMO_CODE)
+        .in("promo_code", [...BETA_FEEDBACK_PROGRAM_CODES])
+        .order("started_at", { ascending: false })
+        .limit(1)
         .maybeSingle(),
     ])
 
@@ -174,10 +176,10 @@ export default function CommandCenter() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <MessageSquareHeart className="size-4 text-artist-green" />
-                BVS Beta Feedback Progress
+                Beta Feedback Progress
               </CardTitle>
               <CardDescription>
-                Active beta participation — one short feedback form each month for three months.
+                Active beta participation — one short feedback form each month for Month 1, 2, and 3.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-3">

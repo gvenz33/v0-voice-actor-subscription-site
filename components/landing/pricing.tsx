@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Check } from 'lucide-react'
 import { PRODUCTS, getEffectiveMonthlyPrice, getProductPrice, type BillingInterval } from '@/lib/products'
-import { BLUMVOX_PROMO_CODE, TIER_MARKETING_NAMES, formatCents } from '@/lib/promo-codes'
+import { BETA_PROMO_CODE, BLUMVOX_PROMO_CODE, TIER_MARKETING_NAMES, formatCents } from '@/lib/promo-codes'
 import { cn } from '@/lib/utils'
 
 function parseInterval(raw: string | null): BillingInterval {
@@ -20,21 +20,28 @@ export function Pricing() {
   const searchParams = useSearchParams()
   const promoFromUrl = searchParams.get('promo') ?? ''
   const intervalFromUrl = searchParams.get('interval')
-  const isBlumvox = promoFromUrl.trim().toUpperCase() === BLUMVOX_PROMO_CODE
+  const promoUpper = promoFromUrl.trim().toUpperCase()
+  const isBlumvox = promoUpper === BLUMVOX_PROMO_CODE
+  const isBeta = promoUpper === BETA_PROMO_CODE
   const [billingInterval, setBillingInterval] = useState<BillingInterval>(() => {
     const parsed = parseInterval(intervalFromUrl)
+    if (isBeta) return 'year'
     if (isBlumvox && parsed === 'year') return 'month'
     return parsed
   })
 
   useEffect(() => {
     const parsed = parseInterval(intervalFromUrl)
+    if (isBeta) {
+      setBillingInterval('year')
+      return
+    }
     if (isBlumvox && parsed === 'year') {
       setBillingInterval('month')
       return
     }
     if (intervalFromUrl) setBillingInterval(parsed)
-  }, [intervalFromUrl, isBlumvox])
+  }, [intervalFromUrl, isBlumvox, isBeta])
 
   const promoQuery = promoFromUrl
     ? `&promo=${encodeURIComponent(promoFromUrl)}`
@@ -53,31 +60,35 @@ export function Pricing() {
           {promoFromUrl && (
             <div className="mt-6 inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-2 text-sm">
               <Badge variant="secondary" className="bg-accent/20">
-                {isBlumvox ? 'BlumVox Student' : 'Promo'}
+                {isBeta ? 'Beta Tester' : isBlumvox ? 'BlumVox Student' : 'Promo'}
               </Badge>
               <span>
                 Code <span className="font-mono font-semibold">{promoFromUrl.toUpperCase()}</span>
-                {isBlumvox
-                  ? ' — 50% off Momentum & Command (monthly or 3-month prepay).'
-                  : ' will be applied at checkout on eligible plans.'}
+                {isBeta
+                  ? ' — 50% off Momentum & Command (12-month annual prepay). Active beta participation required.'
+                  : isBlumvox
+                    ? ' — 50% off Momentum & Command (monthly or 3-month prepay).'
+                    : ' will be applied at checkout on eligible plans.'}
               </span>
             </div>
           )}
         </div>
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-          <button
-            onClick={() => setBillingInterval('month')}
-            className={cn(
-              'rounded-full px-4 py-2 text-sm font-medium transition-colors',
-              billingInterval === 'month'
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            Monthly
-          </button>
-          {(isBlumvox || promoFromUrl) && (
+          {!isBeta && (
+            <button
+              onClick={() => setBillingInterval('month')}
+              className={cn(
+                'rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                billingInterval === 'month'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              Monthly
+            </button>
+          )}
+          {isBlumvox && (
             <button
               onClick={() => setBillingInterval('quarter')}
               className={cn(
@@ -101,12 +112,20 @@ export function Pricing() {
               )}
             >
               Annual
-              <span className="absolute -right-2 -top-2 rounded-full bg-artist-orange px-2 py-0.5 text-[10px] font-semibold text-[oklch(0.15_0.06_285)]">
-                2 mo free
-              </span>
+              {!isBeta && (
+                <span className="absolute -right-2 -top-2 rounded-full bg-artist-orange px-2 py-0.5 text-[10px] font-semibold text-[oklch(0.15_0.06_285)]">
+                  2 mo free
+                </span>
+              )}
             </button>
           )}
         </div>
+
+        {isBeta && (
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            Beta pricing is annual (12-month prepay) only. Complete Months 1–3 feedback for active beta participation.
+          </p>
+        )}
 
         {isBlumvox && (
           <p className="mt-4 text-center text-sm text-muted-foreground">
@@ -123,9 +142,11 @@ export function Pricing() {
             const marketingName = TIER_MARKETING_NAMES[product.tier]
             const checkoutHref = `/checkout/${product.id}?interval=${billingInterval}${promoQuery}`
             const listPrice = getProductPrice(product, billingInterval)
-            const blumvoxEligible =
-              isBlumvox && (product.tier === 'momentum' || product.tier === 'command')
-            const displayCents = blumvoxEligible ? Math.round(listPrice * 0.5) : listPrice
+            const promoEligible =
+              (isBlumvox || isBeta) &&
+              (product.tier === 'momentum' || product.tier === 'command')
+            const displayCents = promoEligible ? Math.round(listPrice * 0.5) : listPrice
+            const promoDiscountLabel = isBeta ? 'Beta 50% off' : 'BlumVox 50% off'
 
             const tierTint =
               product.tier === 'launch'
@@ -160,7 +181,7 @@ export function Pricing() {
                 <div className="mb-6">
                   {billingInterval === 'month' ? (
                     <>
-                      {blumvoxEligible ? (
+                      {promoEligible ? (
                         <>
                           <span className="mr-2 text-lg text-muted-foreground line-through">
                             ${monthlyPrice.toFixed(0)}
@@ -169,7 +190,7 @@ export function Pricing() {
                             {formatCents(displayCents).replace('.00', '')}
                           </span>
                           <span className="text-muted-foreground">/mo</span>
-                          <p className="mt-1 text-xs font-medium text-artist-green">BlumVox 50% off</p>
+                          <p className="mt-1 text-xs font-medium text-artist-green">{promoDiscountLabel}</p>
                         </>
                       ) : (
                         <>
@@ -182,7 +203,7 @@ export function Pricing() {
                     </>
                   ) : billingInterval === 'quarter' ? (
                     <>
-                      {blumvoxEligible ? (
+                      {promoEligible ? (
                         <>
                           <span className="mr-2 text-lg text-muted-foreground line-through">
                             {formatCents(listPrice).replace('.00', '')}
@@ -192,7 +213,7 @@ export function Pricing() {
                           </span>
                           <span className="text-muted-foreground">/3 mo</span>
                           <p className="mt-1 text-xs font-medium text-artist-green">
-                            BlumVox 50% off · billed quarterly
+                            {promoDiscountLabel} · billed quarterly
                           </p>
                         </>
                       ) : (
@@ -206,18 +227,39 @@ export function Pricing() {
                     </>
                   ) : (
                     <>
-                      <span className="text-4xl font-bold text-card-foreground">
-                        ${effectiveMonthly.toFixed(0)}
-                      </span>
-                      <span className="text-muted-foreground">/mo</span>
-                      <div className="mt-1 flex flex-col gap-0.5">
-                        <span className="text-sm text-muted-foreground">
-                          ${annualPrice.toFixed(0)} billed annually
-                        </span>
-                        <span className="text-sm font-medium text-accent">
-                          Save ${savings.toFixed(0)}/year
-                        </span>
-                      </div>
+                      {promoEligible ? (
+                        <>
+                          <span className="mr-2 text-lg text-muted-foreground line-through">
+                            ${effectiveMonthly.toFixed(0)}
+                          </span>
+                          <span className="text-4xl font-bold text-card-foreground">
+                            ${(displayCents / 100 / 12).toFixed(0)}
+                          </span>
+                          <span className="text-muted-foreground">/mo</span>
+                          <div className="mt-1 flex flex-col gap-0.5">
+                            <span className="text-sm text-muted-foreground">
+                              <span className="line-through">${annualPrice.toFixed(0)}</span>{' '}
+                              {formatCents(displayCents).replace('.00', '')} billed annually
+                            </span>
+                            <p className="text-xs font-medium text-artist-green">{promoDiscountLabel}</p>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-4xl font-bold text-card-foreground">
+                            ${effectiveMonthly.toFixed(0)}
+                          </span>
+                          <span className="text-muted-foreground">/mo</span>
+                          <div className="mt-1 flex flex-col gap-0.5">
+                            <span className="text-sm text-muted-foreground">
+                              ${annualPrice.toFixed(0)} billed annually
+                            </span>
+                            <span className="text-sm font-medium text-accent">
+                              Save ${savings.toFixed(0)}/year
+                            </span>
+                          </div>
+                        </>
+                      )}
                     </>
                   )}
                 </div>

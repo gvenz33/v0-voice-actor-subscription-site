@@ -28,7 +28,7 @@ const adminNavItems = [
   { title: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { title: "Users", href: "/admin/users", icon: Users },
   { title: "Promo Codes", href: "/admin/promo-codes", icon: Ticket },
-  { title: "BVS Beta Feedback", href: "/admin/beta-feedback", icon: MessageSquareHeart },
+  { title: "Beta Feedback", href: "/admin/beta-feedback", icon: MessageSquareHeart },
   { title: "Settings", href: "/admin/settings", icon: Settings },
 ] as const
 

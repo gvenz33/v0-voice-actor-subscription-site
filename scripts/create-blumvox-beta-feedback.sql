@@ -127,7 +127,7 @@ CREATE POLICY "Admins manage beta feedback"
 
 CREATE OR REPLACE FUNCTION public.ensure_beta_enrollment(
   p_user_id uuid,
-  p_promo_code text DEFAULT 'BLUMVOX',
+  p_promo_code text DEFAULT 'BETA',
   p_promo_redemption_id uuid DEFAULT NULL
 )
 RETURNS uuid
@@ -137,17 +137,45 @@ SET search_path = public
 AS $$
 DECLARE
   enrollment_id uuid;
+  code_upper text := upper(p_promo_code);
+  label text;
+  period_end timestamptz;
 BEGIN
   IF p_user_id IS NULL THEN
     RETURN NULL;
   END IF;
 
-  INSERT INTO public.beta_enrollments (user_id, promo_code, promo_redemption_id)
-  VALUES (p_user_id, upper(p_promo_code), p_promo_redemption_id)
+  IF code_upper = 'BETA' THEN
+    label := 'VO Biz Suite Beta';
+    period_end := now() + interval '12 months';
+  ELSE
+    label := 'BVS Beta';
+    period_end := now() + interval '3 months';
+  END IF;
+
+  INSERT INTO public.beta_enrollments (
+    user_id,
+    promo_code,
+    promo_redemption_id,
+    program_label,
+    ends_at
+  )
+  VALUES (
+    p_user_id,
+    code_upper,
+    p_promo_redemption_id,
+    label,
+    period_end
+  )
   ON CONFLICT (user_id, promo_code) DO UPDATE SET
     promo_redemption_id = COALESCE(EXCLUDED.promo_redemption_id, public.beta_enrollments.promo_redemption_id),
+    program_label = EXCLUDED.program_label,
     updated_at = now()
   RETURNING id INTO enrollment_id;
+
+  UPDATE public.profiles
+  SET trial_exempt = true
+  WHERE id = p_user_id;
 
   RETURN enrollment_id;
 END;

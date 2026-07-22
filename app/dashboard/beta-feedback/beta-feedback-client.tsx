@@ -126,7 +126,7 @@ export function BetaFeedbackClient() {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="size-4 animate-spin" />
-        Loading BVS Beta Feedback…
+        Loading Beta Feedback…
       </div>
     )
   }
@@ -137,11 +137,11 @@ export function BetaFeedbackClient() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MessageSquareHeart className="size-4 text-artist-violet" />
-            BVS Beta Feedback
+            Beta Feedback
           </CardTitle>
           <CardDescription>
-            This area is for BlumVox students enrolled with promo code BLUMVOX. After you subscribe with that code,
-            your 3-month feedback progress will appear here.
+            This area is for beta participants enrolled with promo code BETA or BLUMVOX. After you subscribe with
+            one of those codes, your Month 1–3 feedback progress will appear here.
           </CardDescription>
         </CardHeader>
         {error ? <CardContent className="text-sm text-destructive">{error}</CardContent> : null}
@@ -150,30 +150,34 @@ export function BetaFeedbackClient() {
   }
 
   const formOpen = statuses?.[monthNumber] === "pending"
+  const isAnnualBeta = enrollment.promo_code?.toUpperCase() === "BETA"
+  const programTitle = enrollment.program_label || (isAnnualBeta ? "VO Biz Suite Beta" : "Beta")
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
       <div>
         <h2 className="font-[family-name:var(--font-heading)] text-2xl font-bold tracking-tight text-foreground">
-          BVS Beta Feedback
+          Beta Feedback
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Active beta participation means completing one short monthly feedback form with thoughtful, usable responses
-          during your first three months. After that, students who participated keep the discounted rate month-to-month;
-          others can continue at the regular monthly price.
+          for Month 1, Month 2, and Month 3
+          {isAnnualBeta
+            ? " during your 12-month annual plan. After 12 months, beta users who participated can keep the discounted rate on monthly or yearly billing; others continue at the regular rate."
+            : ". After the beta period, participants who completed all three months keep the discounted rate month-to-month; others can continue at the regular monthly price."}
         </p>
       </div>
 
       <Card className="artist-card-green">
         <CardHeader>
-          <CardTitle>BVS Beta Feedback Progress</CardTitle>
+          <CardTitle>Beta Feedback Progress</CardTitle>
           <CardDescription>
-            Status:{" "}
+            {programTitle} · Status:{" "}
             <span className="font-medium text-foreground">
               {enrollment.status === "retained_discount"
                 ? "Discount retained (active participation complete)"
                 : enrollment.status === "regular_rate"
-                  ? "Regular monthly rate"
+                  ? "Regular rate"
                   : "Active beta (months 1–3)"}
             </span>
           </CardDescription>

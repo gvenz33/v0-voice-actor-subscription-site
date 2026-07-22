@@ -4,7 +4,11 @@ import { addPurchasedTokens } from "@/lib/ai-limits"
 import Stripe from "stripe"
 import { recordPromoRedemption } from "@/lib/promo-codes-server"
 import { ensureBetaEnrollmentForUser } from "@/lib/beta-feedback"
-import { BLUMVOX_PROMO_CODE, normalizePromoCode } from "@/lib/promo-codes"
+import {
+  BETA_PROMO_CODE,
+  isBetaFeedbackPromo,
+  normalizePromoCode,
+} from "@/lib/promo-codes"
 import { createAdminClient } from "@/lib/supabase/admin"
 import {
   syncTierFromStripeSubscription,
@@ -122,12 +126,12 @@ export async function POST(request: NextRequest) {
             : ""
           if (
             session.metadata.user_id &&
-            (promoCode === BLUMVOX_PROMO_CODE ||
+            (isBetaFeedbackPromo(promoCode) ||
               session.metadata.beta_acknowledged === "true")
           ) {
             await ensureBetaEnrollmentForUser(
               session.metadata.user_id,
-              promoCode || BLUMVOX_PROMO_CODE
+              promoCode || BETA_PROMO_CODE
             )
           }
         } catch (error) {

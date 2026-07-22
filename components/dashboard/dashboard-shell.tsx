@@ -137,7 +137,7 @@ const NAV_ITEMS = [
     icon: Gift,
   },
   {
-    title: "BVS Beta Feedback",
+    title: "Beta Feedback",
     href: "/dashboard/beta-feedback",
     icon: MessageSquareHeart,
   },

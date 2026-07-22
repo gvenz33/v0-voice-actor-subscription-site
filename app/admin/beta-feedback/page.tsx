@@ -91,10 +91,11 @@ export default function AdminBetaFeedbackPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-[family-name:var(--font-heading)] text-2xl font-bold tracking-tight">
-            BVS Beta Feedback
+            Beta Feedback
           </h1>
           <p className="text-sm text-muted-foreground">
-            Track BlumVox student active beta participation (Months 1–3) and review feedback. Export to Excel/CSV anytime.
+            Track beta users&apos; active participation (Months 1–3) for BETA and BLUMVOX enrollments. Review
+            feedback and export to Excel/CSV anytime.
           </p>
         </div>
         <Button variant="outline" asChild>
@@ -111,7 +112,7 @@ export default function AdminBetaFeedbackPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MessageSquareHeart className="size-4 text-artist-green" />
-            BVS Beta Feedback Progress
+            Beta users Feedback Progress
           </CardTitle>
           <CardDescription>
             {enrollments.length} enrolled · {submissions.length} feedback submissions
@@ -123,13 +124,14 @@ export default function AdminBetaFeedbackPage() {
               <Loader2 className="size-4 animate-spin" /> Loading…
             </div>
           ) : enrollments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No BlumVox beta enrollments yet.</p>
+            <p className="text-sm text-muted-foreground">No beta enrollments yet.</p>
           ) : (
             <div className="overflow-x-auto rounded-lg border">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Student</TableHead>
+                    <TableHead>Participant</TableHead>
+                    <TableHead>Promo</TableHead>
                     <TableHead>Month 1</TableHead>
                     <TableHead>Month 2</TableHead>
                     <TableHead>Month 3</TableHead>
@@ -156,6 +158,11 @@ export default function AdminBetaFeedbackPage() {
                         <TableCell>
                           <div className="font-medium">{name}</div>
                           <div className="text-xs text-muted-foreground">{profile?.subscription_tier}</div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="font-mono text-xs">
+                            {enrollment.promo_code}
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="capitalize">
@@ -211,13 +218,13 @@ export default function AdminBetaFeedbackPage() {
           <CardTitle>Feedback detail</CardTitle>
           <CardDescription>
             {selectedEnrollmentId
-              ? `Showing ${selectedSubs.length} submission(s) for selected student`
-              : "Select a student to read their feedback"}
+              ? `Showing ${selectedSubs.length} submission(s) for selected participant`
+              : "Select a participant to read their feedback"}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {selectedSubs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No feedback submitted yet for this student.</p>
+            <p className="text-sm text-muted-foreground">No feedback submitted yet for this participant.</p>
           ) : (
             selectedSubs.map((sub) => (
               <div key={sub.id} className="rounded-lg border border-border p-4 text-sm">

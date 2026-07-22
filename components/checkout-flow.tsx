@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { AlertCircle, Loader2, Tag } from 'lucide-react'
-import { BETA_DISCLAIMER, formatCents } from '@/lib/promo-codes'
+import { BETA_ANNUAL_DISCLAIMER, formatCents, getPromoDisclaimer } from '@/lib/promo-codes'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -171,7 +171,7 @@ export default function CheckoutFlow({
               id="promo-code"
               value={promoInput}
               onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
-              placeholder="Enter code (e.g. BLUMVOX)"
+              placeholder="Enter code (e.g. BETA)"
               disabled={promoLoading}
             />
           </div>
@@ -216,7 +216,9 @@ export default function CheckoutFlow({
               <div>
                 <h2 className="text-sm font-semibold text-foreground">Active Beta Participation</h2>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  {appliedPromo?.disclaimer ?? BETA_DISCLAIMER}
+                  {appliedPromo?.disclaimer ??
+                    getPromoDisclaimer(appliedPromo?.code) ??
+                    BETA_ANNUAL_DISCLAIMER}
                 </p>
               </div>
               <label className="flex items-start gap-3">
@@ -226,7 +228,9 @@ export default function CheckoutFlow({
                   className="mt-0.5"
                 />
                 <span className="text-sm text-foreground">
-                  I agree to provide feedback and maintain an active annual subscription for 12 months.
+                  {appliedPromo?.code?.toUpperCase() === "BLUMVOX"
+                    ? "I agree to active beta participation: complete one monthly feedback form for Months 1–3 with thoughtful, usable responses."
+                    : "I agree to active beta participation: complete one monthly feedback form for Months 1–3, and maintain the 12-month annual beta subscription."}
                 </span>
               </label>
             </div>

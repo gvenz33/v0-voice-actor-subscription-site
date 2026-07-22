@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { validatePromoCodeForCheckout } from "@/lib/promo-codes-server"
 import {
-  BETA_DISCLAIMER,
+  getPromoDisclaimer,
   formatCents,
   formatPromoDiscount,
 } from "@/lib/promo-codes"
@@ -44,7 +44,9 @@ export async function POST(request: Request) {
       discountedPriceLabel: formatCents(result.discountedPriceInCents ?? 0),
       billingIntervalRestriction: result.promo.billing_interval_restriction,
       requiresFeedbackAcknowledgement: result.promo.requires_feedback_acknowledgement,
-      disclaimer: result.promo.requires_feedback_acknowledgement ? BETA_DISCLAIMER : null,
+      disclaimer: result.promo.requires_feedback_acknowledgement
+        ? getPromoDisclaimer(result.promo.code)
+        : null,
       appliesToTiers: result.promo.applies_to_tiers,
     })
   } catch (err) {

@@ -13,9 +13,30 @@ export const TIER_MARKETING_NAMES: Record<SubscriptionTierId, string> = {
 }
 
 export const BLUMVOX_PROMO_CODE = "BLUMVOX"
+export const BETA_PROMO_CODE = "BETA"
 
-export const BETA_DISCLAIMER =
-  "As a BlumVox / BVS beta participant, you agree to active beta participation: complete one short monthly feedback form during the first three months (thoughtful, usable responses). After three months, students who completed all three months keep the discounted rate month-to-month. Students who did not participate can continue at the regular monthly rate. Promo applies to Momentum and Command plans on monthly or 3-month prepay billing."
+export const BETA_FEEDBACK_PROGRAM_CODES = [BETA_PROMO_CODE, BLUMVOX_PROMO_CODE] as const
+
+export const BLUMVOX_DISCLAIMER =
+  "As a BlumVox / BVS beta participant, you agree to active beta participation: complete one short monthly feedback form during the first three months (thoughtful, usable responses). After three months, students who completed all three months keep the discounted rate month-to-month. Students who did not participate can continue at the regular monthly rate. Promo applies to Momentum and Command on monthly or 3-month prepay billing."
+
+export const BETA_ANNUAL_DISCLAIMER =
+  "As a VO Biz Suite Beta participant, you agree to active beta participation: complete one short monthly feedback form for Month 1, Month 2, and Month 3 (thoughtful, usable responses) during your 12-month annual plan. After 12 months, beta users who actively participated can keep the discounted rate on monthly or yearly billing. Beta users who did not participate can continue at the regular monthly or yearly rate. Promo applies to Momentum and Command with 12-month (annual) prepay only."
+
+/** @deprecated Prefer getPromoDisclaimer(code) — kept for checkout fallbacks */
+export const BETA_DISCLAIMER = BETA_ANNUAL_DISCLAIMER
+
+export function getPromoDisclaimer(code: string | null | undefined): string | null {
+  const normalized = normalizePromoCode(code ?? "")
+  if (normalized === BETA_PROMO_CODE) return BETA_ANNUAL_DISCLAIMER
+  if (normalized === BLUMVOX_PROMO_CODE) return BLUMVOX_DISCLAIMER
+  return null
+}
+
+export function isBetaFeedbackPromo(code: string | null | undefined): boolean {
+  const normalized = normalizePromoCode(code ?? "")
+  return (BETA_FEEDBACK_PROGRAM_CODES as readonly string[]).includes(normalized)
+}
 
 export interface PromoCodeRecord {
   id: string

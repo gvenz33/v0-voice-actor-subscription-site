@@ -146,9 +146,9 @@ export default async function AdminDashboard() {
       <Card className="artist-card-green">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>BVS Beta Feedback Progress</CardTitle>
+            <CardTitle>Beta users Feedback Progress</CardTitle>
             <CardDescription>
-              {stats.betaEnrollments} BlumVox student{stats.betaEnrollments === 1 ? "" : "s"} enrolled ·{" "}
+              {stats.betaEnrollments} beta user{stats.betaEnrollments === 1 ? "" : "s"} enrolled ·{" "}
               {stats.betaPending} in active beta
             </CardDescription>
           </div>

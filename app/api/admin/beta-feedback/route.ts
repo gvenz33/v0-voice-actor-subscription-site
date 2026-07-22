@@ -132,7 +132,7 @@ export async function GET(request: Request) {
     return new NextResponse(rows.join("\n"), {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="bvs-beta-feedback.csv"`,
+        "Content-Disposition": `attachment; filename="beta-feedback.csv"`,
       },
     })
   }

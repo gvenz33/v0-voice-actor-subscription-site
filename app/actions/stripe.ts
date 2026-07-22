@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import {
   validatePromoCodeForCheckout,
 } from '@/lib/promo-codes-server'
-import { BETA_DISCLAIMER } from '@/lib/promo-codes'
+import { getPromoDisclaimer } from '@/lib/promo-codes'
 
 function stripeRecurring(interval: BillingInterval): { interval: 'month' | 'year'; interval_count?: number } {
   if (interval === 'year') return { interval: 'year' }
@@ -120,7 +120,9 @@ export async function getCheckoutPromoDetails(
     originalPriceInCents: validation.originalPriceInCents ?? 0,
     discountedPriceInCents: validation.discountedPriceInCents ?? 0,
     requiresFeedbackAcknowledgement: validation.promo.requires_feedback_acknowledgement,
-    disclaimer: validation.promo.requires_feedback_acknowledgement ? BETA_DISCLAIMER : null,
+    disclaimer: validation.promo.requires_feedback_acknowledgement
+      ? getPromoDisclaimer(validation.promo.code)
+      : null,
     billingIntervalRestriction: validation.promo.billing_interval_restriction,
   }
 }
