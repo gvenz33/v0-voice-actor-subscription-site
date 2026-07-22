@@ -6,6 +6,18 @@ export const CONNECT_CAPABILITIES: Stripe.AccountCreateParams.Capabilities = {
   transfers: { requested: true },
 }
 
+/** User-facing message when the platform Stripe account has not enabled Connect yet. */
+export function formatStripeConnectError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error)
+  if (
+    message.includes("signed up for Connect") ||
+    message.includes("signed up for connect")
+  ) {
+    return "Stripe Connect is not enabled on the VO Biz Suite Stripe account yet. The site owner must complete Connect setup at dashboard.stripe.com/connect (enable Express accounts), then try again."
+  }
+  return message || "Failed to connect Stripe"
+}
+
 export async function ensureStripeConnectAccount(params: {
   userId: string
   email: string

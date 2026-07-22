@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import {
   createStripeConnectOnboardingLink,
   ensureStripeConnectAccount,
+  formatStripeConnectError,
 } from "@/lib/stripe-connect"
 
 export async function POST() {
@@ -55,7 +56,7 @@ export async function POST() {
   } catch (error) {
     console.error("[billing/connect-stripe] error:", error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to connect Stripe" },
+      { error: formatStripeConnectError(error) },
       { status: 500 }
     )
   }

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import {
   createStripeConnectOnboardingLink,
   ensureStripeConnectAccount,
+  formatStripeConnectError,
 } from "@/lib/stripe-connect"
 import { requireAffiliateEligible } from "@/lib/affiliate-server"
 
@@ -66,7 +67,7 @@ export async function POST() {
   } catch (error) {
     console.error("[v0] Stripe Connect error:", error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to connect Stripe" },
+      { error: formatStripeConnectError(error) },
       { status: 500 }
     )
   }
