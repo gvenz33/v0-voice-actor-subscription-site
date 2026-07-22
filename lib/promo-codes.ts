@@ -17,6 +17,18 @@ export const BETA_PROMO_CODE = "BETA"
 
 export const BETA_FEEDBACK_PROGRAM_CODES = [BETA_PROMO_CODE, BLUMVOX_PROMO_CODE] as const
 
+export type BetaFeedbackProgram = (typeof BETA_FEEDBACK_PROGRAM_CODES)[number]
+
+export function parseBetaFeedbackProgram(
+  value: string | null | undefined
+): BetaFeedbackProgram | null {
+  const normalized = normalizePromoCode(value ?? "")
+  if ((BETA_FEEDBACK_PROGRAM_CODES as readonly string[]).includes(normalized)) {
+    return normalized as BetaFeedbackProgram
+  }
+  return null
+}
+
 export const BLUMVOX_DISCLAIMER =
   "As a BlumVox / BVS beta participant, you agree to active beta participation: complete one short monthly feedback form during the first three months (thoughtful, usable responses). After three months, students who completed all three months keep the discounted rate month-to-month. Students who did not participate can continue at the regular monthly rate. Promo applies to Momentum and Command on monthly or 3-month prepay billing."
 

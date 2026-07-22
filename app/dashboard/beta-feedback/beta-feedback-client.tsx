@@ -17,6 +17,8 @@ import { Switch } from "@/components/ui/switch"
 import { Loader2, CheckCircle2, Clock, Lock, MessageSquareHeart } from "lucide-react"
 import type { BetaEnrollment, BetaFeedbackSubmission, MonthStatus } from "@/lib/beta-feedback-shared"
 import { currentBetaMonth, monthStatuses } from "@/lib/beta-feedback-shared"
+import type { BetaFeedbackProgram } from "@/lib/promo-codes"
+import { BLUMVOX_PROMO_CODE } from "@/lib/promo-codes"
 
 function StatusBadge({ status }: { status: MonthStatus }) {
   if (status === "complete") {
@@ -43,7 +45,34 @@ function StatusBadge({ status }: { status: MonthStatus }) {
   )
 }
 
-export function BetaFeedbackClient() {
+function programCopy(program: BetaFeedbackProgram) {
+  if (program === BLUMVOX_PROMO_CODE) {
+    return {
+      title: "BVS Beta Feedback",
+      progressTitle: "BVS Beta Feedback Progress",
+      loading: "Loading BVS Beta Feedback…",
+      empty:
+        "This area is for BlumVox students enrolled with promo code BLUMVOX. After you subscribe with that code, your 3-month feedback progress will appear here.",
+      description:
+        "Active beta participation means completing one short monthly feedback form with thoughtful, usable responses during your first three months. After that, students who participated keep the discounted rate month-to-month; others can continue at the regular monthly price.",
+      programLabel: "BVS Beta",
+    }
+  }
+
+  return {
+    title: "Beta Feedback",
+    progressTitle: "Beta Feedback Progress",
+    loading: "Loading Beta Feedback…",
+    empty:
+      "This area is for VO Biz Suite beta participants enrolled with promo code BETA. After you subscribe with that code, your Month 1–3 feedback progress will appear here.",
+    description:
+      "Active beta participation means completing one short monthly feedback form with thoughtful, usable responses for Month 1, Month 2, and Month 3 during your 12-month annual plan. After 12 months, beta users who participated can keep the discounted rate on monthly or yearly billing; others continue at the regular rate.",
+    programLabel: "VO Biz Suite Beta",
+  }
+}
+
+export function BetaFeedbackClient({ program }: { program: BetaFeedbackProgram }) {
+  const copy = programCopy(program)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -61,7 +90,7 @@ export function BetaFeedbackClient() {
     setLoading(true)
     setError("")
     try {
-      const res = await fetch("/api/beta-feedback")
+      const res = await fetch(`/api/beta-feedback?program=${program}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Failed to load")
       setEnrollment(data.enrollment)
@@ -81,7 +110,8 @@ export function BetaFeedbackClient() {
 
   useEffect(() => {
     void load()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [program])
 
   const statuses = useMemo(() => {
     if (!enrollment) return null
@@ -97,6 +127,7 @@ export function BetaFeedbackClient() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          program,
           monthNumber,
           featureUsedMost,
           confusingOrDifficult,
@@ -126,7 +157,7 @@ export function BetaFeedbackClient() {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="size-4 animate-spin" />
-        Loading Beta Feedback…
+        {copy.loading}
       </div>
     )
   }
@@ -137,12 +168,9 @@ export function BetaFeedbackClient() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MessageSquareHeart className="size-4 text-artist-violet" />
-            Beta Feedback
+            {copy.title}
           </CardTitle>
-          <CardDescription>
-            This area is for beta participants enrolled with promo code BETA or BLUMVOX. After you subscribe with
-            one of those codes, your Month 1–3 feedback progress will appear here.
-          </CardDescription>
+          <CardDescription>{copy.empty}</CardDescription>
         </CardHeader>
         {error ? <CardContent className="text-sm text-destructive">{error}</CardContent> : null}
       </Card>
@@ -150,27 +178,20 @@ export function BetaFeedbackClient() {
   }
 
   const formOpen = statuses?.[monthNumber] === "pending"
-  const isAnnualBeta = enrollment.promo_code?.toUpperCase() === "BETA"
-  const programTitle = enrollment.program_label || (isAnnualBeta ? "VO Biz Suite Beta" : "Beta")
+  const programTitle = enrollment.program_label || copy.programLabel
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
       <div>
         <h2 className="font-[family-name:var(--font-heading)] text-2xl font-bold tracking-tight text-foreground">
-          Beta Feedback
+          {copy.title}
         </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Active beta participation means completing one short monthly feedback form with thoughtful, usable responses
-          for Month 1, Month 2, and Month 3
-          {isAnnualBeta
-            ? " during your 12-month annual plan. After 12 months, beta users who participated can keep the discounted rate on monthly or yearly billing; others continue at the regular rate."
-            : ". After the beta period, participants who completed all three months keep the discounted rate month-to-month; others can continue at the regular monthly price."}
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">{copy.description}</p>
       </div>
 
       <Card className="artist-card-green">
         <CardHeader>
-          <CardTitle>Beta Feedback Progress</CardTitle>
+          <CardTitle>{copy.progressTitle}</CardTitle>
           <CardDescription>
             {programTitle} · Status:{" "}
             <span className="font-medium text-foreground">

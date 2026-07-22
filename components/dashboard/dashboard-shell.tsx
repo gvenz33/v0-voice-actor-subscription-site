@@ -27,6 +27,7 @@ import {
   FileText,
   Menu,
   MessageSquareHeart,
+  GraduationCap,
 } from "lucide-react"
 import {
   SidebarProvider,
@@ -140,6 +141,11 @@ const NAV_ITEMS = [
     title: "Beta Feedback",
     href: "/dashboard/beta-feedback",
     icon: MessageSquareHeart,
+  },
+  {
+    title: "BVS Beta Feedback",
+    href: "/dashboard/bvs-beta-feedback",
+    icon: GraduationCap,
   },
 ]
 

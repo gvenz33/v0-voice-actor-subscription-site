@@ -6,6 +6,7 @@ import {
 } from "@/lib/beta-feedback"
 import { monthStatuses } from "@/lib/beta-feedback-shared"
 import { requireAdmin } from "@/lib/admin-auth"
+import { parseBetaFeedbackProgram } from "@/lib/promo-codes"
 
 export async function GET(request: Request) {
   const gate = await requireAdmin()
@@ -18,8 +19,9 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url)
   const exportCsv = searchParams.get("export") === "csv"
+  const program = parseBetaFeedbackProgram(searchParams.get("program"))
 
-  const { enrollments, submissions, profiles } = await listAdminBetaParticipants()
+  const { enrollments, submissions, profiles } = await listAdminBetaParticipants(program)
 
   if (exportCsv) {
     const header = [
@@ -129,10 +131,17 @@ export async function GET(request: Request) {
       }
     }
 
+    const filename =
+      program === "BLUMVOX"
+        ? "bvs-beta-feedback.csv"
+        : program === "BETA"
+          ? "beta-feedback.csv"
+          : "all-beta-feedback.csv"
+
     return new NextResponse(rows.join("\n"), {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="beta-feedback.csv"`,
+        "Content-Disposition": `attachment; filename="${filename}"`,
       },
     })
   }

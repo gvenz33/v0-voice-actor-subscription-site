@@ -41,10 +41,23 @@ async function getAdminStats() {
   const { count: betaEnrollments } = await supabase
     .from("beta_enrollments")
     .select("*", { count: "exact", head: true })
+    .eq("promo_code", "BETA")
 
   const { count: betaPending } = await supabase
     .from("beta_enrollments")
     .select("*", { count: "exact", head: true })
+    .eq("promo_code", "BETA")
+    .eq("status", "active_beta")
+
+  const { count: bvsEnrollments } = await supabase
+    .from("beta_enrollments")
+    .select("*", { count: "exact", head: true })
+    .eq("promo_code", "BLUMVOX")
+
+  const { count: bvsPending } = await supabase
+    .from("beta_enrollments")
+    .select("*", { count: "exact", head: true })
+    .eq("promo_code", "BLUMVOX")
     .eq("status", "active_beta")
 
   return {
@@ -55,6 +68,8 @@ async function getAdminStats() {
     escalatedSupport: escalatedSupport || 0,
     betaEnrollments: betaEnrollments || 0,
     betaPending: betaPending || 0,
+    bvsEnrollments: bvsEnrollments || 0,
+    bvsPending: bvsPending || 0,
   }
 }
 
@@ -143,22 +158,41 @@ export default async function AdminDashboard() {
         </Card>
       )}
 
-      <Card className="artist-card-green">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>Beta users Feedback Progress</CardTitle>
-            <CardDescription>
-              {stats.betaEnrollments} beta user{stats.betaEnrollments === 1 ? "" : "s"} enrolled ·{" "}
-              {stats.betaPending} in active beta
-            </CardDescription>
-          </div>
-          <Link href="/admin/beta-feedback">
-            <Button size="sm" variant="outline">
-              Open feedback
-            </Button>
-          </Link>
-        </CardHeader>
-      </Card>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="artist-card-green">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Beta users Feedback Progress</CardTitle>
+              <CardDescription>
+                {stats.betaEnrollments} beta user{stats.betaEnrollments === 1 ? "" : "s"} enrolled ·{" "}
+                {stats.betaPending} in active beta
+              </CardDescription>
+            </div>
+            <Link href="/admin/beta-feedback">
+              <Button size="sm" variant="outline">
+                Open feedback
+              </Button>
+            </Link>
+          </CardHeader>
+        </Card>
+
+        <Card className="artist-card-violet">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>BVS Beta Feedback Progress</CardTitle>
+              <CardDescription>
+                {stats.bvsEnrollments} BlumVox student{stats.bvsEnrollments === 1 ? "" : "s"} enrolled ·{" "}
+                {stats.bvsPending} in active beta
+              </CardDescription>
+            </div>
+            <Link href="/admin/bvs-beta-feedback">
+              <Button size="sm" variant="outline">
+                Open feedback
+              </Button>
+            </Link>
+          </CardHeader>
+        </Card>
+      </div>
 
       {/* Subscription Breakdown */}
       <Card>

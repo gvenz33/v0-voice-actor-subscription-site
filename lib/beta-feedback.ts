@@ -4,6 +4,7 @@ import {
   BETA_FEEDBACK_PROGRAM_CODES,
   isThoughtfulFeedback,
   normalizePromoCode,
+  type BetaFeedbackProgram,
 } from "@/lib/promo-codes"
 import type {
   BetaEnrollment,
@@ -22,7 +23,9 @@ export type {
 
 export { currentBetaMonth, monthStatuses } from "@/lib/beta-feedback-shared"
 
-export async function getMyBetaEnrollment(): Promise<{
+export async function getMyBetaEnrollment(
+  program?: BetaFeedbackProgram | null
+): Promise<{
   enrollment: BetaEnrollment | null
   submissions: BetaFeedbackSubmission[]
 }> {
@@ -32,12 +35,19 @@ export async function getMyBetaEnrollment(): Promise<{
   } = await supabase.auth.getUser()
   if (!user) return { enrollment: null, submissions: [] }
 
-  const { data: enrollments } = await supabase
+  let query = supabase
     .from("beta_enrollments")
     .select("*")
     .eq("user_id", user.id)
-    .in("promo_code", [...BETA_FEEDBACK_PROGRAM_CODES])
     .order("started_at", { ascending: false })
+
+  if (program) {
+    query = query.eq("promo_code", program)
+  } else {
+    query = query.in("promo_code", [...BETA_FEEDBACK_PROGRAM_CODES])
+  }
+
+  const { data: enrollments } = await query
 
   const enrollment = (enrollments?.[0] as BetaEnrollment | undefined) ?? null
   if (!enrollment) return { enrollment: null, submissions: [] }
@@ -55,7 +65,7 @@ export async function getMyBetaEnrollment(): Promise<{
 }
 
 export async function submitBetaFeedback(
-  input: BetaFeedbackInput
+  input: BetaFeedbackInput & { program?: BetaFeedbackProgram | null }
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const fields = [
     input.featureUsedMost,
@@ -77,7 +87,7 @@ export async function submitBetaFeedback(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: "Not authenticated." }
 
-  const { enrollment } = await getMyBetaEnrollment()
+  const { enrollment } = await getMyBetaEnrollment(input.program)
   if (!enrollment) {
     return { ok: false, error: "No beta enrollment found for your account." }
   }
@@ -148,16 +158,25 @@ export async function ensureBetaEnrollmentForUser(
   return data as string | null
 }
 
-export async function listAdminBetaParticipants() {
+export async function listAdminBetaParticipants(program?: BetaFeedbackProgram | null) {
   const supabase = await createClient()
-  const { data: enrollments, error } = await supabase
+  let query = supabase
     .from("beta_enrollments")
     .select("*")
     .order("started_at", { ascending: false })
 
+  if (program) {
+    query = query.eq("promo_code", program)
+  }
+
+  const { data: enrollments, error } = await query
+
   if (error) throw new Error(error.message)
 
-  const userIds = [...new Set((enrollments ?? []).map((e: BetaEnrollment) => e.user_id))]
+  const enrollmentList = (enrollments as BetaEnrollment[]) ?? []
+  const userIds = [...new Set(enrollmentList.map((e) => e.user_id))]
+  const enrollmentIds = enrollmentList.map((e) => e.id)
+
   const { data: profiles } = userIds.length
     ? await supabase
         .from("profiles")
@@ -165,15 +184,18 @@ export async function listAdminBetaParticipants() {
         .in("id", userIds)
     : { data: [] }
 
-  const { data: submissions } = await supabase
-    .from("beta_feedback_submissions")
-    .select("*")
-    .order("created_at", { ascending: false })
+  const { data: submissions } = enrollmentIds.length
+    ? await supabase
+        .from("beta_feedback_submissions")
+        .select("*")
+        .in("enrollment_id", enrollmentIds)
+        .order("created_at", { ascending: false })
+    : { data: [] }
 
   const profileMap = new Map((profiles ?? []).map((p: { id: string }) => [p.id, p]))
 
   return {
-    enrollments: (enrollments as BetaEnrollment[]) ?? [],
+    enrollments: enrollmentList,
     submissions: (submissions as BetaFeedbackSubmission[]) ?? [],
     profiles: profileMap,
   }

@@ -13,14 +13,14 @@ import { Users, Send, CalendarCheck, Receipt, TrendingUp, Clock, MessageSquareHe
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { monthStatuses, type BetaEnrollment, type BetaFeedbackSubmission } from "@/lib/beta-feedback-shared"
-import { BETA_FEEDBACK_PROGRAM_CODES } from "@/lib/promo-codes"
+import { BETA_PROMO_CODE, BLUMVOX_PROMO_CODE } from "@/lib/promo-codes"
 
 async function fetchDashboardStats() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Not authenticated")
 
-  const [contacts, submissions, bookings, invoices, actionItems, touchpoints, enrollmentRes] =
+  const [contacts, submissions, bookings, invoices, actionItems, touchpoints, betaEnrollmentRes, bvsEnrollmentRes] =
     await Promise.all([
       supabase.from("contacts").select("id, status", { count: "exact" }).eq("user_id", user.id),
       supabase.from("submissions").select("id, status", { count: "exact" }).eq("user_id", user.id),
@@ -32,7 +32,15 @@ async function fetchDashboardStats() {
         .from("beta_enrollments")
         .select("*")
         .eq("user_id", user.id)
-        .in("promo_code", [...BETA_FEEDBACK_PROGRAM_CODES])
+        .eq("promo_code", BETA_PROMO_CODE)
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("beta_enrollments")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("promo_code", BLUMVOX_PROMO_CODE)
         .order("started_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
@@ -44,20 +52,25 @@ async function fetchDashboardStats() {
   const paidInvoices = invoices.data?.filter((i) => i.status === "paid") || []
   const earnedAmount = paidInvoices.reduce((sum, inv) => sum + Number(inv.amount || 0), 0)
 
-  let betaFeedback: { enrollment: BetaEnrollment; months: ReturnType<typeof monthStatuses> } | null = null
-  if (enrollmentRes.data) {
+  async function loadProgress(enrollment: BetaEnrollment | null) {
+    if (!enrollment) return null
     const { data: feedbackRows } = await supabase
       .from("beta_feedback_submissions")
       .select("month_number")
-      .eq("enrollment_id", enrollmentRes.data.id)
-    betaFeedback = {
-      enrollment: enrollmentRes.data as BetaEnrollment,
+      .eq("enrollment_id", enrollment.id)
+    return {
+      enrollment,
       months: monthStatuses(
-        enrollmentRes.data as BetaEnrollment,
+        enrollment,
         (feedbackRows as Pick<BetaFeedbackSubmission, "month_number">[]) ?? []
       ),
     }
   }
+
+  const [betaFeedback, bvsFeedback] = await Promise.all([
+    loadProgress(betaEnrollmentRes.data as BetaEnrollment | null),
+    loadProgress(bvsEnrollmentRes.data as BetaEnrollment | null),
+  ])
 
   return {
     totalContacts: contacts.count || 0,
@@ -68,6 +81,7 @@ async function fetchDashboardStats() {
     upcomingActions: actionItems.data || [],
     plannedTouchpoints: touchpoints.count || 0,
     betaFeedback,
+    bvsFeedback,
   }
 }
 
@@ -170,30 +184,59 @@ export default function CommandCenter() {
         ))}
       </div>
 
-      {stats.betaFeedback && (
-        <Link href="/dashboard/beta-feedback">
-          <Card className="artist-card-green cursor-pointer transition-shadow hover:shadow-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <MessageSquareHeart className="size-4 text-artist-green" />
-                Beta Feedback Progress
-              </CardTitle>
-              <CardDescription>
-                Active beta participation — one short feedback form each month for Month 1, 2, and 3.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-3">
-              {([1, 2, 3] as const).map((m) => (
-                <div key={m} className="rounded-lg border border-border px-3 py-2 text-sm">
-                  <span className="font-medium text-foreground">Month {m}: </span>
-                  <Badge variant="outline" className="ml-1 capitalize">
-                    {stats.betaFeedback!.months[m]}
-                  </Badge>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </Link>
+      {(stats.betaFeedback || stats.bvsFeedback) && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {stats.betaFeedback && (
+            <Link href="/dashboard/beta-feedback">
+              <Card className="artist-card-green h-full cursor-pointer transition-shadow hover:shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <MessageSquareHeart className="size-4 text-artist-green" />
+                    Beta Feedback Progress
+                  </CardTitle>
+                  <CardDescription>
+                    Active beta participation — one short feedback form each month for Month 1, 2, and 3.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-wrap gap-3">
+                  {([1, 2, 3] as const).map((m) => (
+                    <div key={m} className="rounded-lg border border-border px-3 py-2 text-sm">
+                      <span className="font-medium text-foreground">Month {m}: </span>
+                      <Badge variant="outline" className="ml-1 capitalize">
+                        {stats.betaFeedback!.months[m]}
+                      </Badge>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </Link>
+          )}
+          {stats.bvsFeedback && (
+            <Link href="/dashboard/bvs-beta-feedback">
+              <Card className="artist-card-violet h-full cursor-pointer transition-shadow hover:shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <MessageSquareHeart className="size-4 text-artist-violet" />
+                    BVS Beta Feedback Progress
+                  </CardTitle>
+                  <CardDescription>
+                    Active beta participation — one short feedback form each month for three months.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-wrap gap-3">
+                  {([1, 2, 3] as const).map((m) => (
+                    <div key={m} className="rounded-lg border border-border px-3 py-2 text-sm">
+                      <span className="font-medium text-foreground">Month {m}: </span>
+                      <Badge variant="outline" className="ml-1 capitalize">
+                        {stats.bvsFeedback!.months[m]}
+                      </Badge>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </Link>
+          )}
+        </div>
       )}
 
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">

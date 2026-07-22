@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server"
 import { getMyBetaEnrollment, submitBetaFeedback } from "@/lib/beta-feedback"
 import { createClient } from "@/lib/supabase/server"
+import { parseBetaFeedbackProgram } from "@/lib/promo-codes"
 
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = await createClient()
   const {
     data: { user },
@@ -11,7 +12,8 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const data = await getMyBetaEnrollment()
+  const program = parseBetaFeedbackProgram(new URL(request.url).searchParams.get("program"))
+  const data = await getMyBetaEnrollment(program)
   return NextResponse.json(data)
 }
 
@@ -25,6 +27,7 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json()) as {
+    program?: string
     monthNumber?: number
     featureUsedMost?: string
     confusingOrDifficult?: string
@@ -39,7 +42,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "monthNumber must be 1, 2, or 3." }, { status: 400 })
   }
 
+  const program = parseBetaFeedbackProgram(body.program)
   const result = await submitBetaFeedback({
+    program,
     monthNumber,
     featureUsedMost: body.featureUsedMost ?? "",
     confusingOrDifficult: body.confusingOrDifficult ?? "",
@@ -53,6 +58,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: result.error }, { status: 400 })
   }
 
-  const data = await getMyBetaEnrollment()
+  const data = await getMyBetaEnrollment(program)
   return NextResponse.json({ ok: true, ...data })
 }

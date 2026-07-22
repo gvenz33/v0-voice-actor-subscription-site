@@ -13,6 +13,7 @@ import {
   Menu,
   Ticket,
   MessageSquareHeart,
+  GraduationCap,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -29,6 +30,7 @@ const adminNavItems = [
   { title: "Users", href: "/admin/users", icon: Users },
   { title: "Promo Codes", href: "/admin/promo-codes", icon: Ticket },
   { title: "Beta Feedback", href: "/admin/beta-feedback", icon: MessageSquareHeart },
+  { title: "BVS Beta Feedback", href: "/admin/bvs-beta-feedback", icon: GraduationCap },
   { title: "Settings", href: "/admin/settings", icon: Settings },
 ] as const
 
