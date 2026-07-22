@@ -8,7 +8,7 @@ import {
 
 export async function POST() {
   try {
-    if (!process.env.STRIPE_SECRET_KEY) {
+    if (!process.env.STRIPE_SECRET_KEY && !process.env.STRIPE_SECRET_KEY_VO?.trim()) {
       return NextResponse.json(
         { error: "Stripe is not configured on this deployment." },
         { status: 503 }

@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { getStripeConnectStatus } from "@/lib/stripe-connect"
+import { getStripeConnectStatus, getPlatformStripeInfo } from "@/lib/stripe-connect"
+import { getStripeKeySource, getStripeMode, getStripeSecretKey } from "@/lib/stripe"
 
 export async function GET() {
   try {
-    if (!process.env.STRIPE_SECRET_KEY) {
+    const secretKey = getStripeSecretKey()
+    if (!secretKey) {
       return NextResponse.json(
-        { configured: false, connected: false, chargesEnabled: false, detailsSubmitted: false },
+        {
+          configured: false,
+          connected: false,
+          chargesEnabled: false,
+          detailsSubmitted: false,
+          platformConnectEnabled: false,
+        },
         { status: 200 }
       )
     }
@@ -26,10 +34,18 @@ export async function GET() {
       .eq("id", user.id)
       .single()
 
-    const status = await getStripeConnectStatus(profile?.stripe_connect_account_id)
+    const [status, platform] = await Promise.all([
+      getStripeConnectStatus(profile?.stripe_connect_account_id),
+      getPlatformStripeInfo(),
+    ])
 
     return NextResponse.json({
       configured: true,
+      stripeMode: getStripeMode(),
+      stripeKeySource: getStripeKeySource(),
+      platformConnectEnabled: platform.connectEnabled,
+      platformStripeAccountId: platform.accountId,
+      platformStripeDisplayName: platform.displayName,
       ...status,
     })
   } catch (error) {

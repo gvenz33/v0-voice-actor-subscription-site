@@ -1,4 +1,4 @@
-import { getStripe } from "@/lib/stripe"
+import { getStripe, getStripeKeySource, getStripeMode } from "@/lib/stripe"
 import type Stripe from "stripe"
 
 export const CONNECT_CAPABILITIES: Stripe.AccountCreateParams.Capabilities = {
@@ -13,7 +13,13 @@ export function formatStripeConnectError(error: unknown): string {
     message.includes("signed up for Connect") ||
     message.includes("signed up for connect")
   ) {
-    return "Stripe Connect is not enabled on the VO Biz Suite Stripe account yet. The site owner must complete Connect setup at dashboard.stripe.com/connect (enable Express accounts), then try again."
+    const source = getStripeKeySource()
+    const mode = getStripeMode()
+    const keyHint =
+      source === "legacy"
+        ? " Production is using STRIPE_SECRET_KEY (legacy sandbox). Set STRIPE_SECRET_KEY_VO in Vercel to your VOBizSuite secret key, or replace STRIPE_SECRET_KEY with the account where Connect is enabled."
+        : " Enable Connect on the same Stripe account and mode (test vs live) as your Vercel secret key."
+    return `Stripe Connect is not enabled for the Stripe account this site is using (${mode} mode).${keyHint} Dashboard: https://dashboard.stripe.com/connect`
   }
   return message || "Failed to connect Stripe"
 }
@@ -74,6 +80,50 @@ export async function getStripeConnectStatus(connectAccountId: string | null | u
     chargesEnabled: account.charges_enabled ?? false,
     detailsSubmitted: account.details_submitted ?? false,
     payoutsEnabled: account.payouts_enabled ?? false,
+  }
+}
+
+export async function probePlatformStripeConnect(): Promise<{
+  enabled: boolean
+  error?: string
+}> {
+  const stripe = getStripe()
+  try {
+    const account = await stripe.accounts.create({
+      type: "express",
+      country: "US",
+      capabilities: CONNECT_CAPABILITIES,
+      metadata: { connect_probe: "true" },
+    })
+    await stripe.accounts.del(account.id)
+    return { enabled: true }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (
+      message.includes("signed up for Connect") ||
+      message.includes("signed up for connect")
+    ) {
+      return { enabled: false, error: message }
+    }
+    throw error
+  }
+}
+
+export async function getPlatformStripeInfo() {
+  const stripe = getStripe()
+  const account = await stripe.accounts.retrieve()
+  const connect = await probePlatformStripeConnect()
+  return {
+    accountId: account.id,
+    displayName:
+      account.settings?.dashboard?.display_name ||
+      account.business_profile?.name ||
+      null,
+    country: account.country ?? null,
+    connectEnabled: connect.enabled,
+    connectError: connect.error ?? null,
+    mode: getStripeMode(),
+    keySource: getStripeKeySource(),
   }
 }
 
