@@ -4,7 +4,6 @@ import {
   createStripeConnectOnboardingLink,
   ensureStripeConnectAccount,
 } from "@/lib/stripe-connect"
-import { requireAffiliateEligible } from "@/lib/affiliate-server"
 
 export async function POST() {
   try {
@@ -16,22 +15,12 @@ export async function POST() {
     }
 
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
     if (!user) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-    }
-
-    const eligibility = await requireAffiliateEligible(
-      supabase,
-      user.id,
-      user.email
-    )
-    if (!eligibility.ok) {
-      return NextResponse.json(
-        { error: eligibility.error },
-        { status: eligibility.status }
-      )
     }
 
     const { data: profile } = await supabase
@@ -58,13 +47,13 @@ export async function POST() {
     const origin = process.env.NEXT_PUBLIC_APP_URL || "https://vobizsuite.io"
     const url = await createStripeConnectOnboardingLink({
       accountId,
-      refreshUrl: `${origin}/dashboard/affiliate?stripe=refresh`,
-      returnUrl: `${origin}/dashboard/affiliate?stripe=success`,
+      refreshUrl: `${origin}/dashboard/billing?stripe=refresh`,
+      returnUrl: `${origin}/dashboard/billing?stripe=success`,
     })
 
     return NextResponse.json({ url })
   } catch (error) {
-    console.error("[v0] Stripe Connect error:", error)
+    console.error("[billing/connect-stripe] error:", error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to connect Stripe" },
       { status: 500 }

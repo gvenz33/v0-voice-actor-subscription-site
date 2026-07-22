@@ -103,7 +103,7 @@ export async function POST(req: Request) {
       }
     } else {
       warnings.push(
-        "No pay link included. Connect Stripe under Affiliate to accept online invoice payments."
+        "No pay link included. Connect Stripe under Billing Desk to accept online invoice payments."
       )
     }
 

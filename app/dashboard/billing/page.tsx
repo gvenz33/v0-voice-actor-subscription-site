@@ -13,8 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { EmailAttachmentPicker } from "@/components/email-attachment-picker"
-import { Plus, Search, Receipt, Trash2, Pencil, DollarSign, Send, Loader2, FileDown, Download } from "lucide-react"
-import Link from "next/link"
+import { Plus, Search, Receipt, Trash2, Pencil, DollarSign, Send, Loader2, FileDown, Download, CreditCard, CheckCircle2 } from "lucide-react"
 import { downloadFromApi } from "@/lib/download-blob"
 import { fetchContactsPicker } from "@/lib/fetch-contacts-picker"
 import {
@@ -202,8 +201,24 @@ function formatHours(durationHours: number) {
   return `${h}h ${m}m`
 }
 
+async function fetchStripeConnectStatus() {
+  const res = await fetch("/api/billing/connect-status")
+  if (!res.ok) throw new Error("Failed to load Stripe status")
+  return res.json() as Promise<{
+    configured: boolean
+    connected: boolean
+    chargesEnabled: boolean
+    detailsSubmitted: boolean
+    payoutsEnabled: boolean
+  }>
+}
+
 export default function BillingDesk() {
   const { data: invoices, isLoading } = useSWR("invoices", fetchInvoices)
+  const { data: stripeStatus, mutate: mutateStripeStatus } = useSWR(
+    "billing-stripe-connect",
+    fetchStripeConnectStatus
+  )
   const { data: contactOptions } = useSWR("contact-picker", fetchContactsPicker)
   const { data: demoReelsData } = useSWR("/api/demo-reels", async (url) => {
     const res = await fetch(url)
@@ -226,7 +241,41 @@ export default function BillingDesk() {
   const [invoiceAttachments, setInvoiceAttachments] = useState<File[]>([])
   const [selectedDemoReelIds, setSelectedDemoReelIds] = useState<string[]>([])
   const [selectedUserMediaIds, setSelectedUserMediaIds] = useState<string[]>([])
+  const [connectingStripe, setConnectingStripe] = useState(false)
+  const [stripeNotice, setStripeNotice] = useState<string | null>(null)
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const stripeParam = params.get("stripe")
+    if (stripeParam === "success") {
+      setStripeNotice("Stripe setup updated. If payments are enabled, pay links will be included when you send invoices.")
+      void mutateStripeStatus()
+    } else if (stripeParam === "refresh") {
+      setStripeNotice("Please finish connecting Stripe to accept online invoice payments.")
+    }
+    if (stripeParam) {
+      const url = new URL(window.location.href)
+      url.searchParams.delete("stripe")
+      window.history.replaceState({}, "", url.pathname + url.search)
+    }
+  }, [mutateStripeStatus])
+
+  const handleConnectStripe = async () => {
+    setConnectingStripe(true)
+    setStripeNotice(null)
+    try {
+      const res = await fetch("/api/billing/connect-stripe", { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to connect Stripe")
+      if (data.url) window.location.href = data.url
+    } catch (err) {
+      setStripeNotice(err instanceof Error ? err.message : "Failed to connect Stripe")
+    } finally {
+      setConnectingStripe(false)
+    }
+  }
+
+  const stripeReady = Boolean(stripeStatus?.chargesEnabled)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const q = params.get("wordCount")
@@ -538,9 +587,15 @@ export default function BillingDesk() {
                 {line.includes("Connect Stripe") ? (
                   <>
                     {line}{" "}
-                    <Link href="/dashboard/affiliate" className="underline">
-                      Connect Stripe in Affiliate
-                    </Link>
+                    <button
+                      type="button"
+                      className="underline"
+                      onClick={() => {
+                        document.getElementById("get-paid-stripe")?.scrollIntoView({ behavior: "smooth" })
+                      }}
+                    >
+                      Connect Stripe below
+                    </button>
                     .
                   </>
                 ) : (
@@ -549,6 +604,12 @@ export default function BillingDesk() {
               </p>
             ))}
           </AlertDescription>
+        </Alert>
+      )}
+      {stripeNotice && (
+        <Alert className="border-artist-green/30 bg-artist-green/5">
+          <AlertTitle>Stripe</AlertTitle>
+          <AlertDescription>{stripeNotice}</AlertDescription>
         </Alert>
       )}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -809,11 +870,7 @@ export default function BillingDesk() {
 
                 <div className="flex flex-col items-stretch gap-2 sm:items-end">
                   <p className="text-xs text-muted-foreground">
-                    Email includes a PDF invoice.{" "}
-                    <Link href="/dashboard/affiliate" className="underline">
-                      Connect Stripe
-                    </Link>{" "}
-                    to add a pay-online button.
+                    Email includes a PDF invoice. Connect Stripe above to add a pay-online button.
                   </p>
                   <Button
                     type="button"
@@ -853,6 +910,46 @@ export default function BillingDesk() {
         </Dialog>
         </div>
       </div>
+
+      <Card id="get-paid-stripe" className="artist-card-teal ring-1 ring-artist-teal/30">
+        <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-artist-teal/20">
+              {stripeReady ? (
+                <CheckCircle2 className="size-5 text-artist-teal" />
+              ) : (
+                <CreditCard className="size-5 text-artist-teal" />
+              )}
+            </div>
+            <div>
+              <CardTitle className="text-base">Get paid with Stripe</CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {stripeReady
+                  ? "Your account is ready. Clients can pay invoices online by card when you send an invoice."
+                  : stripeStatus?.connected && stripeStatus.detailsSubmitted
+                    ? "Finish Stripe setup to enable card payments on invoice emails."
+                    : "Connect Stripe so clients can pay your invoices online by card. Payouts go to your bank on Stripe's schedule."}
+              </p>
+            </div>
+          </div>
+          {!stripeReady && (
+            <Button
+              type="button"
+              variant="success"
+              className="min-h-[44px] shrink-0"
+              disabled={connectingStripe || stripeStatus === undefined}
+              onClick={() => void handleConnectStripe()}
+            >
+              {connectingStripe ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : (
+                <CreditCard className="mr-2 size-4" />
+              )}
+              {stripeStatus?.connected ? "Continue Stripe setup" : "Connect Stripe"}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
         <Card className="border-violet-500/20">

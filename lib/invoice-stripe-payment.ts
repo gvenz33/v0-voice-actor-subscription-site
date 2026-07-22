@@ -19,11 +19,12 @@ export async function createInvoicePaymentLink(params: {
 
   if (!account.charges_enabled) {
     throw new Error(
-      "Your Stripe account is not ready to accept payments. Complete Stripe Connect setup under Affiliate, then try again."
+      "Your Stripe account is not ready to accept payments. Complete Stripe Connect setup under Billing Desk, then try again."
     )
   }
 
   const origin = process.env.NEXT_PUBLIC_APP_URL || "https://vobizsuite.io"
+  const invoiceQuery = encodeURIComponent(params.invoiceId)
 
   const session = await stripe.checkout.sessions.create(
     {
@@ -43,9 +44,10 @@ export async function createInvoicePaymentLink(params: {
           quantity: 1,
         },
       ],
-      success_url: `${origin}/dashboard/billing?invoice_paid=${encodeURIComponent(params.invoiceId)}`,
-      cancel_url: `${origin}/dashboard/billing`,
+      success_url: `${origin}/pay/success?invoice_id=${invoiceQuery}`,
+      cancel_url: `${origin}/pay/cancel?invoice_id=${invoiceQuery}`,
       metadata: {
+        payment_type: "invoice",
         invoice_id: params.invoiceId,
         user_id: params.userId,
         invoice_number: params.invoiceNumber,

@@ -53,6 +53,37 @@ export async function POST(request: NextRequest) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session
 
+      if (
+        supabase &&
+        session.mode === "payment" &&
+        session.metadata?.invoice_id &&
+        (session.metadata.payment_type === "invoice" || event.account)
+      ) {
+        const invoiceId = session.metadata.invoice_id
+        const paidAt = new Date().toISOString()
+
+        const { data: existing } = await supabase
+          .from("invoices")
+          .select("id, status")
+          .eq("id", invoiceId)
+          .maybeSingle()
+
+        if (existing && existing.status !== "paid") {
+          const { error: invoiceUpdateError } = await supabase
+            .from("invoices")
+            .update({
+              status: "paid",
+              paid_at: paidAt,
+              stripe_payment_link_id: session.id,
+            })
+            .eq("id", invoiceId)
+
+          if (invoiceUpdateError) {
+            console.error("[stripe webhook] invoice paid update failed:", invoiceUpdateError)
+          }
+        }
+      }
+
       if (session.metadata?.tokens && session.metadata?.user_id) {
         const tokens = parseInt(session.metadata.tokens, 10)
         const userId = session.metadata.user_id
