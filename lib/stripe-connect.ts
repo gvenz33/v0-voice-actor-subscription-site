@@ -10,6 +10,12 @@ export const CONNECT_CAPABILITIES: Stripe.AccountCreateParams.Capabilities = {
 export function formatStripeConnectError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error)
   if (
+    message.includes("managing losses") ||
+    message.includes("platform-profile")
+  ) {
+    return "Almost there: open the VOBizSuite Stripe Connect platform profile and review/accept responsibilities for connected-account losses, then try again. https://dashboard.stripe.com/settings/connect/platform-profile"
+  }
+  if (
     message.includes("Accounts v1") ||
     message.includes("feat_accounts_v1_support") ||
     message.includes("POST /v2/core/accounts")
