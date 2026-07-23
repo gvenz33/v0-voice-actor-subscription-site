@@ -8,8 +8,9 @@ import {
 import { loadStripe } from '@stripe/stripe-js'
 import { startCheckoutSession } from '@/app/actions/stripe'
 import { createClient } from '@/lib/supabase/client'
+import { getStripePublishableKey } from '@/lib/stripe-public'
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
+const stripePromise = loadStripe(getStripePublishableKey()!)
 
 export default function Checkout({ productId, billingInterval = 'month' }: { productId: string; billingInterval?: 'month' | 'year' }) {
   const fetchClientSecret = useCallback(async () => {

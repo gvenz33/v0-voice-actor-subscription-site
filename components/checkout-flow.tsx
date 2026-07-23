@@ -14,8 +14,9 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { AlertCircle, Loader2, Tag } from 'lucide-react'
 import { BETA_ANNUAL_DISCLAIMER, formatCents, getPromoDisclaimer } from '@/lib/promo-codes'
+import { getStripePublishableKey } from '@/lib/stripe-public'
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
+const stripePromise = loadStripe(getStripePublishableKey()!)
 
 interface PromoState {
   code: string

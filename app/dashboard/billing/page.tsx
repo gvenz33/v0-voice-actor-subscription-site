@@ -934,7 +934,8 @@ export default function BillingDesk() {
                 >
                   dashboard.stripe.com/apikeys
                 </a>
-                , then redeploy. Also update <span className="font-mono text-xs">NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</span>{" "}
+                , then redeploy. Also update{" "}
+                <span className="font-mono text-xs">NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_VO</span>{" "}
                 to the matching publishable key.
               </AlertDescription>
             </Alert>

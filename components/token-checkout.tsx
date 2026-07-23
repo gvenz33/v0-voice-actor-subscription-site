@@ -8,8 +8,9 @@ import {
 import { loadStripe } from '@stripe/stripe-js'
 
 import { startTokenCheckoutSession } from '@/app/actions/stripe'
+import { getStripePublishableKey } from '@/lib/stripe-public'
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
+const stripePromise = loadStripe(getStripePublishableKey()!)
 
 export default function TokenCheckout({ packageId, onComplete }: { packageId: string; onComplete?: () => void }) {
   const fetchClientSecret = useCallback(async () => {
