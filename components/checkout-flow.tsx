@@ -205,6 +205,12 @@ export default function CheckoutFlow({
               </span>{' '}
               ({formatCents(appliedPromo.discountAppliedCents)} saved)
             </p>
+            {appliedPromo.requiresFeedbackAcknowledgement && (
+              <p className="mt-2 text-amber-700 dark:text-amber-400">
+                This promo enrolls you in a beta program. Review and accept the terms &amp; conditions below
+                before checkout.
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -215,7 +221,9 @@ export default function CheckoutFlow({
             <AlertCircle className="mt-0.5 size-5 shrink-0 text-amber-500" />
             <div className="space-y-3">
               <div>
-                <h2 className="text-sm font-semibold text-foreground">Active Beta Participation</h2>
+                <h2 className="text-sm font-semibold text-foreground">
+                  Beta Program Terms &amp; Conditions
+                </h2>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                   {appliedPromo?.disclaimer ??
                     getPromoDisclaimer(appliedPromo?.code) ??
@@ -230,8 +238,8 @@ export default function CheckoutFlow({
                 />
                 <span className="text-sm text-foreground">
                   {appliedPromo?.code?.toUpperCase() === "BLUMVOX"
-                    ? "I agree to active beta participation: complete one monthly feedback form for Months 1–3 with thoughtful, usable responses."
-                    : "I agree to active beta participation: complete one monthly feedback form for Months 1–3, and maintain the 12-month annual beta subscription."}
+                    ? "I have read and agree to the BlumVox / BVS beta program terms & conditions: initial 3-month prepay at the promo rate, one monthly feedback form for Months 1–3, and month-to-month discounted billing only if all three feedbacks are completed."
+                    : "I have read and agree to the VO Biz Suite Beta program terms & conditions, including completing one monthly feedback form for Months 1–3 and maintaining the 12-month annual beta subscription."}
                 </span>
               </label>
             </div>
@@ -243,7 +251,7 @@ export default function CheckoutFlow({
         <div className="rounded-xl border border-border bg-background p-5 text-center">
           <p className="text-sm text-muted-foreground">
             {requiresAcknowledgement && !betaAcknowledged
-              ? 'Please accept the Beta tester agreement to continue to checkout.'
+              ? 'Please accept the beta program terms & conditions to continue to checkout.'
               : 'Ready to complete your subscription?'}
           </p>
           <Button

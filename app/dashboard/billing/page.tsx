@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { EmailAttachmentPicker } from "@/components/email-attachment-picker"
-import { Plus, Search, Receipt, Trash2, Pencil, DollarSign, Send, Loader2, FileDown, Download, CreditCard, CheckCircle2 } from "lucide-react"
+import { Plus, Search, Receipt, Trash2, Pencil, DollarSign, Send, Loader2, FileDown, Download, CreditCard, CheckCircle2, Landmark } from "lucide-react"
 import { downloadFromApi } from "@/lib/download-blob"
 import { fetchContactsPicker } from "@/lib/fetch-contacts-picker"
 import {
@@ -944,6 +944,26 @@ export default function BillingDesk() {
                       ? "Finish Stripe setup to enable card payments on invoice emails."
                       : "Connect Stripe so clients can pay your invoices online by card. Payouts go to your bank on Stripe's schedule."}
                 </p>
+                <ul className="mt-3 space-y-1.5 text-xs text-muted-foreground">
+                  <li className="flex items-start gap-2">
+                    <Badge variant="secondary" className="shrink-0 text-[10px]">
+                      Live
+                    </Badge>
+                    <span>Card checkout on invoice pay links</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Badge variant="outline" className="shrink-0 text-[10px]">
+                      To be added
+                    </Badge>
+                    <span>ACH / bank transfer payouts and richer payout reporting in Billing Desk</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Badge variant="outline" className="shrink-0 text-[10px]">
+                      To be added
+                    </Badge>
+                    <span>Instant payouts and saved client payment methods</span>
+                  </li>
+                </ul>
               </div>
             </div>
             {!stripeReady && (
@@ -963,6 +983,51 @@ export default function BillingDesk() {
               </Button>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="artist-card-indigo ring-1 ring-artist-indigo/25">
+        <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-artist-indigo/20">
+              <Landmark className="size-5 text-artist-indigo" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <CardTitle className="text-base">Get paid with Plaid</CardTitle>
+                <Badge variant="outline" className="text-[10px]">
+                  To be added
+                </Badge>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Link your bank with Plaid for ACH invoice payments and faster verification. This sits
+                alongside Stripe card checkout when it ships.
+              </p>
+              <ul className="mt-3 space-y-1.5 text-xs text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <Badge variant="outline" className="shrink-0 text-[10px]">
+                    To be added
+                  </Badge>
+                  <span>Secure bank account linking for voice actors</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Badge variant="outline" className="shrink-0 text-[10px]">
+                    To be added
+                  </Badge>
+                  <span>ACH pay options on invoice emails</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Badge variant="outline" className="shrink-0 text-[10px]">
+                    To be added
+                  </Badge>
+                  <span>Balance and transfer status in Billing Desk</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <Button type="button" variant="secondary" className="min-h-[44px] shrink-0" disabled>
+            Coming soon
+          </Button>
         </CardContent>
       </Card>
 

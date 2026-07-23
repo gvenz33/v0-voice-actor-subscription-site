@@ -1,5 +1,5 @@
--- Activate VO Biz Suite BETA promo (50% off Momentum/Command, annual only)
--- and align ensure_beta_enrollment for BETA (12 months) vs BLUMVOX (3 months).
+-- Reactivate VO Biz Suite BETA and BlumVox BLUMVOX promos.
+-- Landing beta popup stays disabled in app code; acknowledgement happens at checkout.
 
 UPDATE public.promo_codes
 SET
@@ -9,9 +9,23 @@ SET
   applies_to_tiers = ARRAY['momentum', 'command'],
   billing_interval_restriction = 'year',
   requires_feedback_acknowledgement = true,
+  valid_until = NULL,
   description = 'VO Biz Suite Beta — 50% off Momentum and Command with 12-month (annual) prepay. Active beta participation: one monthly feedback form for months 1–3. After 12 months, participants who completed feedback keep the discounted rate; others continue at regular rates.',
   updated_at = now()
 WHERE upper(code) = 'BETA';
+
+UPDATE public.promo_codes
+SET
+  active = true,
+  discount_type = 'percent',
+  discount_value = 50,
+  applies_to_tiers = ARRAY['momentum', 'command'],
+  billing_interval_restriction = 'quarter',
+  requires_feedback_acknowledgement = true,
+  valid_until = NULL,
+  description = 'BlumVox students — 50% off Momentum and Command for an initial 3-month prepay. Complete one monthly feedback form in Months 1–3 to keep the discounted rate month-to-month afterward; otherwise continue at the regular monthly rate.',
+  updated_at = now()
+WHERE upper(code) = 'BLUMVOX';
 
 CREATE OR REPLACE FUNCTION public.ensure_beta_enrollment(
   p_user_id uuid,

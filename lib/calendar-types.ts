@@ -4,6 +4,9 @@ export type UnifiedCalendarEvent = {
   start: string
   end: string
   allDay: boolean
-  provider: "google" | "microsoft" | "caldav"
+  provider: "google" | "microsoft" | "caldav" | "manual"
   sourceLabel: string
+  description?: string | null
+  location?: string | null
+  editable?: boolean
 }

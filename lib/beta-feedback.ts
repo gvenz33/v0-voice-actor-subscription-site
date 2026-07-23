@@ -52,6 +52,26 @@ export async function getMyBetaEnrollment(
   const enrollment = (enrollments?.[0] as BetaEnrollment | undefined) ?? null
   if (!enrollment) return { enrollment: null, submissions: [] }
 
+  // BlumVox initial window ended without all feedback → regular monthly rate
+  if (
+    normalizePromoCode(enrollment.promo_code) === "BLUMVOX" &&
+    enrollment.status === "active_beta" &&
+    new Date(enrollment.ends_at).getTime() < Date.now()
+  ) {
+    const admin = createAdminClient()
+    await admin
+      .from("beta_enrollments")
+      .update({ status: "regular_rate", updated_at: new Date().toISOString() })
+      .eq("id", enrollment.id)
+    enrollment.status = "regular_rate"
+    try {
+      const { convertBlumvoxToRegularMonthly } = await import("@/lib/blumvox-billing")
+      await convertBlumvoxToRegularMonthly(user.id)
+    } catch (err) {
+      console.error("[blumvox] regular monthly conversion failed:", err)
+    }
+  }
+
   const { data: submissions } = await supabase
     .from("beta_feedback_submissions")
     .select("*")
@@ -134,6 +154,15 @@ export async function submitBetaFeedback(
       .from("beta_enrollments")
       .update({ status: "retained_discount", updated_at: new Date().toISOString() })
       .eq("id", enrollment.id)
+
+    if (normalizePromoCode(enrollment.promo_code) === "BLUMVOX") {
+      try {
+        const { convertBlumvoxToRetainedMonthly } = await import("@/lib/blumvox-billing")
+        await convertBlumvoxToRetainedMonthly(user.id)
+      } catch (err) {
+        console.error("[blumvox] retained monthly conversion failed:", err)
+      }
+    }
   }
 
   return { ok: true }

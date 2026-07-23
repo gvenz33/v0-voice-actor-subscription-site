@@ -52,9 +52,9 @@ function programCopy(program: BetaFeedbackProgram) {
       progressTitle: "BVS Beta Feedback Progress",
       loading: "Loading BVS Beta Feedback…",
       empty:
-        "This area is for BlumVox students enrolled with promo code BLUMVOX. After you subscribe with that code, your 3-month feedback progress will appear here.",
+        "This area is for BlumVox students enrolled with promo code BLUMVOX. After you subscribe with the 3-month prepay, your monthly feedback progress will appear here.",
       description:
-        "Active beta participation means completing one short monthly feedback form with thoughtful, usable responses during your first three months. After that, students who participated keep the discounted rate month-to-month; others can continue at the regular monthly price.",
+        "Your BlumVox promo starts as a 3-month prepay. Complete one short monthly feedback form (thoughtful, usable responses) in Months 1, 2, and 3. Finish all three to keep the discounted rate month-to-month afterward; otherwise you can continue at the regular monthly price.",
       programLabel: "BVS Beta",
     }
   }
@@ -196,7 +196,9 @@ export function BetaFeedbackClient({ program }: { program: BetaFeedbackProgram }
             {programTitle} · Status:{" "}
             <span className="font-medium text-foreground">
               {enrollment.status === "retained_discount"
-                ? "Discount retained (active participation complete)"
+                ? program === BLUMVOX_PROMO_CODE
+                  ? "Discount retained — continues month-to-month after your 3-month prepay"
+                  : "Discount retained (active participation complete)"
                 : enrollment.status === "regular_rate"
                   ? "Regular rate"
                   : "Active beta (months 1–3)"}

@@ -11,9 +11,12 @@ export function formatStripeConnectError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error)
   if (
     message.includes("managing losses") ||
-    message.includes("platform-profile")
+    message.includes("platform-profile") ||
+    message.includes("complete your platform profile") ||
+    message.includes("answer the questionnaire") ||
+    message.includes("connect/accounts/overview")
   ) {
-    return "Almost there: open the VOBizSuite Stripe Connect platform profile and review/accept responsibilities for connected-account losses, then try again. https://dashboard.stripe.com/settings/connect/platform-profile"
+    return "Almost there: finish the VOBizSuite Stripe Connect platform profile questionnaire (Live mode), then try Connect again. https://dashboard.stripe.com/settings/connect/platform-profile"
   }
   if (
     message.includes("Accounts v1") ||

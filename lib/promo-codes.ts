@@ -30,10 +30,10 @@ export function parseBetaFeedbackProgram(
 }
 
 export const BLUMVOX_DISCLAIMER =
-  "As a BlumVox / BVS beta participant, you agree to active beta participation: complete one short monthly feedback form during the first three months (thoughtful, usable responses). After three months, students who completed all three months keep the discounted rate month-to-month. Students who did not participate can continue at the regular monthly rate. Promo applies to Momentum and Command on monthly or 3-month prepay billing."
+  "Beta program terms & conditions: By using promo code BLUMVOX, you join the BlumVox / BVS beta program with an initial 3-month prepay at 50% off Momentum or Command. During those three months you must complete one short monthly feedback form (thoughtful, usable responses). If you complete all three monthly feedbacks, you keep the discounted rate on a month-to-month basis afterward. If you do not complete the required feedback, you can continue at the regular monthly rate after the initial 3 months. Promo applies to Momentum and Command with 3-month prepay only at signup."
 
 export const BETA_ANNUAL_DISCLAIMER =
-  "As a VO Biz Suite Beta participant, you agree to active beta participation: complete one short monthly feedback form for Month 1, Month 2, and Month 3 (thoughtful, usable responses) during your 12-month annual plan. After 12 months, beta users who actively participated can keep the discounted rate on monthly or yearly billing. Beta users who did not participate can continue at the regular monthly or yearly rate. Promo applies to Momentum and Command with 12-month (annual) prepay only."
+  "Beta program terms & conditions: By using promo code BETA, you join the VO Biz Suite Beta program and agree to active participation — complete one short monthly feedback form for Month 1, Month 2, and Month 3 (thoughtful, usable responses) during your 12-month annual plan. After 12 months, beta users who actively participated can keep the discounted rate on monthly or yearly billing. Beta users who did not participate can continue at the regular monthly or yearly rate. Promo applies to Momentum and Command with 12-month (annual) prepay only."
 
 /** @deprecated Prefer getPromoDisclaimer(code) — kept for checkout fallbacks */
 export const BETA_DISCLAIMER = BETA_ANNUAL_DISCLAIMER
@@ -160,11 +160,12 @@ export function validatePromoForCheckout(
     return { valid: false, error: msg }
   }
 
-  // BlumVox students: monthly or 3-month prepay only (not annual)
-  if (normalizePromoCode(promo.code) === BLUMVOX_PROMO_CODE && interval === "year") {
+  // BlumVox students: initial 3-month prepay only (month-to-month retention is post-feedback)
+  if (normalizePromoCode(promo.code) === BLUMVOX_PROMO_CODE && interval !== "quarter") {
     return {
       valid: false,
-      error: "BLUMVOX applies to monthly or 3-month prepay plans — not annual billing.",
+      error:
+        "BLUMVOX starts with a 3-month prepay plan only. After you complete Months 1–3 feedback, you can keep the discount month-to-month.",
     }
   }
 

@@ -26,21 +26,20 @@ export function Pricing() {
   const [billingInterval, setBillingInterval] = useState<BillingInterval>(() => {
     const parsed = parseInterval(intervalFromUrl)
     if (isBeta) return 'year'
-    if (isBlumvox && parsed === 'year') return 'month'
+    if (isBlumvox) return 'quarter'
     return parsed
   })
 
   useEffect(() => {
-    const parsed = parseInterval(intervalFromUrl)
     if (isBeta) {
       setBillingInterval('year')
       return
     }
-    if (isBlumvox && parsed === 'year') {
-      setBillingInterval('month')
+    if (isBlumvox) {
+      setBillingInterval('quarter')
       return
     }
-    if (intervalFromUrl) setBillingInterval(parsed)
+    if (intervalFromUrl) setBillingInterval(parseInterval(intervalFromUrl))
   }, [intervalFromUrl, isBlumvox, isBeta])
 
   const promoQuery = promoFromUrl
@@ -65,9 +64,9 @@ export function Pricing() {
               <span>
                 Code <span className="font-mono font-semibold">{promoFromUrl.toUpperCase()}</span>
                 {isBeta
-                  ? ' — 50% off Momentum & Command (12-month annual prepay). Active beta participation required.'
+                  ? ' — 50% off Momentum & Command (12-month annual prepay). Beta program terms apply at checkout.'
                   : isBlumvox
-                    ? ' — 50% off Momentum & Command (monthly or 3-month prepay).'
+                    ? ' — 50% off Momentum & Command for an initial 3-month prepay. Complete Months 1–3 feedback to keep the discount month-to-month.'
                     : ' will be applied at checkout on eligible plans.'}
               </span>
             </div>
@@ -75,7 +74,7 @@ export function Pricing() {
         </div>
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-          {!isBeta && (
+          {!isBeta && !isBlumvox && (
             <button
               onClick={() => setBillingInterval('month')}
               className={cn(
@@ -129,7 +128,7 @@ export function Pricing() {
 
         {isBlumvox && (
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            BlumVox students: choose monthly or 3-month prepay. Active beta participation includes one feedback form each month for three months.
+            BlumVox students start with a 3-month prepay at 50% off. Submit one feedback form each month; complete all three to keep the discount month-to-month afterward.
           </p>
         )}
 
