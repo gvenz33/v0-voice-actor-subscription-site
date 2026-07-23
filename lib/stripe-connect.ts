@@ -10,6 +10,13 @@ export const CONNECT_CAPABILITIES: Stripe.AccountCreateParams.Capabilities = {
 export function formatStripeConnectError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error)
   if (
+    message.includes("Accounts v1") ||
+    message.includes("feat_accounts_v1_support") ||
+    message.includes("POST /v2/core/accounts")
+  ) {
+    return "Stripe requires Accounts v1 support for this Connect setup. In the VOBizSuite Stripe Dashboard (same test/live mode as your keys), enable Accounts v1 at dashboard.stripe.com/settings/features/feat_accounts_v1_support, then try again."
+  }
+  if (
     message.includes("signed up for Connect") ||
     message.includes("signed up for connect")
   ) {
@@ -36,11 +43,16 @@ export async function ensureStripeConnectAccount(params: {
 
   if (!accountId) {
     const account = await stripe.accounts.create({
-      type: "express",
       country: "US",
       email: params.email,
       capabilities: CONNECT_CAPABILITIES,
       business_type: "individual",
+      controller: {
+        stripe_dashboard: { type: "express" },
+        fees: { payer: "application" },
+        losses: { payments: "application" },
+        requirement_collection: "stripe",
+      },
       individual: {
         first_name: params.firstName || undefined,
         last_name: params.lastName || undefined,
