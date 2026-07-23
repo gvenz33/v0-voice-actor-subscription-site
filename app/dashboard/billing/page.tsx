@@ -211,6 +211,7 @@ async function fetchStripeConnectStatus() {
     detailsSubmitted: boolean
     payoutsEnabled: boolean
     platformConnectEnabled?: boolean
+    platformConnectError?: string | null
     platformStripeDisplayName?: string | null
     stripeMode?: string
     stripeKeySource?: string
@@ -280,7 +281,8 @@ export default function BillingDesk() {
   }
 
   const stripeReady = Boolean(stripeStatus?.chargesEnabled)
-  const platformConnectReady = stripeStatus?.platformConnectEnabled !== false
+  const platformConnectReady = Boolean(stripeStatus?.platformConnectEnabled)
+  const platformSetupMessage = stripeStatus?.platformConnectError || null
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const q = params.get("wordCount")
@@ -918,26 +920,10 @@ export default function BillingDesk() {
 
       <Card id="get-paid-stripe" className="artist-card-teal ring-1 ring-artist-teal/30">
         <CardContent className="flex flex-col gap-4 p-6">
-          {!platformConnectReady && stripeStatus?.configured && (
-            <Alert variant="destructive" className="border-amber-500/40 bg-amber-500/10">
-              <AlertTitle>Stripe account mismatch</AlertTitle>
-              <AlertDescription className="text-sm">
-                The site is using Stripe account{" "}
-                <span className="font-medium">{stripeStatus.platformStripeDisplayName || "legacy sandbox"}</span> (
-                {stripeStatus.stripeMode} mode) without Connect enabled. In Vercel, set{" "}
-                <span className="font-mono text-xs">STRIPE_SECRET_KEY_VO</span> to your VOBizSuite secret key from{" "}
-                <a
-                  href="https://dashboard.stripe.com/apikeys"
-                  className="underline"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  dashboard.stripe.com/apikeys
-                </a>
-                , then redeploy. Also update{" "}
-                <span className="font-mono text-xs">NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_VO</span>{" "}
-                to the matching publishable key.
-              </AlertDescription>
+          {!platformConnectReady && stripeStatus?.configured && platformSetupMessage && (
+            <Alert className="border-amber-500/40 bg-amber-500/10">
+              <AlertTitle>Finish Stripe platform setup</AlertTitle>
+              <AlertDescription className="text-sm">{platformSetupMessage}</AlertDescription>
             </Alert>
           )}
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -954,15 +940,13 @@ export default function BillingDesk() {
                 <p className="mt-1 text-sm text-muted-foreground">
                   {stripeReady
                     ? "Your account is ready. Clients can pay invoices online by card when you send an invoice."
-                    : !platformConnectReady
-                      ? "Online invoice payments are unavailable until the VOBizSuite Stripe keys are configured in Vercel."
-                      : stripeStatus?.connected && stripeStatus.detailsSubmitted
-                        ? "Finish Stripe setup to enable card payments on invoice emails."
-                        : "Connect Stripe so clients can pay your invoices online by card. Payouts go to your bank on Stripe's schedule."}
+                    : stripeStatus?.connected && stripeStatus.detailsSubmitted
+                      ? "Finish Stripe setup to enable card payments on invoice emails."
+                      : "Connect Stripe so clients can pay your invoices online by card. Payouts go to your bank on Stripe's schedule."}
                 </p>
               </div>
             </div>
-            {!stripeReady && platformConnectReady && (
+            {!stripeReady && (
               <Button
                 type="button"
                 variant="success"

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { getStripeConnectStatus, getPlatformStripeInfo } from "@/lib/stripe-connect"
+import { getStripeConnectStatus, getPlatformStripeInfo, formatStripeConnectError } from "@/lib/stripe-connect"
 import { getStripeKeySource, getStripeMode, getStripeSecretKey } from "@/lib/stripe"
 
 export async function GET() {
@@ -44,6 +44,9 @@ export async function GET() {
       stripeMode: getStripeMode(),
       stripeKeySource: getStripeKeySource(),
       platformConnectEnabled: platform.connectEnabled,
+      platformConnectError: platform.connectError
+        ? formatStripeConnectError(new Error(platform.connectError))
+        : null,
       platformStripeAccountId: platform.accountId,
       platformStripeDisplayName: platform.displayName,
       ...status,

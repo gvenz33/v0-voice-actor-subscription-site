@@ -108,22 +108,22 @@ export async function probePlatformStripeConnect(): Promise<{
   const stripe = getStripe()
   try {
     const account = await stripe.accounts.create({
-      type: "express",
       country: "US",
       capabilities: CONNECT_CAPABILITIES,
+      controller: {
+        stripe_dashboard: { type: "express" },
+        fees: { payer: "application" },
+        losses: { payments: "application" },
+        requirement_collection: "stripe",
+      },
       metadata: { connect_probe: "true" },
     })
     await stripe.accounts.del(account.id)
     return { enabled: true }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    if (
-      message.includes("signed up for Connect") ||
-      message.includes("signed up for connect")
-    ) {
-      return { enabled: false, error: message }
-    }
-    throw error
+    // Platform setup incomplete — don't throw (that disables Billing Desk UI).
+    return { enabled: false, error: message }
   }
 }
 
