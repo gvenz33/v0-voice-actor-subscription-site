@@ -13,7 +13,8 @@ import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { EmailAttachmentPicker } from "@/components/email-attachment-picker"
-import { Plus, Search, Receipt, Trash2, Pencil, DollarSign, Send, Loader2, FileDown, Download, CreditCard, CheckCircle2, Landmark } from "lucide-react"
+import { BillingGetPaidSection } from "@/components/billing/billing-get-paid-section"
+import { Plus, Search, Receipt, Trash2, Pencil, DollarSign, Send, Loader2, FileDown, Download } from "lucide-react"
 import { downloadFromApi } from "@/lib/download-blob"
 import { fetchContactsPicker } from "@/lib/fetch-contacts-picker"
 import {
@@ -598,7 +599,7 @@ export default function BillingDesk() {
                       type="button"
                       className="underline"
                       onClick={() => {
-                        document.getElementById("get-paid-stripe")?.scrollIntoView({ behavior: "smooth" })
+                        document.getElementById("billing-get-paid")?.scrollIntoView({ behavior: "smooth" })
                       }}
                     >
                       Connect Stripe below
@@ -877,7 +878,8 @@ export default function BillingDesk() {
 
                 <div className="flex flex-col items-stretch gap-2 sm:items-end">
                   <p className="text-xs text-muted-foreground">
-                    Email includes a PDF invoice. Connect Stripe above to add a pay-online button.
+                    Email includes a PDF invoice. Saved Zelle/Venmo/PayPal details from Billing Desk
+                    are included automatically; Stripe card pay links when Connect is live.
                   </p>
                   <Button
                     type="button"
@@ -918,118 +920,14 @@ export default function BillingDesk() {
         </div>
       </div>
 
-      <Card id="get-paid-stripe" className="artist-card-teal ring-1 ring-artist-teal/30">
-        <CardContent className="flex flex-col gap-4 p-6">
-          {!platformConnectReady && stripeStatus?.configured && platformSetupMessage && (
-            <Alert className="border-amber-500/40 bg-amber-500/10">
-              <AlertTitle>Finish Stripe platform setup</AlertTitle>
-              <AlertDescription className="text-sm">{platformSetupMessage}</AlertDescription>
-            </Alert>
-          )}
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-artist-teal/20">
-                {stripeReady ? (
-                  <CheckCircle2 className="size-5 text-artist-teal" />
-                ) : (
-                  <CreditCard className="size-5 text-artist-teal" />
-                )}
-              </div>
-              <div>
-                <CardTitle className="text-base">Get paid with Stripe</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {stripeReady
-                    ? "Your account is ready. Clients can pay invoices online by card when you send an invoice."
-                    : stripeStatus?.connected && stripeStatus.detailsSubmitted
-                      ? "Finish Stripe setup to enable card payments on invoice emails."
-                      : "Connect Stripe so clients can pay your invoices online by card. Payouts go to your bank on Stripe's schedule."}
-                </p>
-                <ul className="mt-3 space-y-1.5 text-xs text-muted-foreground">
-                  <li className="flex items-start gap-2">
-                    <Badge variant="secondary" className="shrink-0 text-[10px]">
-                      Live
-                    </Badge>
-                    <span>Card checkout on invoice pay links</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Badge variant="outline" className="shrink-0 text-[10px]">
-                      To be added
-                    </Badge>
-                    <span>ACH / bank transfer payouts and richer payout reporting in Billing Desk</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Badge variant="outline" className="shrink-0 text-[10px]">
-                      To be added
-                    </Badge>
-                    <span>Instant payouts and saved client payment methods</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-            {!stripeReady && (
-              <Button
-                type="button"
-                variant="success"
-                className="min-h-[44px] shrink-0"
-                disabled={connectingStripe || stripeStatus === undefined}
-                onClick={() => void handleConnectStripe()}
-              >
-                {connectingStripe ? (
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                ) : (
-                  <CreditCard className="mr-2 size-4" />
-                )}
-                {stripeStatus?.connected ? "Continue Stripe setup" : "Connect Stripe"}
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="artist-card-indigo ring-1 ring-artist-indigo/25">
-        <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-artist-indigo/20">
-              <Landmark className="size-5 text-artist-indigo" />
-            </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <CardTitle className="text-base">Get paid with Plaid</CardTitle>
-                <Badge variant="outline" className="text-[10px]">
-                  To be added
-                </Badge>
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Link your bank with Plaid for ACH invoice payments and faster verification. This sits
-                alongside Stripe card checkout when it ships.
-              </p>
-              <ul className="mt-3 space-y-1.5 text-xs text-muted-foreground">
-                <li className="flex items-start gap-2">
-                  <Badge variant="outline" className="shrink-0 text-[10px]">
-                    To be added
-                  </Badge>
-                  <span>Secure bank account linking for voice actors</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Badge variant="outline" className="shrink-0 text-[10px]">
-                    To be added
-                  </Badge>
-                  <span>ACH pay options on invoice emails</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Badge variant="outline" className="shrink-0 text-[10px]">
-                    To be added
-                  </Badge>
-                  <span>Balance and transfer status in Billing Desk</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-          <Button type="button" variant="secondary" className="min-h-[44px] shrink-0" disabled>
-            Coming soon
-          </Button>
-        </CardContent>
-      </Card>
+      <BillingGetPaidSection
+        stripeStatus={stripeStatus}
+        stripeReady={stripeReady}
+        platformConnectReady={platformConnectReady}
+        platformSetupMessage={platformSetupMessage}
+        connectingStripe={connectingStripe}
+        onConnectStripe={() => void handleConnectStripe()}
+      />
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
         <Card className="border-violet-500/20">

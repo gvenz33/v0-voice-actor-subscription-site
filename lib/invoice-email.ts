@@ -1,4 +1,8 @@
 import { formatHours, formatUsd, parseInvoiceMeta, computeInvoiceAmount } from "@/lib/invoice-billing"
+import {
+  formatPaymentInstructionsForEmail,
+  type InvoicePaymentProfile,
+} from "@/lib/invoice-payment-instructions"
 
 export function buildInvoiceEmailContent(params: {
   invoiceNumber: string
@@ -8,6 +12,7 @@ export function buildInvoiceEmailContent(params: {
   notes: string | null
   paymentUrl?: string | null
   senderName: string
+  paymentProfile?: InvoicePaymentProfile | null
 }) {
   const meta = parseInvoiceMeta(params.notes)
   const billed =
@@ -46,6 +51,11 @@ export function buildInvoiceEmailContent(params: {
     lines.push(`Pay online: ${params.paymentUrl}`, "")
   }
 
+  const paymentBlock = formatPaymentInstructionsForEmail(params.paymentProfile)
+  if (paymentBlock.hasAny) {
+    lines.push(paymentBlock.textBlock, "")
+  }
+
   lines.push(
     "The invoice is attached as a PDF for your records.",
     "",
@@ -72,6 +82,7 @@ export function buildInvoiceEmailContent(params: {
              <p style="font-size:13px;color:#666;">Or copy this link: <a href="${escapeHtml(params.paymentUrl)}">${escapeHtml(params.paymentUrl)}</a></p>`
           : ""
       }
+      ${paymentBlock.hasAny ? paymentBlock.htmlBlock : ""}
       <p style="color:#666;font-size:14px;">A PDF copy of this invoice is attached to this email.</p>
       <p>Thank you,</p>
     </div>

@@ -65,9 +65,20 @@ export async function POST(req: Request) {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("first_name, last_name, business_name, stripe_connect_account_id")
+      .select(
+        "first_name, last_name, business_name, stripe_connect_account_id, payment_zelle, payment_venmo, payment_paypal, payment_other"
+      )
       .eq("id", user.id)
       .single()
+
+    const paymentProfile = profile
+      ? {
+          payment_zelle: profile.payment_zelle,
+          payment_venmo: profile.payment_venmo,
+          payment_paypal: profile.payment_paypal,
+          payment_other: profile.payment_other,
+        }
+      : null
 
     const senderName =
       profile?.business_name?.trim() ||
@@ -103,7 +114,7 @@ export async function POST(req: Request) {
       }
     } else {
       warnings.push(
-        "No pay link included. Connect Stripe under Billing Desk to accept online invoice payments."
+        "No Stripe pay link yet (coming soon). Zelle/Venmo/PayPal instructions from Billing Desk are still included when saved."
       )
     }
 
@@ -122,6 +133,7 @@ export async function POST(req: Request) {
       senderName,
       senderEmail: user.email,
       letterheadLines,
+      paymentProfile,
     })
 
     if (!pdfBuffer.length) {
@@ -136,6 +148,7 @@ export async function POST(req: Request) {
       notes: invoice.notes,
       paymentUrl,
       senderName,
+      paymentProfile,
     })
 
     const signature = (body.signatureText?.trim() || dbSignature).trim()

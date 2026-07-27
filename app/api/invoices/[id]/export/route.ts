@@ -31,7 +31,9 @@ export async function GET(_req: Request, context: RouteContext) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("first_name, last_name, business_name")
+    .select(
+      "first_name, last_name, business_name, payment_zelle, payment_venmo, payment_paypal, payment_other"
+    )
     .eq("id", user.id)
     .single()
 
@@ -55,6 +57,14 @@ export async function GET(_req: Request, context: RouteContext) {
     senderName,
     senderEmail: user.email,
     letterheadLines,
+    paymentProfile: profile
+      ? {
+          payment_zelle: profile.payment_zelle,
+          payment_venmo: profile.payment_venmo,
+          payment_paypal: profile.payment_paypal,
+          payment_other: profile.payment_other,
+        }
+      : null,
   })
 
   const filename = invoicePdfFilename(invoice.invoice_number)

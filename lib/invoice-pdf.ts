@@ -5,6 +5,10 @@ import {
   formatUsd,
   parseInvoiceMeta,
 } from "@/lib/invoice-billing"
+import {
+  formatPaymentInstructionsForEmail,
+  type InvoicePaymentProfile,
+} from "@/lib/invoice-payment-instructions"
 
 export type InvoicePdfInput = {
   invoiceNumber: string
@@ -17,6 +21,7 @@ export type InvoicePdfInput = {
   senderEmail?: string | null
   /** Extra lines from email signature / business info for letterhead */
   letterheadLines?: string[]
+  paymentProfile?: InvoicePaymentProfile | null
 }
 
 function formatDate(value: string | null | undefined) {
@@ -170,6 +175,19 @@ export async function generateInvoicePdfBuffer(input: InvoicePdfInput): Promise<
     for (const line of noteLines.slice(0, 8)) {
       page.drawText(line, { x: 50, y, size: 10, font, color: rgb(0.2, 0.2, 0.2) })
       y -= 14
+    }
+  }
+
+  const paymentBlock = formatPaymentInstructionsForEmail(input.paymentProfile)
+  if (paymentBlock.hasAny && y > 120) {
+    y -= 24
+    page.drawText("How to pay", { x: 50, y, size: 10, font: fontBold })
+    y -= 16
+    const payLines = paymentBlock.textBlock.split("\n").slice(1)
+    for (const line of payLines.slice(0, 6)) {
+      const trimmed = line.replace(/^\s*•\s*/, "")
+      page.drawText(trimmed.slice(0, 90), { x: 50, y, size: 9, font, color: rgb(0.2, 0.2, 0.2) })
+      y -= 12
     }
   }
 
