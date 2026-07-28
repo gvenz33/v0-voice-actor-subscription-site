@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
   Accordion,
   AccordionContent,
@@ -21,7 +20,6 @@ import {
 } from "@/lib/invoice-payment-instructions"
 import {
   Banknote,
-  CheckCircle2,
   Copy,
   CreditCard,
   Landmark,
@@ -35,32 +33,7 @@ async function fetchPaymentInstructions() {
   return res.json() as Promise<{ payment: InvoicePaymentProfile }>
 }
 
-type StripeConnectProps = {
-  stripeStatus:
-    | {
-        configured?: boolean
-        connected?: boolean
-        detailsSubmitted?: boolean
-        chargesEnabled?: boolean
-        platformConnectEnabled?: boolean
-        platformConnectError?: string | null
-      }
-    | undefined
-  stripeReady: boolean
-  platformConnectReady: boolean
-  platformSetupMessage: string | null
-  connectingStripe: boolean
-  onConnectStripe: () => void
-}
-
-export function BillingGetPaidSection({
-  stripeStatus,
-  stripeReady,
-  platformConnectReady,
-  platformSetupMessage,
-  connectingStripe,
-  onConnectStripe,
-}: StripeConnectProps) {
+export function BillingGetPaidSection() {
   const { data, mutate } = useSWR("billing-payment-instructions", fetchPaymentInstructions)
   const [form, setForm] = useState<InvoicePaymentProfile>({
     payment_zelle: "",
@@ -234,65 +207,27 @@ export function BillingGetPaidSection({
               <CreditCard className="size-4 shrink-0 text-artist-teal" />
               <div>
                 <span className="font-medium">Stripe — card checkout on invoices</span>
-                <div className="mt-0.5 flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className="text-[10px]">
-                    To be added
-                  </Badge>
-                  {stripeReady && (
-                    <Badge variant="secondary" className="text-[10px]">
-                      Account ready
-                    </Badge>
-                  )}
-                </div>
+                <Badge variant="outline" className="ml-2 text-[10px]">
+                  To be added
+                </Badge>
               </div>
             </div>
           </AccordionTrigger>
           <AccordionContent className="pb-4">
             <Card id="get-paid-stripe" className="artist-card-teal ring-1 ring-artist-teal/30 border-0 shadow-none">
-              <CardContent className="flex flex-col gap-4 p-4 sm:p-5">
-                {!platformConnectReady && stripeStatus?.configured && platformSetupMessage && (
-                  <Alert className="border-amber-500/40 bg-amber-500/10">
-                    <AlertTitle>Finish Stripe platform setup</AlertTitle>
-                    <AlertDescription className="text-sm">{platformSetupMessage}</AlertDescription>
-                  </Alert>
-                )}
+              <CardContent className="flex flex-col gap-3 p-4 sm:p-5">
                 <p className="text-sm text-muted-foreground">
-                  {stripeReady
-                    ? "When live, clients can pay invoices online by card from the email pay link."
-                    : "Connect Stripe so clients can pay invoices by card. Payouts go to your bank on Stripe's schedule."}
+                  Connect Stripe so clients can pay invoices by card. Payouts go to your bank on
+                  Stripe&apos;s schedule. Coming later alongside Zelle/Venmo instructions.
                 </p>
                 <ul className="space-y-1.5 text-xs text-muted-foreground">
-                  <li className="flex items-start gap-2">
-                    <Badge variant="outline" className="shrink-0 text-[10px]">
-                      Planned
-                    </Badge>
-                    <span>Card checkout on invoice pay links</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Badge variant="outline" className="shrink-0 text-[10px]">
-                      To be added
-                    </Badge>
-                    <span>ACH / bank transfer payouts and payout reporting</span>
-                  </li>
+                  <li>Card checkout on invoice pay links</li>
+                  <li>ACH / bank transfer payouts and payout reporting</li>
+                  <li>Instant payouts and saved client payment methods</li>
                 </ul>
-                {!stripeReady && (
-                  <Button
-                    type="button"
-                    variant="success"
-                    className="min-h-[44px] w-full sm:w-auto"
-                    disabled={connectingStripe || stripeStatus === undefined}
-                    onClick={onConnectStripe}
-                  >
-                    {connectingStripe ? (
-                      <Loader2 className="mr-2 size-4 animate-spin" />
-                    ) : stripeStatus?.connected ? (
-                      <CheckCircle2 className="mr-2 size-4" />
-                    ) : (
-                      <CreditCard className="mr-2 size-4" />
-                    )}
-                    {stripeStatus?.connected ? "Continue Stripe setup" : "Connect Stripe"}
-                  </Button>
-                )}
+                <Button type="button" variant="secondary" className="min-h-[44px] w-full sm:w-auto" disabled>
+                  Coming soon
+                </Button>
               </CardContent>
             </Card>
           </AccordionContent>

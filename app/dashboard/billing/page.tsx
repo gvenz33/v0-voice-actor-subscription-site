@@ -202,29 +202,8 @@ function formatHours(durationHours: number) {
   return `${h}h ${m}m`
 }
 
-async function fetchStripeConnectStatus() {
-  const res = await fetch("/api/billing/connect-status")
-  if (!res.ok) throw new Error("Failed to load Stripe status")
-  return res.json() as Promise<{
-    configured: boolean
-    connected: boolean
-    chargesEnabled: boolean
-    detailsSubmitted: boolean
-    payoutsEnabled: boolean
-    platformConnectEnabled?: boolean
-    platformConnectError?: string | null
-    platformStripeDisplayName?: string | null
-    stripeMode?: string
-    stripeKeySource?: string
-  }>
-}
-
 export default function BillingDesk() {
   const { data: invoices, isLoading } = useSWR("invoices", fetchInvoices)
-  const { data: stripeStatus, mutate: mutateStripeStatus } = useSWR(
-    "billing-stripe-connect",
-    fetchStripeConnectStatus
-  )
   const { data: contactOptions } = useSWR("contact-picker", fetchContactsPicker)
   const { data: demoReelsData } = useSWR("/api/demo-reels", async (url) => {
     const res = await fetch(url)
@@ -247,43 +226,7 @@ export default function BillingDesk() {
   const [invoiceAttachments, setInvoiceAttachments] = useState<File[]>([])
   const [selectedDemoReelIds, setSelectedDemoReelIds] = useState<string[]>([])
   const [selectedUserMediaIds, setSelectedUserMediaIds] = useState<string[]>([])
-  const [connectingStripe, setConnectingStripe] = useState(false)
-  const [stripeNotice, setStripeNotice] = useState<string | null>(null)
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const stripeParam = params.get("stripe")
-    if (stripeParam === "success") {
-      setStripeNotice("Stripe setup updated. If payments are enabled, pay links will be included when you send invoices.")
-      void mutateStripeStatus()
-    } else if (stripeParam === "refresh") {
-      setStripeNotice("Please finish connecting Stripe to accept online invoice payments.")
-    }
-    if (stripeParam) {
-      const url = new URL(window.location.href)
-      url.searchParams.delete("stripe")
-      window.history.replaceState({}, "", url.pathname + url.search)
-    }
-  }, [mutateStripeStatus])
-
-  const handleConnectStripe = async () => {
-    setConnectingStripe(true)
-    setStripeNotice(null)
-    try {
-      const res = await fetch("/api/billing/connect-stripe", { method: "POST" })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Failed to connect Stripe")
-      if (data.url) window.location.href = data.url
-    } catch (err) {
-      setStripeNotice(err instanceof Error ? err.message : "Failed to connect Stripe")
-    } finally {
-      setConnectingStripe(false)
-    }
-  }
-
-  const stripeReady = Boolean(stripeStatus?.chargesEnabled)
-  const platformConnectReady = Boolean(stripeStatus?.platformConnectEnabled)
-  const platformSetupMessage = stripeStatus?.platformConnectError || null
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const q = params.get("wordCount")
@@ -592,7 +535,7 @@ export default function BillingDesk() {
             ))}
             {sendNotice.warnings.map((line) => (
               <p key={line} className="text-amber-700 dark:text-amber-400">
-                {line.includes("Connect Stripe") ? (
+                {line.includes("Billing Desk") || line.includes("Zelle") || line.includes("Stripe") ? (
                   <>
                     {line}{" "}
                     <button
@@ -602,7 +545,7 @@ export default function BillingDesk() {
                         document.getElementById("billing-get-paid")?.scrollIntoView({ behavior: "smooth" })
                       }}
                     >
-                      Connect Stripe below
+                      Payment options below
                     </button>
                     .
                   </>
@@ -614,13 +557,8 @@ export default function BillingDesk() {
           </AlertDescription>
         </Alert>
       )}
-      {stripeNotice && (
-        <Alert className="border-artist-green/30 bg-artist-green/5">
-          <AlertTitle>Stripe</AlertTitle>
-          <AlertDescription>{stripeNotice}</AlertDescription>
-        </Alert>
-      )}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
         <div>
           <h2 className="font-[family-name:var(--font-heading)] text-2xl font-bold tracking-tight text-foreground">Billing Desk</h2>
           <p className="text-sm text-muted-foreground">Track invoices, payments, and your VO revenue.</p>
@@ -920,14 +858,7 @@ export default function BillingDesk() {
         </div>
       </div>
 
-      <BillingGetPaidSection
-        stripeStatus={stripeStatus}
-        stripeReady={stripeReady}
-        platformConnectReady={platformConnectReady}
-        platformSetupMessage={platformSetupMessage}
-        connectingStripe={connectingStripe}
-        onConnectStripe={() => void handleConnectStripe()}
-      />
+      <BillingGetPaidSection />
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
         <Card className="border-violet-500/20">
