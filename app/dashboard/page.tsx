@@ -53,7 +53,7 @@ async function fetchDashboardStats() {
   const earnedAmount = paidInvoices.reduce((sum, inv) => sum + Number(inv.amount || 0), 0)
 
   async function loadProgress(enrollment: BetaEnrollment | null) {
-    if (!enrollment) return null
+    if (!enrollment || enrollment.participation_enabled === false) return null
     const { data: feedbackRows } = await supabase
       .from("beta_feedback_submissions")
       .select("month_number")

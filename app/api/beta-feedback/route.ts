@@ -35,12 +35,33 @@ export async function POST(request: Request) {
     savedTimeOrOrganized?: string
     wouldRecommend?: boolean
     referralNote?: string
+    attachments?: Array<{
+      storage_path?: string
+      file_name?: string
+      mime_type?: string
+      file_size?: number
+    }>
   }
 
   const monthNumber = body.monthNumber
   if (monthNumber !== 1 && monthNumber !== 2 && monthNumber !== 3) {
     return NextResponse.json({ error: "monthNumber must be 1, 2, or 3." }, { status: 400 })
   }
+
+  const attachments = (body.attachments ?? [])
+    .filter(
+      (a) =>
+        typeof a.storage_path === "string" &&
+        a.storage_path.startsWith(`${user.id}/`) &&
+        typeof a.file_name === "string"
+    )
+    .slice(0, 5)
+    .map((a) => ({
+      storage_path: String(a.storage_path),
+      file_name: String(a.file_name),
+      mime_type: String(a.mime_type || "image/png"),
+      file_size: Number(a.file_size) || 0,
+    }))
 
   const program = parseBetaFeedbackProgram(body.program)
   const result = await submitBetaFeedback({
@@ -52,6 +73,7 @@ export async function POST(request: Request) {
     savedTimeOrOrganized: body.savedTimeOrOrganized ?? "",
     wouldRecommend: Boolean(body.wouldRecommend),
     referralNote: body.referralNote,
+    attachments,
   })
 
   if (!result.ok) {

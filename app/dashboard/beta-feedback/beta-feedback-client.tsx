@@ -12,13 +12,24 @@ import {
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
-import { Loader2, CheckCircle2, Clock, Lock, MessageSquareHeart } from "lucide-react"
+import { Loader2, CheckCircle2, Clock, Lock, MessageSquareHeart, ImagePlus, X } from "lucide-react"
 import type { BetaEnrollment, BetaFeedbackSubmission, MonthStatus } from "@/lib/beta-feedback-shared"
 import { currentBetaMonth, monthStatuses } from "@/lib/beta-feedback-shared"
 import type { BetaFeedbackProgram } from "@/lib/promo-codes"
 import { BLUMVOX_PROMO_CODE } from "@/lib/promo-codes"
+import { createClient } from "@/lib/supabase/client"
+import {
+  BETA_FEEDBACK_ACCEPT,
+  BETA_FEEDBACK_BUCKET,
+  MAX_BETA_FEEDBACK_SCREENSHOTS,
+  buildBetaFeedbackStoragePath,
+  formatBetaFeedbackFileSize,
+  isAllowedBetaFeedbackScreenshot,
+  type BetaFeedbackAttachment,
+} from "@/lib/beta-feedback-media"
 
 function StatusBadge({ status }: { status: MonthStatus }) {
   if (status === "complete") {
@@ -52,9 +63,9 @@ function programCopy(program: BetaFeedbackProgram) {
       progressTitle: "BVS Beta Feedback Progress",
       loading: "Loading BVS Beta Feedback…",
       empty:
-        "This area is for BlumVox students enrolled with promo code BLUMVOX. After you subscribe with the 3-month prepay, your monthly feedback progress will appear here.",
+        "This area is for BlumVox / BVS beta participants. After an admin enables you (or you subscribe with promo code BLUMVOX), your monthly feedback progress will appear here.",
       description:
-        "Your BlumVox promo starts as a 3-month prepay. Complete one short monthly feedback form (thoughtful, usable responses) in Months 1, 2, and 3. Finish all three to keep the discounted rate month-to-month afterward; otherwise you can continue at the regular monthly price.",
+        "Your BlumVox promo starts as a 3-month prepay when enrolled via promo. Complete one short monthly feedback form (thoughtful, usable responses) in Months 1, 2, and 3 — you can attach screenshots. Finish all three to keep the discounted rate month-to-month afterward when on the promo plan.",
       programLabel: "BVS Beta",
     }
   }
@@ -64,9 +75,9 @@ function programCopy(program: BetaFeedbackProgram) {
     progressTitle: "Beta Feedback Progress",
     loading: "Loading Beta Feedback…",
     empty:
-      "This area is for VO Biz Suite beta participants enrolled with promo code BETA. After you subscribe with that code, your Month 1–3 feedback progress will appear here.",
+      "This area is for VO Biz Suite beta participants. After an admin enables you (or you subscribe with promo code BETA), your Month 1–3 feedback progress will appear here.",
     description:
-      "Active beta participation means completing one short monthly feedback form with thoughtful, usable responses for Month 1, Month 2, and Month 3 during your 12-month annual plan. After 12 months, beta users who participated can keep the discounted rate on monthly or yearly billing; others continue at the regular rate.",
+      "Active beta participation means completing one short monthly feedback form with thoughtful, usable responses for Month 1, Month 2, and Month 3. You can attach screenshots to your answers. After 12 months (promo plan), beta users who participated can keep the discounted rate; others continue at the regular rate.",
     programLabel: "VO Biz Suite Beta",
   }
 }
@@ -85,6 +96,7 @@ export function BetaFeedbackClient({ program }: { program: BetaFeedbackProgram }
   const [moreUseful, setMoreUseful] = useState("")
   const [savedTimeOrOrganized, setSavedTimeOrOrganized] = useState("")
   const [wouldRecommend, setWouldRecommend] = useState(false)
+  const [screenshotFiles, setScreenshotFiles] = useState<File[]>([])
 
   const load = async () => {
     setLoading(true)
@@ -123,6 +135,39 @@ export function BetaFeedbackClient({ program }: { program: BetaFeedbackProgram }
     setError("")
     setMessage("")
     try {
+      const attachments: BetaFeedbackAttachment[] = []
+      if (screenshotFiles.length > 0) {
+        const supabase = createClient()
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        if (!user) throw new Error("Not authenticated.")
+
+        for (const file of screenshotFiles.slice(0, MAX_BETA_FEEDBACK_SCREENSHOTS)) {
+          if (!isAllowedBetaFeedbackScreenshot(file)) {
+            throw new Error(
+              `Invalid screenshot "${file.name}". Use PNG/JPG/WebP/GIF up to ${formatBetaFeedbackFileSize(
+                10 * 1024 * 1024
+              )}.`
+            )
+          }
+          const path = buildBetaFeedbackStoragePath(user.id, file.name)
+          const { error: uploadError } = await supabase.storage
+            .from(BETA_FEEDBACK_BUCKET)
+            .upload(path, file, {
+              contentType: file.type || "image/png",
+              upsert: false,
+            })
+          if (uploadError) throw new Error(uploadError.message)
+          attachments.push({
+            storage_path: path,
+            file_name: file.name,
+            mime_type: file.type || "image/png",
+            file_size: file.size,
+          })
+        }
+      }
+
       const res = await fetch("/api/beta-feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -134,6 +179,7 @@ export function BetaFeedbackClient({ program }: { program: BetaFeedbackProgram }
           moreUseful,
           savedTimeOrOrganized,
           wouldRecommend,
+          attachments,
         }),
       })
       const data = await res.json()
@@ -146,6 +192,7 @@ export function BetaFeedbackClient({ program }: { program: BetaFeedbackProgram }
       setMoreUseful("")
       setSavedTimeOrOrganized("")
       setWouldRecommend(false)
+      setScreenshotFiles([])
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit")
     } finally {
@@ -275,6 +322,58 @@ export function BetaFeedbackClient({ program }: { program: BetaFeedbackProgram }
               </Label>
               <Switch id="recommend" checked={wouldRecommend} onCheckedChange={setWouldRecommend} />
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="screenshots" className="flex items-center gap-2">
+                <ImagePlus className="size-4" />
+                Screenshots (optional, up to {MAX_BETA_FEEDBACK_SCREENSHOTS})
+              </Label>
+              <Input
+                id="screenshots"
+                type="file"
+                accept={BETA_FEEDBACK_ACCEPT}
+                multiple
+                onChange={(e) => {
+                  const picked = Array.from(e.target.files ?? [])
+                  setScreenshotFiles((prev) =>
+                    [...prev, ...picked].slice(0, MAX_BETA_FEEDBACK_SCREENSHOTS)
+                  )
+                  e.target.value = ""
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                PNG, JPG, WebP, or GIF — max 10 MB each. Attach UI issues or examples that help explain your feedback.
+              </p>
+              {screenshotFiles.length > 0 && (
+                <ul className="space-y-1">
+                  {screenshotFiles.map((file, idx) => (
+                    <li
+                      key={`${file.name}-${idx}`}
+                      className="flex items-center justify-between gap-2 rounded-md border border-border px-2 py-1.5 text-xs"
+                    >
+                      <span className="truncate">
+                        {file.name}{" "}
+                        <span className="text-muted-foreground">
+                          ({formatBetaFeedbackFileSize(file.size)})
+                        </span>
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="size-7 p-0"
+                        onClick={() =>
+                          setScreenshotFiles((prev) => prev.filter((_, i) => i !== idx))
+                        }
+                      >
+                        <X className="size-3.5" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
             {error && <p className="text-sm text-destructive">{error}</p>}
             {message && <p className="text-sm text-artist-green">{message}</p>}
             <Button onClick={() => void submit()} disabled={saving}>

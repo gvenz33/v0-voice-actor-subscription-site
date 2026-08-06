@@ -202,19 +202,26 @@ export function AdminBetaFeedbackClient({ program }: { program: BetaFeedbackProg
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Select
-                            value={enrollment.status}
-                            onValueChange={(v) => void updateStatus(enrollment.id, v as BetaEnrollmentStatus)}
-                          >
-                            <SelectTrigger className="h-8 w-[180px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="active_beta">Active beta</SelectItem>
-                              <SelectItem value="retained_discount">Retained discount</SelectItem>
-                              <SelectItem value="regular_rate">Regular rate</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <div className="flex flex-col gap-1">
+                            <Select
+                              value={enrollment.status}
+                              onValueChange={(v) => void updateStatus(enrollment.id, v as BetaEnrollmentStatus)}
+                            >
+                              <SelectTrigger className="h-8 w-[180px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="active_beta">Active beta</SelectItem>
+                                <SelectItem value="retained_discount">Retained discount</SelectItem>
+                                <SelectItem value="regular_rate">Regular rate</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {enrollment.participation_enabled === false ? (
+                              <Badge variant="outline" className="w-fit text-[10px] text-destructive">
+                                Participation disabled
+                              </Badge>
+                            ) : null}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Button
@@ -274,6 +281,39 @@ export function AdminBetaFeedbackClient({ program }: { program: BetaFeedbackProg
                   <span className="font-medium">Would recommend:</span>{" "}
                   {sub.would_recommend ? "Yes" : "No"}
                 </p>
+                {Array.isArray(sub.attachments) && sub.attachments.length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    <p className="font-medium">Screenshots</p>
+                    <div className="flex flex-wrap gap-2">
+                      {sub.attachments.map((att) => {
+                        const url =
+                          "signed_url" in att && typeof (att as { signed_url?: string }).signed_url === "string"
+                            ? (att as { signed_url: string }).signed_url
+                            : null
+                        return url ? (
+                          <a
+                            key={att.storage_path}
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block overflow-hidden rounded-md border border-border"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={url}
+                              alt={att.file_name}
+                              className="h-24 w-auto max-w-[180px] object-cover"
+                            />
+                          </a>
+                        ) : (
+                          <span key={att.storage_path} className="text-xs text-muted-foreground">
+                            {att.file_name}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ))
           )}

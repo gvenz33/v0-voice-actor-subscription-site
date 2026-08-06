@@ -76,6 +76,8 @@ interface User {
   created_at: string
   trial_ends_at?: string | null
   trial_exempt?: boolean | null
+  beta_feedback_enabled?: boolean
+  blumvox_feedback_enabled?: boolean
 }
 
 const TIER_FEATURES = {
@@ -142,6 +144,8 @@ export default function AdminUsersPage() {
           ...p,
           email: p.email || "",
           feature_overrides: p.feature_overrides || {},
+          beta_feedback_enabled: Boolean(p.beta_feedback_enabled),
+          blumvox_feedback_enabled: Boolean(p.blumvox_feedback_enabled),
         })),
       )
     } catch (err) {
@@ -284,6 +288,48 @@ export default function AdminUsersPage() {
         [key]: value,
       },
     })
+  }
+
+  const toggleBetaParticipation = async (
+    userId: string,
+    program: "BETA" | "BLUMVOX",
+    enabled: boolean
+  ) => {
+    setSaving(true)
+    setMessage("")
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/beta-feedback`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ program, enabled }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to update beta participation")
+
+      setUsers((prev) =>
+        prev.map((u) => {
+          if (u.id !== userId) return u
+          return program === "BETA"
+            ? { ...u, beta_feedback_enabled: enabled }
+            : { ...u, blumvox_feedback_enabled: enabled }
+        })
+      )
+      setSelectedUser((prev) => {
+        if (!prev || prev.id !== userId) return prev
+        return program === "BETA"
+          ? { ...prev, beta_feedback_enabled: enabled }
+          : { ...prev, blumvox_feedback_enabled: enabled }
+      })
+      setMessage(
+        enabled
+          ? `${program} feedback enabled for this user.`
+          : `${program} feedback disabled for this user.`
+      )
+    } catch (err) {
+      setMessage(`Error: ${err instanceof Error ? err.message : "Failed to update"}`)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const getEffectiveFeature = (user: User, feature: keyof typeof TIER_FEATURES.free) => {
@@ -641,6 +687,44 @@ export default function AdminUsersPage() {
                     onCheckedChange={(checked) => updateFeatureOverride("disabled", checked)}
                     disabled={selectedUser.is_superadmin}
                   />
+                </div>
+
+                <Separator />
+
+                <div className="space-y-3 rounded-lg border border-artist-violet/30 bg-artist-violet/5 p-4">
+                  <div>
+                    <div className="font-medium">Beta Feedback Program</div>
+                    <p className="text-sm text-muted-foreground">
+                      Enable or disable feedback participation for users who signed up normally or
+                      were added manually (not only promo redeemers).
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-medium">VO Biz Suite BETA</div>
+                      <div className="text-xs text-muted-foreground">Dashboard → Beta Feedback</div>
+                    </div>
+                    <Switch
+                      checked={Boolean(selectedUser.beta_feedback_enabled)}
+                      onCheckedChange={(checked) =>
+                        void toggleBetaParticipation(selectedUser.id, "BETA", checked)
+                      }
+                      disabled={saving}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-medium">BlumVox / BVS</div>
+                      <div className="text-xs text-muted-foreground">Dashboard → BVS Beta Feedback</div>
+                    </div>
+                    <Switch
+                      checked={Boolean(selectedUser.blumvox_feedback_enabled)}
+                      onCheckedChange={(checked) =>
+                        void toggleBetaParticipation(selectedUser.id, "BLUMVOX", checked)
+                      }
+                      disabled={saving}
+                    />
+                  </div>
                 </div>
 
                 <div className="border-t pt-4">

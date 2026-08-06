@@ -47,7 +47,38 @@ export async function GET() {
     email: emailById.get(p.id) ?? null,
   }))
 
-  return NextResponse.json({ users })
+  // Beta feedback participation for admin toggles
+  const userIds = users.map((u) => u.id)
+  const enrollmentByUser = new Map<
+    string,
+    { beta: boolean; blumvox: boolean }
+  >()
+  if (userIds.length) {
+    const { data: enrollments } = await admin
+      .from("beta_enrollments")
+      .select("user_id, promo_code, participation_enabled")
+      .in("user_id", userIds)
+      .in("promo_code", ["BETA", "BLUMVOX"])
+
+    for (const row of enrollments ?? []) {
+      const current = enrollmentByUser.get(row.user_id) ?? { beta: false, blumvox: false }
+      const enabled = row.participation_enabled !== false
+      if (row.promo_code === "BETA") current.beta = enabled
+      if (row.promo_code === "BLUMVOX") current.blumvox = enabled
+      enrollmentByUser.set(row.user_id, current)
+    }
+  }
+
+  const usersWithBeta = users.map((u) => {
+    const flags = enrollmentByUser.get(u.id) ?? { beta: false, blumvox: false }
+    return {
+      ...u,
+      beta_feedback_enabled: flags.beta,
+      blumvox_feedback_enabled: flags.blumvox,
+    }
+  })
+
+  return NextResponse.json({ users: usersWithBeta })
 }
 
 export async function PATCH(request: Request) {

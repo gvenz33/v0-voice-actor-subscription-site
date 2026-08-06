@@ -10,6 +10,14 @@ export interface BetaEnrollment {
   started_at: string
   ends_at: string
   status: BetaEnrollmentStatus
+  participation_enabled?: boolean
+}
+
+export interface BetaFeedbackAttachment {
+  storage_path: string
+  file_name: string
+  mime_type: string
+  file_size: number
 }
 
 export interface BetaFeedbackSubmission {
@@ -23,6 +31,7 @@ export interface BetaFeedbackSubmission {
   saved_time_or_organized: string
   would_recommend: boolean
   referral_note: string | null
+  attachments?: BetaFeedbackAttachment[]
   created_at: string
 }
 
@@ -34,6 +43,7 @@ export interface BetaFeedbackInput {
   savedTimeOrOrganized: string
   wouldRecommend: boolean
   referralNote?: string
+  attachments?: BetaFeedbackAttachment[]
 }
 
 export function currentBetaMonth(startedAt: string, now = new Date()): 1 | 2 | 3 {

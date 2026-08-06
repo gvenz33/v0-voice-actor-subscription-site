@@ -7,6 +7,8 @@ import {
 import { monthStatuses } from "@/lib/beta-feedback-shared"
 import { requireAdmin } from "@/lib/admin-auth"
 import { parseBetaFeedbackProgram } from "@/lib/promo-codes"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { BETA_FEEDBACK_BUCKET } from "@/lib/beta-feedback-media"
 
 export async function GET(request: Request) {
   const gate = await requireAdmin()
@@ -31,6 +33,7 @@ export async function GET(request: Request) {
       "business_name",
       "tier",
       "promo_code",
+      "participation_enabled",
       "status",
       "started_at",
       "ends_at",
@@ -45,6 +48,7 @@ export async function GET(request: Request) {
       "saved_time_or_organized",
       "would_recommend",
       "referral_note",
+      "attachment_count",
       "submitted_at",
     ]
 
@@ -78,6 +82,7 @@ export async function GET(request: Request) {
             profile?.business_name ?? "",
             profile?.subscription_tier ?? "",
             enrollment.promo_code,
+            enrollment.participation_enabled === false ? "no" : "yes",
             enrollment.status,
             enrollment.started_at,
             enrollment.ends_at,
@@ -92,6 +97,7 @@ export async function GET(request: Request) {
             "",
             "",
             "",
+            "0",
             "",
           ]
             .map(escape)
@@ -109,6 +115,7 @@ export async function GET(request: Request) {
             profile?.business_name ?? "",
             profile?.subscription_tier ?? "",
             enrollment.promo_code,
+            enrollment.participation_enabled === false ? "no" : "yes",
             enrollment.status,
             enrollment.started_at,
             enrollment.ends_at,
@@ -123,6 +130,7 @@ export async function GET(request: Request) {
             sub.saved_time_or_organized,
             sub.would_recommend ? "yes" : "no",
             sub.referral_note ?? "",
+            Array.isArray(sub.attachments) ? sub.attachments.length : 0,
             sub.created_at,
           ]
             .map(escape)
@@ -146,9 +154,26 @@ export async function GET(request: Request) {
     })
   }
 
+  // Sign screenshot URLs for admin review
+  const admin = createAdminClient()
+  const submissionsWithUrls = await Promise.all(
+    submissions.map(async (sub) => {
+      const attachments = Array.isArray(sub.attachments) ? sub.attachments : []
+      const withUrls = await Promise.all(
+        attachments.map(async (att) => {
+          const { data } = await admin.storage
+            .from(BETA_FEEDBACK_BUCKET)
+            .createSignedUrl(att.storage_path, 60 * 60)
+          return { ...att, signed_url: data?.signedUrl ?? null }
+        })
+      )
+      return { ...sub, attachments: withUrls }
+    })
+  )
+
   return NextResponse.json({
     enrollments,
-    submissions,
+    submissions: submissionsWithUrls,
     profiles: Object.fromEntries(profiles),
   })
 }

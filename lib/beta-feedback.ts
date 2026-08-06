@@ -49,7 +49,12 @@ export async function getMyBetaEnrollment(
 
   const { data: enrollments } = await query
 
-  const enrollment = (enrollments?.[0] as BetaEnrollment | undefined) ?? null
+  const raw = (enrollments?.[0] as BetaEnrollment | undefined) ?? null
+  // Disabled enrollments look like "not enrolled" to the participant
+  if (!raw || raw.participation_enabled === false) {
+    return { enrollment: null, submissions: [] }
+  }
+  const enrollment = raw
   if (!enrollment) return { enrollment: null, submissions: [] }
 
   // BlumVox initial window ended without all feedback → regular monthly rate
@@ -134,6 +139,7 @@ export async function submitBetaFeedback(
     saved_time_or_organized: input.savedTimeOrOrganized.trim(),
     would_recommend: input.wouldRecommend,
     referral_note: referralNote,
+    attachments: Array.isArray(input.attachments) ? input.attachments.slice(0, 5) : [],
   })
 
   if (error) {
@@ -184,7 +190,58 @@ export async function ensureBetaEnrollmentForUser(
     console.error("[beta] ensure enrollment failed:", error)
     return null
   }
+
+  // Ensure re-enabled when admin toggles participation back on
+  if (data) {
+    await admin
+      .from("beta_enrollments")
+      .update({
+        participation_enabled: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", data)
+  }
+
   return data as string | null
+}
+
+export async function adminSetBetaParticipation(
+  userId: string,
+  program: BetaFeedbackProgram,
+  enabled: boolean
+): Promise<{ ok: true; enrollmentId: string | null } | { ok: false; error: string }> {
+  const admin = createAdminClient()
+  const code = normalizePromoCode(program)
+
+  if (enabled) {
+    const enrollmentId = await ensureBetaEnrollmentForUser(userId, code)
+    if (!enrollmentId) {
+      return { ok: false, error: "Could not create beta enrollment." }
+    }
+    return { ok: true, enrollmentId }
+  }
+
+  const { data: existing } = await admin
+    .from("beta_enrollments")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("promo_code", code)
+    .maybeSingle()
+
+  if (!existing?.id) {
+    return { ok: true, enrollmentId: null }
+  }
+
+  const { error } = await admin
+    .from("beta_enrollments")
+    .update({
+      participation_enabled: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", existing.id)
+
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, enrollmentId: existing.id }
 }
 
 export async function listAdminBetaParticipants(program?: BetaFeedbackProgram | null) {
