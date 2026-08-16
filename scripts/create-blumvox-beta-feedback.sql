@@ -71,8 +71,7 @@ CREATE TABLE IF NOT EXISTS public.beta_feedback_submissions (
   saved_time_or_organized text NOT NULL,
   would_recommend boolean NOT NULL,
   referral_note text,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (enrollment_id, month_number)
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_beta_enrollments_user_id ON public.beta_enrollments (user_id);

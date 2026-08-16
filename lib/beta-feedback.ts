@@ -82,6 +82,7 @@ export async function getMyBetaEnrollment(
     .select("*")
     .eq("enrollment_id", enrollment.id)
     .order("month_number", { ascending: true })
+    .order("created_at", { ascending: false })
 
   return {
     enrollment,
@@ -143,9 +144,6 @@ export async function submitBetaFeedback(
   })
 
   if (error) {
-    if (error.code === "23505") {
-      return { ok: false, error: `Month ${input.monthNumber} feedback was already submitted.` }
-    }
     return { ok: false, error: error.message }
   }
 

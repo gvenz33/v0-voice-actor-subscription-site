@@ -65,7 +65,7 @@ function programCopy(program: BetaFeedbackProgram) {
       empty:
         "This area is for BlumVox / BVS beta participants. After an admin enables you (or you subscribe with promo code BLUMVOX), your monthly feedback progress will appear here.",
       description:
-        "Your BlumVox promo starts as a 3-month prepay when enrolled via promo. Complete one short monthly feedback form (thoughtful, usable responses) in Months 1, 2, and 3 — you can attach screenshots. Finish all three to keep the discounted rate month-to-month afterward when on the promo plan.",
+        "Your BlumVox promo starts as a 3-month prepay when enrolled via promo. Share thoughtful, usable feedback in Months 1, 2, and 3 — you can attach screenshots and submit more than once per month. Finish all three months to keep the discounted rate month-to-month afterward when on the promo plan.",
       programLabel: "BVS Beta",
     }
   }
@@ -77,7 +77,7 @@ function programCopy(program: BetaFeedbackProgram) {
     empty:
       "This area is for VO Biz Suite beta participants. After an admin enables you (or you subscribe with promo code BETA), your Month 1–3 feedback progress will appear here.",
     description:
-      "Active beta participation means completing one short monthly feedback form with thoughtful, usable responses for Month 1, Month 2, and Month 3. You can attach screenshots to your answers. After 12 months (promo plan), beta users who participated can keep the discounted rate; others continue at the regular rate.",
+      "Active beta participation means sharing thoughtful, usable feedback for Month 1, Month 2, and Month 3. You can attach screenshots and submit more than once per month. After 12 months (promo plan), beta users who participated can keep the discounted rate; others continue at the regular rate.",
     programLabel: "VO Biz Suite Beta",
   }
 }
@@ -224,7 +224,8 @@ export function BetaFeedbackClient({ program }: { program: BetaFeedbackProgram }
     )
   }
 
-  const formOpen = statuses?.[monthNumber] === "pending"
+  const formOpen = statuses?.[monthNumber] !== "locked"
+  const monthSubmissions = submissions.filter((s) => s.month_number === monthNumber)
   const programTitle = enrollment.program_label || copy.programLabel
 
   return (
@@ -287,7 +288,10 @@ export function BetaFeedbackClient({ program }: { program: BetaFeedbackProgram }
         <Card className="artist-card-violet">
           <CardHeader>
             <CardTitle>Month {monthNumber} feedback</CardTitle>
-            <CardDescription>A few brief questions — please write a short, usable answer for each.</CardDescription>
+            <CardDescription>
+              A few brief questions — please write a short, usable answer for each. You can submit additional
+              feedback for this month anytime it is unlocked.
+            </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="space-y-2">
@@ -378,20 +382,55 @@ export function BetaFeedbackClient({ program }: { program: BetaFeedbackProgram }
             {message && <p className="text-sm text-artist-green">{message}</p>}
             <Button onClick={() => void submit()} disabled={saving}>
               {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-              Submit Month {monthNumber} feedback
+              {monthSubmissions.length > 0
+                ? `Submit additional Month ${monthNumber} feedback`
+                : `Submit Month ${monthNumber} feedback`}
             </Button>
           </CardContent>
         </Card>
       ) : (
         <Card>
           <CardContent className="pt-6 text-sm text-muted-foreground">
-            {statuses?.[monthNumber] === "complete"
-              ? `Month ${monthNumber} is complete. Select another pending month above when available.`
-              : `Month ${monthNumber} unlocks as your beta period progresses.`}
+            Month {monthNumber} unlocks as your beta period progresses.
             {message ? <p className="mt-2 text-artist-green">{message}</p> : null}
           </CardContent>
         </Card>
       )}
+
+      {monthSubmissions.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Previous Month {monthNumber} submissions</CardTitle>
+            <CardDescription>
+              {monthSubmissions.length} submission{monthSubmissions.length === 1 ? "" : "s"} so far for this month.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {monthSubmissions.map((sub) => (
+              <div key={sub.id} className="rounded-lg border border-border p-3 text-sm">
+                <p className="mb-2 text-xs text-muted-foreground">
+                  {new Date(sub.created_at).toLocaleString()}
+                </p>
+                <p>
+                  <span className="font-medium">Used most:</span> {sub.feature_used_most}
+                </p>
+                <p className="mt-1">
+                  <span className="font-medium">Confusing:</span> {sub.confusing_or_difficult}
+                </p>
+                <p className="mt-1">
+                  <span className="font-medium">More useful:</span> {sub.more_useful}
+                </p>
+                <p className="mt-1">
+                  <span className="font-medium">Time / organization:</span> {sub.saved_time_or_organized}
+                </p>
+                <p className="mt-1">
+                  <span className="font-medium">Would recommend:</span> {sub.would_recommend ? "Yes" : "No"}
+                </p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   )
 }

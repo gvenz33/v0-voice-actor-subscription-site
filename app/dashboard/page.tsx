@@ -195,7 +195,7 @@ export default function CommandCenter() {
                     Beta Feedback Progress
                   </CardTitle>
                   <CardDescription>
-                    Active beta participation — one short feedback form each month for Month 1, 2, and 3.
+                    Active beta participation — feedback for months 1–3 (you can submit more than once per month).
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-wrap gap-3">
@@ -220,7 +220,7 @@ export default function CommandCenter() {
                     BVS Beta Feedback Progress
                   </CardTitle>
                   <CardDescription>
-                    Active beta participation — one short feedback form each month for three months.
+                    Active beta participation — feedback for months 1–3 (you can submit more than once per month).
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-wrap gap-3">
