@@ -16,7 +16,7 @@ export function buildInvoiceEmailContent(params: {
 }) {
   const meta = parseInvoiceMeta(params.notes)
   const billed =
-    meta.wordCount && meta.wordCount > 0
+    meta.wordCount && meta.wordCount > 0 && meta.wpm && meta.rateTemplate
       ? computeInvoiceAmount(meta.wordCount, meta.wpm, meta.rateTemplate)
       : null
 
@@ -38,11 +38,15 @@ export function buildInvoiceEmailContent(params: {
 
   if (meta.wordCount) {
     lines.push(`Word count: ${meta.wordCount.toLocaleString()}`)
+  }
+  if (meta.rateTemplate) {
     lines.push(`Rate template: ${meta.rateTemplate.toUpperCase()}`)
+  }
+  if (meta.wpm) {
     lines.push(`WPM: ${meta.wpm}`)
-    if (billed) {
-      lines.push(`Estimated billed time: ${formatHours(billed.durationHours)}`)
-    }
+  }
+  if (billed) {
+    lines.push(`Estimated billed time: ${formatHours(billed.durationHours)}`)
   }
 
   lines.push("", `Total due: ${formatUsd(params.amount)}`, "")

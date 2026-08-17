@@ -38,7 +38,7 @@ function formatDate(value: string | null | undefined) {
 export async function generateInvoicePdfBuffer(input: InvoicePdfInput): Promise<Buffer> {
   const meta = parseInvoiceMeta(input.notes)
   const billed =
-    meta.wordCount && meta.wordCount > 0
+    meta.wordCount && meta.wordCount > 0 && meta.wpm && meta.rateTemplate
       ? computeInvoiceAmount(meta.wordCount, meta.wpm, meta.rateTemplate)
       : null
 
@@ -121,7 +121,9 @@ export async function generateInvoicePdfBuffer(input: InvoicePdfInput): Promise<
 
   const lineDescription =
     input.description?.trim() ||
-    `Voice over services (${meta.rateTemplate.toUpperCase()} rate template)`
+    (meta.rateTemplate
+      ? `Voice over services (${meta.rateTemplate.toUpperCase()} rate template)`
+      : "Voice over services")
   page.drawText(lineDescription.slice(0, 80), { x: 50, y, size: 10, font })
   page.drawText(formatUsd(input.amount), {
     x: width - 100,
@@ -130,7 +132,7 @@ export async function generateInvoicePdfBuffer(input: InvoicePdfInput): Promise<
     font: fontBold,
   })
 
-  if (billed && meta.wordCount) {
+  if (meta.wordCount) {
     y -= 16
     page.drawText(`Word count: ${meta.wordCount.toLocaleString()}`, {
       x: 50,
@@ -139,8 +141,12 @@ export async function generateInvoicePdfBuffer(input: InvoicePdfInput): Promise<
       font,
       color: rgb(0.33, 0.33, 0.33),
     })
+  }
+  if (meta.wpm) {
     y -= 12
     page.drawText(`WPM: ${meta.wpm}`, { x: 50, y, size: 9, font, color: rgb(0.33, 0.33, 0.33) })
+  }
+  if (billed) {
     y -= 12
     page.drawText(`Estimated session: ${formatHours(billed.durationHours)}`, {
       x: 50,

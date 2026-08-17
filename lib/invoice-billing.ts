@@ -1,4 +1,3 @@
-import { DEFAULT_WPM } from "@/lib/script-word-count"
 
 export type RateTemplate = "cat1" | "cat2"
 
@@ -28,8 +27,8 @@ export function parseInvoiceMeta(notes: string | null | undefined): {
   userNotes: string
   clientEmail: string
   wordCount: number | null
-  rateTemplate: RateTemplate
-  wpm: number
+  rateTemplate: RateTemplate | null
+  wpm: number | null
 } {
   const { userNotes, metaBlock } = splitNotesAndMeta(notes)
   const clientEmail = metaBlock.match(/Client email:\s*([^\n\r]+)/i)?.[1]?.trim() || ""
@@ -40,10 +39,11 @@ export function parseInvoiceMeta(notes: string | null | undefined): {
   })()
 
   const rateTemplateRaw = metaBlock.match(/Rate template:\s*(cat1|cat2)/i)?.[1]
-  const rateTemplate = (rateTemplateRaw === "cat2" ? "cat2" : "cat1") as RateTemplate
+  const rateTemplate =
+    rateTemplateRaw === "cat2" ? "cat2" : rateTemplateRaw === "cat1" ? "cat1" : null
 
   const wpmMatch = metaBlock.match(/WPM:\s*(\d+)/i)?.[1]
-  const wpm = wpmMatch ? Number(wpmMatch) : DEFAULT_WPM
+  const wpm = wpmMatch ? Number(wpmMatch) : null
 
   return { userNotes, clientEmail, wordCount, rateTemplate, wpm }
 }
@@ -51,19 +51,22 @@ export function parseInvoiceMeta(notes: string | null | undefined): {
 export function buildInvoiceNotes(params: {
   userNotes: string
   clientEmail: string
-  wordCount: number
-  rateTemplate: RateTemplate
-  wpm: number
+  wordCount: number | null
+  rateTemplate: RateTemplate | null
+  wpm: number | null
 }) {
   const { userNotes, clientEmail, wordCount, rateTemplate, wpm } = params
 
-  const metaLines = [
-    META_MARKER,
-    `Client email: ${clientEmail || ""}`,
-    `Word count: ${Math.max(0, Math.floor(wordCount))}`,
-    `Rate template: ${rateTemplate}`,
-    `WPM: ${Math.max(0, Math.floor(wpm))}`,
-  ]
+  const metaLines = [META_MARKER, `Client email: ${clientEmail || ""}`]
+  if (wordCount != null && Number.isFinite(wordCount) && wordCount > 0) {
+    metaLines.push(`Word count: ${Math.max(0, Math.floor(wordCount))}`)
+  }
+  if (rateTemplate) {
+    metaLines.push(`Rate template: ${rateTemplate}`)
+  }
+  if (wpm != null && Number.isFinite(wpm) && wpm > 0) {
+    metaLines.push(`WPM: ${Math.max(0, Math.floor(wpm))}`)
+  }
 
   const metaBlock = metaLines.join("\n")
   if (!userNotes) return metaBlock

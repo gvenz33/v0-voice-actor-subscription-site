@@ -26,6 +26,13 @@ import {
   BILLING_WORD_COUNT_SESSION_KEY,
   DEFAULT_WPM,
 } from "@/lib/script-word-count"
+import {
+  buildInvoiceNotes,
+  computeInvoiceAmount,
+  formatHours,
+  parseInvoiceMeta,
+  type RateTemplate,
+} from "@/lib/invoice-billing"
 
 interface Invoice {
   id: string
@@ -71,135 +78,9 @@ function invStatusColor(status: string) {
   }
 }
 
-type RateTemplate = "cat1" | "cat2"
-
-const ADDITIONAL_HALF_HOUR = 148
-const FIRST_HOUR_BILLED_HALF_HOURS = 2
-
-const BASE_RATES: Record<RateTemplate, number> = {
-  cat1: 505,
-  cat2: 563,
-}
-
-const META_MARKER = "VOBizSuite Invoice Meta:"
-
-function splitNotesAndMeta(notes: string | null | undefined) {
-  const notesStr = notes ?? ""
-  const idx = notesStr.indexOf(META_MARKER)
-  if (idx === -1) {
-    return { userNotes: notesStr.trim(), metaBlock: "" }
-  }
-  return {
-    userNotes: notesStr.slice(0, idx).trim(),
-    metaBlock: notesStr.slice(idx).trim(),
-  }
-}
-
-function parseInvoiceMeta(notes: string | null | undefined): {
-  userNotes: string
-  clientEmail: string
-  wordCount: number | null
-  rateTemplate: RateTemplate
-  wpm: number
-} {
-  const { userNotes, metaBlock } = splitNotesAndMeta(notes)
-  const clientEmail = metaBlock.match(/Client email:\s*([^\n\r]+)/i)?.[1]?.trim() || ""
-
-  const wordCount = (() => {
-    const m = metaBlock.match(/Word count:\s*(\d+)/i)
-    return m ? Number(m[1]) : null
-  })()
-
-  const rateTemplateRaw = metaBlock.match(/Rate template:\s*(cat1|cat2)/i)?.[1]
-  const rateTemplate = (rateTemplateRaw === "cat2" ? "cat2" : "cat1") as RateTemplate
-
-  const wpmMatch = metaBlock.match(/WPM:\s*(\d+)/i)?.[1]
-  const wpm = wpmMatch ? Number(wpmMatch) : DEFAULT_WPM
-
-  return { userNotes, clientEmail, wordCount, rateTemplate, wpm }
-}
-
-function buildInvoiceNotes(params: {
-  userNotes: string
-  clientEmail: string
-  wordCount: number
-  rateTemplate: RateTemplate
-  wpm: number
-}) {
-  const { userNotes, clientEmail, wordCount, rateTemplate, wpm } = params
-
-  const metaLines = [
-    META_MARKER,
-    `Client email: ${clientEmail || ""}`,
-    `Word count: ${Math.max(0, Math.floor(wordCount))}`,
-    `Rate template: ${rateTemplate}`,
-    `WPM: ${Math.max(0, Math.floor(wpm))}`,
-  ]
-
-  const metaBlock = metaLines.join("\n")
-  if (!userNotes) return metaBlock
-  return `${userNotes.trim()}\n\n${metaBlock}`
-}
-
-function computeInvoiceAmount(wordCount: number, wpm: number, rateTemplate: RateTemplate) {
-  if (!Number.isFinite(wordCount) || wordCount <= 0) return null
-  if (!Number.isFinite(wpm) || wpm <= 0) return null
-
-  // Convert words -> billed time using a configurable estimator (WPM).
-  const wordsPerHour = wpm * 60
-  const durationHours = wordCount / wordsPerHour
-
-  // Billing model (SAG-AFTRA Corporate/Educational - Non-Broadcast table):
-  // - Base first hour at selected Cat rate.
-  // - Additional time billed at $148 per additional half-hour increment.
-  const billedHalfHours = Math.max(FIRST_HOUR_BILLED_HALF_HOURS, Math.ceil(durationHours * 2))
-  const additionalHalfHours = Math.max(0, billedHalfHours - FIRST_HOUR_BILLED_HALF_HOURS)
-  const amount = BASE_RATES[rateTemplate] + additionalHalfHours * ADDITIONAL_HALF_HOUR
-
-  return {
-    amount: Number(amount.toFixed(2)),
-    durationHours,
-    billedHalfHours,
-    additionalHalfHours,
-  }
-}
-
-function estimateWordCountFromAmount(amount: number, rateTemplate: RateTemplate, wpm: number) {
-  if (!Number.isFinite(amount) || amount < 0) return 0
-  if (!Number.isFinite(wpm) || wpm <= 0) return 0
-
-  const base = BASE_RATES[rateTemplate]
-  if (amount <= base) {
-    const estimatedHours = 1
-    return Math.round(estimatedHours * wpm * 60)
-  }
-
-  const extra = amount - base
-  const extraHalfHours = Math.ceil(extra / ADDITIONAL_HALF_HOUR)
-  const billedHalfHours = FIRST_HOUR_BILLED_HALF_HOURS + extraHalfHours
-  const estimatedHours = billedHalfHours / 2
-  return Math.round(estimatedHours * wpm * 60)
-}
-
-function inferRateTemplateFromAmount(amount: number): RateTemplate {
-  const diff1 = Math.abs(amount - BASE_RATES.cat1)
-  const diff2 = Math.abs(amount - BASE_RATES.cat2)
-  return diff2 < diff1 ? "cat2" : "cat1"
-}
-
 function toDateInputValue(dueDate: string | null | undefined) {
   if (!dueDate) return ""
   return dueDate.includes("T") ? dueDate.split("T")[0] : dueDate
-}
-
-function formatHours(durationHours: number) {
-  if (!Number.isFinite(durationHours) || durationHours < 0) return "0h"
-  const totalMinutes = Math.round(durationHours * 60)
-  const h = Math.floor(totalMinutes / 60)
-  const m = totalMinutes % 60
-  if (h <= 0) return `${m}m`
-  if (m === 0) return `${h}h`
-  return `${h}h ${m}m`
 }
 
 export default function BillingDesk() {
@@ -249,8 +130,9 @@ export default function BillingDesk() {
     dueDate: string
     description: string
     notes: string
+    amount: string
     wordCount: string
-    rateTemplate: RateTemplate
+    rateTemplate: RateTemplate | "none"
     wpm: string
     clientEmail: string
     contactId: string
@@ -260,15 +142,16 @@ export default function BillingDesk() {
     dueDate: "",
     description: "",
     notes: "",
+    amount: "",
     wordCount: "",
-    rateTemplate: "cat1",
-    wpm: String(DEFAULT_WPM),
+    rateTemplate: "none",
+    wpm: "",
     clientEmail: "",
     contactId: "none",
   })
 
   const computed = useMemo(() => {
-    if (!form.wordCount || !form.wpm) return null
+    if (!form.wordCount || !form.wpm || form.rateTemplate === "none") return null
     const wordCountNum = Number(form.wordCount)
     const wpmNum = Number(form.wpm)
     if (!Number.isFinite(wordCountNum) || wordCountNum <= 0) return null
@@ -277,17 +160,16 @@ export default function BillingDesk() {
   }, [form.wordCount, form.wpm, form.rateTemplate])
 
   useEffect(() => {
+    if (!computed) return
+    const next = computed.amount.toFixed(2)
+    setForm((f) => (f.amount === next ? f : { ...f, amount: next }))
+  }, [computed])
+
+  useEffect(() => {
     if (!dialogOpen) return
 
     if (editing) {
       const meta = parseInvoiceMeta(editing.notes)
-      const wpmVal = meta.wpm || DEFAULT_WPM
-      const rateTemplate = meta.wordCount ? meta.rateTemplate : inferRateTemplateFromAmount(editing.amount)
-
-      const inferredWordCount =
-        meta.wordCount && meta.wordCount > 0
-          ? meta.wordCount
-          : estimateWordCountFromAmount(editing.amount, rateTemplate, wpmVal)
 
       setForm({
         invoiceNumber: editing.invoice_number || "",
@@ -295,9 +177,10 @@ export default function BillingDesk() {
         dueDate: toDateInputValue(editing.due_date),
         description: editing.description || "",
         notes: meta.userNotes || "",
-        wordCount: inferredWordCount ? String(inferredWordCount) : "",
-        rateTemplate,
-        wpm: String(wpmVal),
+        amount: Number.isFinite(Number(editing.amount)) ? Number(editing.amount).toFixed(2) : "",
+        wordCount: meta.wordCount && meta.wordCount > 0 ? String(meta.wordCount) : "",
+        rateTemplate: meta.rateTemplate ?? "none",
+        wpm: meta.wpm && meta.wpm > 0 ? String(meta.wpm) : "",
         clientEmail: meta.clientEmail || "",
         contactId: editing.contact_id || "none",
       })
@@ -325,9 +208,10 @@ export default function BillingDesk() {
       dueDate: "",
       description: "",
       notes: "",
+      amount: "",
       wordCount: prefillWords,
-      rateTemplate: "cat1",
-      wpm: String(DEFAULT_WPM),
+      rateTemplate: "none",
+      wpm: "",
       clientEmail: "",
       contactId: "none",
     })
@@ -352,26 +236,33 @@ export default function BillingDesk() {
     if (!user) throw new Error("Not authenticated")
 
     if (!form.invoiceNumber) throw new Error("Invoice # is required.")
-    const billedInfo = computed
-    if (!billedInfo) throw new Error("Could not calculate invoice amount. Check your inputs.")
+    const amountNum = Number(form.amount)
+    if (!Number.isFinite(amountNum) || amountNum < 0) {
+      throw new Error("Please enter an invoice amount.")
+    }
 
-    const wordCountNum = Number(form.wordCount)
-    const wpmNum = Number(form.wpm)
-    if (!Number.isFinite(wordCountNum) || wordCountNum <= 0) throw new Error("Please enter a valid word count.")
-    if (!Number.isFinite(wpmNum) || wpmNum <= 0) throw new Error("Please enter a valid WPM value.")
+    const wordCountNum = form.wordCount.trim() === "" ? null : Number(form.wordCount)
+    if (wordCountNum != null && (!Number.isFinite(wordCountNum) || wordCountNum < 0)) {
+      throw new Error("Please enter a valid word count.")
+    }
+    const wpmNum = form.wpm.trim() === "" ? null : Number(form.wpm)
+    if (wpmNum != null && (!Number.isFinite(wpmNum) || wpmNum <= 0)) {
+      throw new Error("Please enter a valid WPM value.")
+    }
+    const rateTemplate = form.rateTemplate === "none" ? null : form.rateTemplate
 
     const notes = buildInvoiceNotes({
       userNotes: form.notes || "",
       clientEmail: form.clientEmail || "",
       wordCount: wordCountNum,
-      rateTemplate: form.rateTemplate,
+      rateTemplate,
       wpm: wpmNum,
     })
 
     const payload = {
       user_id: user.id,
       invoice_number: form.invoiceNumber,
-      amount: billedInfo.amount,
+      amount: Number(amountNum.toFixed(2)),
       status: statusOverride ?? form.status ?? "draft",
       due_date: form.dueDate ? form.dueDate : null,
       description: form.description ? form.description : null,
@@ -611,12 +502,24 @@ export default function BillingDesk() {
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <Label>Calculated Total ($)</Label>
-                  <div className="min-h-[44px] flex items-center rounded-md border border-input bg-muted/30 px-3">
-                    <span className="font-semibold">
-                      ${computed?.amount?.toFixed(2) ?? "0.00"}
-                    </span>
-                  </div>
+                  <Label htmlFor="amount">Amount ($) *</Label>
+                  <Input
+                    id="amount"
+                    name="amount"
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    required
+                    value={form.amount}
+                    onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+                    className="min-h-[44px]"
+                    placeholder="0.00"
+                  />
+                  {computed ? (
+                    <p className="text-xs text-muted-foreground">
+                      Filled from word count, rate template, and WPM. You can still edit it.
+                    </p>
+                  ) : null}
                 </div>
               </div>
 
@@ -654,14 +557,13 @@ export default function BillingDesk() {
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="word_count">Word count *</Label>
+                  <Label htmlFor="word_count">Word count</Label>
                   <Input
                     id="word_count"
                     name="word_count"
                     type="number"
                     step="1"
                     min={0}
-                    required
                     value={form.wordCount}
                     onChange={(e) => setForm((f) => ({ ...f, wordCount: e.target.value }))}
                     className="min-h-[44px]"
@@ -669,15 +571,16 @@ export default function BillingDesk() {
                   />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="rate_template">Rate template *</Label>
+                  <Label htmlFor="rate_template">Rate template</Label>
                   <Select
                     value={form.rateTemplate}
-                    onValueChange={(v) => setForm((f) => ({ ...f, rateTemplate: v as RateTemplate }))}
+                    onValueChange={(v) => setForm((f) => ({ ...f, rateTemplate: v as RateTemplate | "none" }))}
                   >
                     <SelectTrigger id="rate_template" className="min-h-[44px]">
-                      <SelectValue />
+                      <SelectValue placeholder="Optional" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
                       <SelectItem value="cat1">Cat 1 (First hour: $505)</SelectItem>
                       <SelectItem value="cat2">Cat 2 (First hour: $563)</SelectItem>
                     </SelectContent>
@@ -687,18 +590,17 @@ export default function BillingDesk() {
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="wpm">Words per minute (WPM) *</Label>
+                  <Label htmlFor="wpm">Words per minute (WPM)</Label>
                   <Input
                     id="wpm"
                     name="wpm"
                     type="number"
                     step="1"
                     min={1}
-                    required
                     value={form.wpm}
                     onChange={(e) => setForm((f) => ({ ...f, wpm: e.target.value }))}
                     className="min-h-[44px]"
-                    placeholder="150"
+                    placeholder={String(DEFAULT_WPM)}
                   />
                 </div>
                 <div className="flex flex-col gap-2">
@@ -709,7 +611,7 @@ export default function BillingDesk() {
                         {formatHours(computed.durationHours)} ({computed.billedHalfHours / 2} hour[s])
                       </span>
                     ) : (
-                      "Enter word count + WPM"
+                      "Optional — fill word count, rate, and WPM to estimate"
                     )}
                   </div>
                 </div>
@@ -841,7 +743,7 @@ export default function BillingDesk() {
               </div>
 
               <div className="text-xs text-muted-foreground">
-                Rate assumptions (Billing Desk): First hour billed at the selected Cat rate; additional time billed at $148 per extra half-hour. Uses WPM to convert your word count to billed time. Source:{" "}
+                Rate assumptions (optional): If you fill word count, a rate template, and WPM, the amount is estimated from the selected Cat rate (first hour) plus $148 per extra half-hour. You can also enter the amount yourself. Source:{" "}
                 <a
                   href="https://voiceoverresourceguide.com/voice-over-rates/"
                   target="_blank"
