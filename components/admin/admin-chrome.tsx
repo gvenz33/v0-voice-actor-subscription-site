@@ -14,6 +14,7 @@ import {
   Ticket,
   MessageSquareHeart,
   GraduationCap,
+  Share2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -28,6 +29,7 @@ import { cn } from "@/lib/utils"
 const adminNavItems = [
   { title: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { title: "Users", href: "/admin/users", icon: Users },
+  { title: "Affiliates", href: "/admin/affiliates", icon: Share2 },
   { title: "Promo Codes", href: "/admin/promo-codes", icon: Ticket },
   { title: "Beta Feedback", href: "/admin/beta-feedback", icon: MessageSquareHeart },
   { title: "BVS Beta Feedback", href: "/admin/bvs-beta-feedback", icon: GraduationCap },

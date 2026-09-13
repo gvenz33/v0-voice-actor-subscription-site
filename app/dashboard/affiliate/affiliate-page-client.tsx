@@ -62,6 +62,8 @@ export type AffiliatePageInitial = {
   referralUrl: string
   siteOrigin: string
   stripeConnectAccountId: string | null
+  commissionRate: number
+  commissionPercentLabel: string
 }
 
 export default function AffiliatePageClient({
@@ -96,9 +98,13 @@ export default function AffiliatePageClient({
     text: string
   } | null>(null)
   const [showChangeCode, setShowChangeCode] = useState(false)
+  const [commissionPercentLabel, setCommissionPercentLabel] = useState(
+    initial.commissionPercentLabel || "20%"
+  )
 
   const affiliateCode = stats?.affiliateCode || initial.affiliateCode
   const hasAffiliateCode = Boolean(affiliateCode?.trim())
+  const commissionLabel = commissionPercentLabel
 
   const resolveReferralUrl = (code: string) =>
     buildAffiliateReferralUrl(
@@ -132,12 +138,17 @@ export default function AffiliatePageClient({
         referralUrl?: string | null
         canChangeCode?: boolean
         stripeConnectAccountId?: string | null
+        commissionRate?: number
+        commissionPercentLabel?: string
         stats?: AffiliateStats
       }
 
       if (statusRes.ok) {
         const s = statusData.stats
         const code = statusData.affiliateCode ?? initial.affiliateCode
+        if (statusData.commissionPercentLabel) {
+          setCommissionPercentLabel(statusData.commissionPercentLabel)
+        }
         setStats({
           affiliateCode: code,
           totalReferrals: s?.totalReferrals ?? 0,
@@ -156,6 +167,21 @@ export default function AffiliatePageClient({
         if (statusData.stripeConnectAccountId) {
           setStripeConnected(true)
           setStripeAccountId(statusData.stripeConnectAccountId)
+        }
+        if (typeof statusData.isEligible === "boolean") {
+          setIsEligible(statusData.isEligible)
+        }
+        if (statusData.lockReasons) {
+          setLockReasons(statusData.lockReasons)
+        }
+        if (typeof statusData.programEnabled === "boolean") {
+          setProgramEnabled(statusData.programEnabled)
+        }
+        if (statusData.tierLabel) {
+          setTierLabel(statusData.tierLabel)
+        }
+        if (statusData.subscriptionTier) {
+          setSubscriptionTier(statusData.subscriptionTier)
         }
       } else if (!statusRes.ok) {
         console.error("[affiliate] status API error:", statusData.error)
@@ -366,7 +392,7 @@ export default function AffiliatePageClient({
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Affiliate Program</h1>
             <p className="mt-1 text-muted-foreground">
-              Earn 20% commission on every subscription from your referrals
+              Earn {commissionLabel} commission on every subscription from your referrals
             </p>
           </div>
           <Badge variant="outline" className="w-fit text-sm">
@@ -389,7 +415,7 @@ export default function AffiliatePageClient({
                     ? "Affiliate Program Unavailable"
                     : overrideDisabled
                       ? "Affiliate Access Disabled"
-                      : "Unlock Affiliate Referrals"}
+                      : "Affiliate Access Unavailable"}
                   <Crown className="h-5 w-5 text-yellow-500" />
                 </CardTitle>
                 <CardDescription>
@@ -397,7 +423,7 @@ export default function AffiliatePageClient({
                     ? "The referral program is temporarily turned off"
                     : overrideDisabled
                       ? "Your account does not have affiliate access"
-                      : "Available with Momentum or Command subscription"}
+                      : "Affiliate access is not available for your account"}
                 </CardDescription>
               </div>
             </div>
@@ -426,18 +452,15 @@ export default function AffiliatePageClient({
                   <Badge variant="outline" className="mx-1">
                     {tierLabel}
                   </Badge>{" "}
-                  plan. Upgrade to{" "}
-                  <span className="font-semibold text-yellow-500">Momentum</span> or{" "}
-                  <span className="font-semibold text-yellow-500">Command</span> to unlock your
-                  unique affiliate code and start earning 20% commission on every referral.
+                  plan. Free accounts can join and earn 8% commission; paid plans earn 20%. Contact
+                  support if you need access restored.
                 </>
               )}
             </p>
 
-            {(subscriptionTier === "command" || subscriptionTier === "momentum") &&
-              !programEnabled && (
+            {!programEnabled && (
                 <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
-                  Your subscription tier qualifies for affiliate referrals, but the program is
+                  Your account would normally qualify for affiliate referrals, but the program is
                   disabled by an administrator right now.
                 </p>
               )}
@@ -455,7 +478,7 @@ export default function AffiliatePageClient({
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-green-500" />
-                  20% commission on all referral subscriptions
+                  {commissionLabel} commission on referral subscriptions (8% free / 20% paid)
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-green-500" />
@@ -470,16 +493,10 @@ export default function AffiliatePageClient({
 
             {showUpgradeCta && (
               <div className="flex flex-col gap-3 sm:flex-row">
-                <Button asChild variant="warning" className="flex-1">
-                  <Link href="/dashboard/settings">
-                    <Crown className="mr-2 h-4 w-4" />
-                    Upgrade to Momentum - $49/mo
-                  </Link>
-                </Button>
                 <Button asChild variant="outline" className="flex-1">
-                  <Link href="/dashboard/settings">
-                    <Crown className="mr-2 h-4 w-4" />
-                    Upgrade to Command - $99/mo
+                  <Link href="/auth/sign-up">
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Create a free account to join
                   </Link>
                 </Button>
               </div>
@@ -510,9 +527,9 @@ export default function AffiliatePageClient({
               </div>
               <div className="flex flex-col gap-2">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">3</div>
-                <h3 className="font-semibold">Earn 20%</h3>
+                <h3 className="font-semibold">Earn {commissionLabel}</h3>
                 <p className="text-sm text-muted-foreground">
-                  Earn 20% of their subscription fee for as long as they remain a paying customer. Payouts are processed monthly.
+                  Free accounts earn 8%; paid plans earn 20% of their subscription fee for as long as they remain a paying customer. Payouts are processed monthly.
                 </p>
               </div>
             </div>
@@ -529,11 +546,11 @@ export default function AffiliatePageClient({
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Affiliate Program</h1>
           <p className="mt-1 text-muted-foreground">
-            Earn 20% commission on every subscription from your referrals
+            Earn {commissionLabel} commission on every subscription from your referrals
           </p>
         </div>
         <Badge variant="outline" className="w-fit text-sm">
-          {tierLabel} plan
+          {tierLabel} plan · {commissionLabel}
         </Badge>
       </div>
 
@@ -546,7 +563,7 @@ export default function AffiliatePageClient({
           </CardTitle>
           <CardDescription>
             {hasAffiliateCode
-              ? "Share your link anywhere. When someone signs up with it and subscribes, you earn 20% commission."
+              ? "Share your link anywhere. When someone signs up with it and subscribes, you earn commission."
               : "Choose a custom code you’ll remember, or let us generate one for you (starts with VOB)."}
           </CardDescription>
         </CardHeader>
@@ -913,9 +930,9 @@ export default function AffiliatePageClient({
             </div>
             <div className="flex flex-col gap-2">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">3</div>
-              <h3 className="font-semibold">Earn 20%</h3>
+              <h3 className="font-semibold">Earn {commissionLabel}</h3>
               <p className="text-sm text-muted-foreground">
-                Earn 20% of their subscription fee for as long as they remain a paying customer. Payouts are processed monthly.
+                Earn {commissionLabel} of their subscription fee for as long as they remain a paying customer. Payouts are processed monthly.
               </p>
             </div>
           </div>

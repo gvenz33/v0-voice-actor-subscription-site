@@ -39,7 +39,8 @@ export function resolveAffiliateAccess(params: {
   const tier = normalizeSubscriptionTier(params.subscriptionTier)
   const overrides = parseFeatureOverrides(params.featureOverrides)
 
-  const tierEligible = tier === "momentum" || tier === "command"
+  // All plans can join the affiliate program (free accounts earn 8%; paid plans 20%).
+  const tierEligible = true
   const affiliateOverride =
     overrides.hasAffiliate === true || overrides.hasAffiliate === "true"
       ? true
@@ -81,4 +82,33 @@ export function resolveAffiliateAccess(params: {
     programEnabled,
     reasons,
   }
+}
+
+/** Free accounts earn 8%; Launch / Momentum / Command earn 20%. Admin override supported. */
+export const FREE_AFFILIATE_COMMISSION_RATE = 0.08
+export const PAID_AFFILIATE_COMMISSION_RATE = 0.2
+
+export function getAffiliateCommissionRate(
+  subscriptionTier: string | null | undefined,
+  featureOverrides?: FeatureOverridesInput
+): number {
+  const overrides = parseFeatureOverrides(featureOverrides)
+  const raw = overrides.affiliateCommissionRate
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0 && raw <= 1) {
+    return raw
+  }
+  if (typeof raw === "string") {
+    const n = Number(raw)
+    if (Number.isFinite(n) && n > 0 && n <= 1) return n
+    // Allow "8" or "8%" style admin entry as percent points
+    if (Number.isFinite(n) && n > 1 && n <= 100) return n / 100
+  }
+
+  const tier = normalizeSubscriptionTier(subscriptionTier)
+  return tier === "free" ? FREE_AFFILIATE_COMMISSION_RATE : PAID_AFFILIATE_COMMISSION_RATE
+}
+
+export function formatAffiliateCommissionPercent(rate: number): string {
+  const pct = Math.round(rate * 1000) / 10
+  return Number.isInteger(pct) ? `${pct}%` : `${pct}%`
 }

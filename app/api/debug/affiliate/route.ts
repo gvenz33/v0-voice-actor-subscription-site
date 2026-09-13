@@ -28,7 +28,7 @@ export async function GET() {
     profileError: profileError?.message,
     eligibilityCheck: {
       tier: profile?.subscription_tier,
-      tierEligible: ["momentum", "command"].includes(profile?.subscription_tier || ""),
+      tierEligible: true,
       featureOverrides: profile?.feature_overrides,
       hasAffiliateOverride: profile?.feature_overrides?.hasAffiliate === true,
       isAffiliateDisabled: profile?.feature_overrides?.hasAffiliate === false,

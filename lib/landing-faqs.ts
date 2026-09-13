@@ -106,7 +106,7 @@ export const LANDING_FAQS: LandingFaqItem[] = [
   {
     question: "Do you have an affiliate program?",
     answer:
-      "Yes! Every VOBizSuite member gets a unique affiliate code. Share it with other voice actors and earn 20% commission on their subscription for as long as they remain a paying customer. It's a great way to help fellow VOs while earning passive income. Check your dashboard for your affiliate link.",
+      "Yes! Free and paid VOBizSuite members can join the affiliate program. Free accounts earn 8% commission; Launch, Momentum, and Command earn 20%. Share your unique affiliate code with other voice actors and earn for as long as they remain a paying customer. Sign up for a free account if you only want to refer — then open Affiliate in your dashboard for your link.",
   },
 ]
 

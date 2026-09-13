@@ -81,8 +81,8 @@ interface User {
 }
 
 const TIER_FEATURES = {
-  free: { hasFollowUpWriter: false, hasPitchGenerator: false, hasChatAssistant: false, hasProspectFinder: false, hasVOCoach: false, hasAffiliate: false, voCoachLimit: 0, monthlyTokens: 0 },
-  launch: { hasFollowUpWriter: false, hasPitchGenerator: false, hasChatAssistant: false, hasProspectFinder: true, hasVOCoach: true, hasAffiliate: false, voCoachLimit: 10, monthlyTokens: 400 },
+  free: { hasFollowUpWriter: false, hasPitchGenerator: false, hasChatAssistant: false, hasProspectFinder: false, hasVOCoach: false, hasAffiliate: true, voCoachLimit: 0, monthlyTokens: 0 },
+  launch: { hasFollowUpWriter: false, hasPitchGenerator: false, hasChatAssistant: false, hasProspectFinder: true, hasVOCoach: true, hasAffiliate: true, voCoachLimit: 10, monthlyTokens: 400 },
   momentum: { hasFollowUpWriter: true, hasPitchGenerator: true, hasChatAssistant: false, hasProspectFinder: true, hasVOCoach: true, hasAffiliate: true, voCoachLimit: 50, monthlyTokens: 250 },
   command: { hasFollowUpWriter: true, hasPitchGenerator: true, hasChatAssistant: true, hasProspectFinder: true, hasVOCoach: true, hasAffiliate: true, voCoachLimit: -1, monthlyTokens: -1 },
 }
@@ -940,7 +940,9 @@ export default function AdminUsersPage() {
                             </Badge>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground">Access to affiliate referral program (20% commission)</p>
+                        <p className="text-xs text-muted-foreground">
+                          Access to affiliate referrals (free plans: 8% commission; paid plans: 20%)
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           Tier default: <span className={TIER_FEATURES[selectedUser.subscription_tier as keyof typeof TIER_FEATURES]?.hasAffiliate ? "text-green-500" : "text-red-500"}>
                             {TIER_FEATURES[selectedUser.subscription_tier as keyof typeof TIER_FEATURES]?.hasAffiliate ? "Enabled" : "Disabled"}

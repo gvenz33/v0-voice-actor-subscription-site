@@ -426,7 +426,7 @@ export default function BillingDesk() {
             ))}
             {sendNotice.warnings.map((line) => (
               <p key={line} className="text-amber-700 dark:text-amber-400">
-                {line.includes("Billing Desk") || line.includes("Zelle") || line.includes("Stripe") ? (
+                {line.includes("Billing Desk") || line.includes("Zelle") || line.includes("Venmo") || line.includes("PayPal") ? (
                   <>
                     {line}{" "}
                     <button
@@ -719,7 +719,7 @@ export default function BillingDesk() {
                 <div className="flex flex-col items-stretch gap-2 sm:items-end">
                   <p className="text-xs text-muted-foreground">
                     Email includes a PDF invoice. Saved Zelle/Venmo/PayPal details from Billing Desk
-                    are included automatically; Stripe card pay links when Connect is live.
+                    are included automatically.
                   </p>
                   <Button
                     type="button"

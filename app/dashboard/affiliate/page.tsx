@@ -49,6 +49,8 @@ export default async function AffiliatePage() {
           : "",
         siteOrigin,
         stripeConnectAccountId: profile?.stripe_connect_account_id ?? null,
+        commissionRate: ctx.commissionRate,
+        commissionPercentLabel: ctx.commissionPercentLabel,
       }}
     />
   )

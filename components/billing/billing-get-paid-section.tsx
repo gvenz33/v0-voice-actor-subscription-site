@@ -7,25 +7,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
 import {
   formatPaymentInstructionsForEmail,
   type InvoicePaymentProfile,
 } from "@/lib/invoice-payment-instructions"
-import {
-  Banknote,
-  Copy,
-  CreditCard,
-  Landmark,
-  Loader2,
-  Smartphone,
-} from "lucide-react"
+import { Banknote, Copy, Loader2, Smartphone } from "lucide-react"
 
 async function fetchPaymentInstructions() {
   const res = await fetch("/api/billing/payment-instructions")
@@ -102,8 +88,8 @@ export function BillingGetPaidSection() {
             <div>
               <CardTitle className="text-base">Get paid on your invoices</CardTitle>
               <p className="mt-1 text-sm text-muted-foreground">
-                Use Zelle, Venmo, PayPal, or check/wire instructions today. Save your details once —
-                they are added to invoice emails (and work even before online card checkout is live).
+                Use Zelle, Venmo, PayPal, or check/wire instructions. Save your details once —
+                they are added to invoice emails and PDFs automatically.
               </p>
             </div>
           </div>
@@ -175,12 +161,8 @@ export function BillingGetPaidSection() {
             </div>
           )}
 
-          {saveError && (
-            <p className="text-sm text-destructive">{saveError}</p>
-          )}
-          {saveMessage && (
-            <p className="text-sm text-artist-green">{saveMessage}</p>
-          )}
+          {saveError && <p className="text-sm text-destructive">{saveError}</p>}
+          {saveMessage && <p className="text-sm text-artist-green">{saveMessage}</p>}
 
           <Button
             type="button"
@@ -195,76 +177,9 @@ export function BillingGetPaidSection() {
           <ul className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
             <li>• Confirm payment in your bank app before marking an invoice paid.</li>
             <li>• For agency clients, check/wire may still be required in their AP process.</li>
-            <li>• Online card pay (Stripe) is coming — expand the section below when ready.</li>
           </ul>
         </CardContent>
       </Card>
-
-      <Accordion type="multiple" className="rounded-xl border border-border bg-card px-4">
-        <AccordionItem value="stripe" className="border-b-0">
-          <AccordionTrigger className="hover:no-underline py-4">
-            <div className="flex flex-1 items-center gap-3 text-left">
-              <CreditCard className="size-4 shrink-0 text-artist-teal" />
-              <div>
-                <span className="font-medium">Stripe — card checkout on invoices</span>
-                <Badge variant="outline" className="ml-2 text-[10px]">
-                  To be added
-                </Badge>
-              </div>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="pb-4">
-            <Card id="get-paid-stripe" className="artist-card-teal ring-1 ring-artist-teal/30 border-0 shadow-none">
-              <CardContent className="flex flex-col gap-3 p-4 sm:p-5">
-                <p className="text-sm text-muted-foreground">
-                  Connect Stripe so clients can pay invoices by card. Payouts go to your bank on
-                  Stripe&apos;s schedule. Coming later alongside Zelle/Venmo instructions.
-                </p>
-                <ul className="space-y-1.5 text-xs text-muted-foreground">
-                  <li>Card checkout on invoice pay links</li>
-                  <li>ACH / bank transfer payouts and payout reporting</li>
-                  <li>Instant payouts and saved client payment methods</li>
-                </ul>
-                <Button type="button" variant="secondary" className="min-h-[44px] w-full sm:w-auto" disabled>
-                  Coming soon
-                </Button>
-              </CardContent>
-            </Card>
-          </AccordionContent>
-        </AccordionItem>
-
-        <AccordionItem value="plaid" className="border-b-0">
-          <AccordionTrigger className="hover:no-underline py-4">
-            <div className="flex flex-1 items-center gap-3 text-left">
-              <Landmark className="size-4 shrink-0 text-artist-indigo" />
-              <div>
-                <span className="font-medium">Plaid — bank-linked ACH payments</span>
-                <Badge variant="outline" className="ml-2 text-[10px]">
-                  To be added
-                </Badge>
-              </div>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="pb-4">
-            <Card className="artist-card-indigo ring-1 ring-artist-indigo/25 border-0 shadow-none">
-              <CardContent className="flex flex-col gap-3 p-4 sm:p-5">
-                <p className="text-sm text-muted-foreground">
-                  Link your bank with Plaid for ACH invoice payments and faster verification, alongside
-                  Stripe card checkout when both are available.
-                </p>
-                <ul className="space-y-1.5 text-xs text-muted-foreground">
-                  <li>Secure bank account linking for voice actors</li>
-                  <li>ACH pay options on invoice emails</li>
-                  <li>Balance and transfer status in Billing Desk</li>
-                </ul>
-                <Button type="button" variant="secondary" className="min-h-[44px] w-full sm:w-auto" disabled>
-                  Coming soon
-                </Button>
-              </CardContent>
-            </Card>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
     </div>
   )
 }

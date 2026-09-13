@@ -4,10 +4,16 @@ import {
   type SubscriptionTier,
 } from "@/lib/subscription-tier"
 import {
-  parseFeatureOverrides,
   resolveAffiliateAccess,
+  getAffiliateCommissionRate,
+  formatAffiliateCommissionPercent,
   type AffiliateLockReason,
   type FeatureOverridesInput,
+} from "@/lib/affiliate-access"
+
+export {
+  getAffiliateCommissionRate,
+  formatAffiliateCommissionPercent,
 } from "@/lib/affiliate-access"
 
 /** Accounts that always receive Command-tier affiliate access when the program is enabled. */
@@ -40,6 +46,8 @@ export type AffiliateContext = {
   lockReasons: AffiliateLockReason[]
   programEnabled: boolean
   isSuperadmin: boolean
+  commissionRate: number
+  commissionPercentLabel: string
 }
 
 export function resolveAffiliateContext(params: {
@@ -67,6 +75,14 @@ export function resolveAffiliateContext(params: {
     isSuperadmin,
   })
 
+  // Commission uses the real account tier (free = 8%), not the owner display bump.
+  const rateTier = normalizeSubscriptionTier(params.subscriptionTier)
+  const commissionRate = getAffiliateCommissionRate(
+    rateTier,
+    params.featureOverrides
+  )
+  const commissionPercentLabel = formatAffiliateCommissionPercent(commissionRate)
+
   if (isSuperadmin && programEnabled) {
     return {
       subscriptionTier: effectiveTier,
@@ -77,6 +93,8 @@ export function resolveAffiliateContext(params: {
       ),
       programEnabled,
       isSuperadmin: true,
+      commissionRate,
+      commissionPercentLabel,
     }
   }
 
@@ -87,5 +105,7 @@ export function resolveAffiliateContext(params: {
     lockReasons: access.reasons,
     programEnabled: access.programEnabled,
     isSuperadmin,
+    commissionRate,
+    commissionPercentLabel,
   }
 }

@@ -72,7 +72,7 @@ export async function requireAffiliateEligible(
     return {
       ok: false,
       status: 403,
-      error: "Affiliate program requires Momentum or Command subscription.",
+      error: "Affiliate access is not available for your account.",
     }
   }
 
