@@ -17,8 +17,13 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Search, Send, Trash2, Pencil } from "lucide-react"
+import { Plus, Search, Send, Trash2, Pencil, CalendarCheck, Clock } from "lucide-react"
 import { fetchContactsPicker } from "@/lib/fetch-contacts-picker"
+import {
+  convertSubmissionToBooking,
+  scheduleFollowUpFromSubmission,
+} from "@/lib/workflow-converts"
+import { useRouter } from "next/navigation"
 
 interface Submission {
   id: string
@@ -80,12 +85,14 @@ function subStatusColor(status: string) {
 }
 
 export default function SubmissionsPage() {
+  const router = useRouter()
   const { data: submissions, isLoading } = useSWR("submissions", fetchSubmissions)
   const { data: contactOptions } = useSWR("contact-picker", fetchContactsPicker)
   const [search, setSearch] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Submission | null>(null)
+  const [convertingId, setConvertingId] = useState<string | null>(null)
 
   const filtered = submissions?.filter((s) => {
     const matchSearch = s.project_title.toLowerCase().includes(search.toLowerCase())
@@ -128,6 +135,34 @@ export default function SubmissionsPage() {
     await supabase.from("submissions").delete().eq("id", id)
     mutate("submissions")
     mutate("dashboard-stats")
+  }
+
+  const handleConvertToBooking = async (sub: Submission) => {
+    setConvertingId(sub.id)
+    try {
+      await convertSubmissionToBooking(sub)
+      mutate("submissions")
+      mutate("bookings")
+      mutate("dashboard-stats")
+      router.push("/dashboard/bookings")
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not create booking")
+    } finally {
+      setConvertingId(null)
+    }
+  }
+
+  const handleScheduleFollowUp = async (sub: Submission) => {
+    setConvertingId(sub.id)
+    try {
+      await scheduleFollowUpFromSubmission(sub)
+      mutate("dashboard-stats")
+      router.push("/dashboard/touchpoints")
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not schedule follow-up")
+    } finally {
+      setConvertingId(null)
+    }
   }
 
   return (
@@ -250,7 +285,29 @@ export default function SubmissionsPage() {
                     <span>{new Date(sub.submitted_at).toLocaleDateString()}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 flex-wrap justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="min-h-[44px]"
+                    disabled={convertingId === sub.id}
+                    onClick={() => void handleConvertToBooking(sub)}
+                    title="Convert to booking"
+                  >
+                    <CalendarCheck className="mr-1 size-3.5" />
+                    Book
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="min-h-[44px]"
+                    disabled={convertingId === sub.id}
+                    onClick={() => void handleScheduleFollowUp(sub)}
+                    title="Schedule follow-up"
+                  >
+                    <Clock className="mr-1 size-3.5" />
+                    Follow up
+                  </Button>
                   <Button variant="ghost" size="sm" className="min-h-[44px] min-w-[44px]" onClick={() => { setEditing(sub); setDialogOpen(true) }}>
                     <Pencil className="size-3.5" />
                   </Button>

@@ -9,6 +9,11 @@ import {
   isBetaFeedbackPromo,
   normalizePromoCode,
 } from "@/lib/promo-codes"
+import {
+  activateAffiliateReferral,
+  accrueAffiliateCommission,
+  resolveReferredUserIdFromStripe,
+} from "@/lib/affiliate-referrals"
 import { createAdminClient } from "@/lib/supabase/admin"
 import {
   syncTierFromStripeSubscription,
@@ -118,6 +123,12 @@ export async function POST(request: NextRequest) {
           if (result.error) {
             console.error("[stripe webhook] Tier update failed:", result.error)
           }
+
+          try {
+            await activateAffiliateReferral(userId)
+          } catch (affErr) {
+            console.error("[stripe webhook] activate affiliate referral:", affErr)
+          }
         }
 
         const subscriptionId =
@@ -135,6 +146,20 @@ export async function POST(request: NextRequest) {
             })
           } catch (error) {
             console.error("[stripe webhook] Subscription metadata update failed:", error)
+          }
+        }
+
+        // Accrue first commission from checkout amount when available
+        if (userId && typeof session.amount_total === "number" && session.amount_total > 0) {
+          try {
+            await accrueAffiliateCommission({
+              referredUserId: userId,
+              amountPaidCents: session.amount_total,
+              stripeInvoiceId: `checkout_${session.id}`,
+              stripeEventId: event.id,
+            })
+          } catch (affErr) {
+            console.error("[stripe webhook] checkout affiliate commission:", affErr)
           }
         }
       }
@@ -210,6 +235,57 @@ export async function POST(request: NextRequest) {
 
     case "invoice.payment_failed": {
       console.log("[stripe webhook] invoice.payment_failed", event.id)
+      break
+    }
+
+    case "invoice.paid": {
+      if (!supabase) break
+      const invoice = event.data.object as Stripe.Invoice
+      const amountPaid = invoice.amount_paid ?? 0
+      if (amountPaid <= 0) break
+
+      const customerId =
+        typeof invoice.customer === "string"
+          ? invoice.customer
+          : invoice.customer?.id ?? null
+
+      let userId: string | null =
+        typeof invoice.metadata?.user_id === "string" ? invoice.metadata.user_id : null
+
+      const subscriptionId =
+        typeof invoice.subscription === "string"
+          ? invoice.subscription
+          : invoice.subscription && typeof invoice.subscription === "object"
+            ? invoice.subscription.id
+            : null
+
+      if (!userId && subscriptionId) {
+        try {
+          const sub = await getStripe().subscriptions.retrieve(subscriptionId)
+          userId =
+            typeof sub.metadata?.user_id === "string" ? sub.metadata.user_id : null
+        } catch (subErr) {
+          console.error("[stripe webhook] subscription retrieve for affiliate:", subErr)
+        }
+      }
+
+      try {
+        const referredUserId = await resolveReferredUserIdFromStripe({
+          userId,
+          stripeCustomerId: customerId,
+        })
+        if (referredUserId) {
+          await activateAffiliateReferral(referredUserId)
+          await accrueAffiliateCommission({
+            referredUserId,
+            amountPaidCents: amountPaid,
+            stripeInvoiceId: invoice.id,
+            stripeEventId: event.id,
+          })
+        }
+      } catch (affErr) {
+        console.error("[stripe webhook] invoice.paid affiliate commission:", affErr)
+      }
       break
     }
 

@@ -27,13 +27,32 @@ function SignUpForm() {
   const [alreadyRegistered, setAlreadyRegistered] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [referralCode, setReferralCode] = useState<string | null>(null)
+  const [affiliateIntent, setAffiliateIntent] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
 
   useEffect(() => {
     const ref = searchParams.get('ref')
+    const intent = searchParams.get('intent') === 'affiliate'
+    setAffiliateIntent(intent)
+
     if (ref) {
       setReferralCode(ref)
+      return
+    }
+
+    // Fall back to 30-day referral cookie set by middleware
+    try {
+      const match = document.cookie
+        .split(';')
+        .map((c) => c.trim())
+        .find((c) => c.startsWith('vobiz_ref='))
+      if (match) {
+        const value = decodeURIComponent(match.slice('vobiz_ref='.length))
+        if (value) setReferralCode(value)
+      }
+    } catch {
+      /* ignore */
     }
   }, [searchParams])
 
@@ -59,6 +78,7 @@ function SignUpForm() {
           firstName,
           lastName,
           referralCode,
+          affiliateIntent,
         }),
       })
       const result = (await response.json()) as {
@@ -95,9 +115,13 @@ function SignUpForm() {
           </div>
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl">Create Your Account</CardTitle>
+              <CardTitle className="text-2xl">
+                {affiliateIntent ? 'Join as an Affiliate' : 'Create Your Account'}
+              </CardTitle>
               <CardDescription>
-                Start building your voice over business today
+                {affiliateIntent
+                  ? 'Create a free account, then get your referral link in one step.'
+                  : 'Start building your voice over business today'}
               </CardDescription>
             </CardHeader>
             <CardContent>

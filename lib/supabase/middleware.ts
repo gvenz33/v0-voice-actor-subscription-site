@@ -4,6 +4,12 @@ import {
   getTrialStatus,
   isTrialExpiredAllowlistedPath,
 } from '@/lib/trial'
+import {
+  AFFILIATE_INTENT_COOKIE,
+  AFFILIATE_REF_COOKIE,
+  AFFILIATE_REF_MAX_AGE_SECONDS,
+} from '@/lib/affiliate-cookies'
+import { normalizeAffiliateCodeInput } from '@/lib/affiliate-code'
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -38,6 +44,24 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const pathname = request.nextUrl.pathname
+  const refParam = request.nextUrl.searchParams.get('ref')
+  if (refParam) {
+    const code = normalizeAffiliateCodeInput(refParam)
+    if (code) {
+      supabaseResponse.cookies.set(AFFILIATE_REF_COOKIE, code, {
+        maxAge: AFFILIATE_REF_MAX_AGE_SECONDS,
+        path: '/',
+        sameSite: 'lax',
+      })
+    }
+  }
+  if (request.nextUrl.searchParams.get('intent') === 'affiliate') {
+    supabaseResponse.cookies.set(AFFILIATE_INTENT_COOKIE, '1', {
+      maxAge: AFFILIATE_REF_MAX_AGE_SECONDS,
+      path: '/',
+      sameSite: 'lax',
+    })
+  }
 
   if (pathname.startsWith('/dashboard') && !user) {
     const url = request.nextUrl.clone()

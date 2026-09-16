@@ -1,6 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isAffiliateOwnerEmail } from "@/lib/affiliate-context"
 import { addTrialDays, FREE_TRIAL_DAYS } from "@/lib/trial"
+import { attributeReferralForUser } from "@/lib/affiliate-referrals"
+import { normalizeAffiliateCodeInput } from "@/lib/affiliate-code"
 
 type AuthUser = {
   id: string
@@ -11,6 +13,12 @@ type AuthUser = {
 export type UserProfileRow = {
   id: string
   affiliate_code: string | null
+}
+
+function referralCodeFromMeta(meta: Record<string, unknown> | undefined): string | null {
+  const raw = meta?.referred_by
+  if (typeof raw !== "string" || !raw.trim()) return null
+  return normalizeAffiliateCodeInput(raw) || null
 }
 
 async function hasPromoRedemption(userId: string): Promise<boolean> {
@@ -28,11 +36,12 @@ export async function ensureUserProfile(
   user: AuthUser
 ): Promise<UserProfileRow> {
   const admin = createAdminClient()
+  const referralCode = referralCodeFromMeta(user.user_metadata)
 
   const { data: existing, error: fetchError } = await admin
     .from("profiles")
     .select(
-      "id, affiliate_code, subscription_tier, trial_started_at, trial_ends_at, trial_exempt, is_admin, is_superadmin, created_at",
+      "id, affiliate_code, subscription_tier, trial_started_at, trial_ends_at, trial_exempt, is_admin, is_superadmin, created_at, referred_by",
     )
     .eq("id", user.id)
     .maybeSingle()
@@ -65,8 +74,23 @@ export async function ensureUserProfile(
       updates.trial_ends_at = addTrialDays(start, FREE_TRIAL_DAYS).toISOString()
     }
 
+    if (referralCode && !existing.referred_by) {
+      updates.referred_by = referralCode
+    }
+
     if (Object.keys(updates).length > 0) {
       await admin.from("profiles").update(updates).eq("id", user.id)
+    }
+
+    if (referralCode) {
+      try {
+        await attributeReferralForUser({
+          referredUserId: user.id,
+          referralCode,
+        })
+      } catch (err) {
+        console.error("[ensureUserProfile] attribute referral:", err)
+      }
     }
 
     return { id: existing.id, affiliate_code: existing.affiliate_code }
@@ -87,6 +111,9 @@ export async function ensureUserProfile(
     insertPayload.is_superadmin = true
     insertPayload.is_admin = true
   }
+  if (referralCode) {
+    insertPayload.referred_by = referralCode
+  }
 
   const { data: created, error: insertError } = await admin
     .from("profiles")
@@ -102,9 +129,32 @@ export async function ensureUserProfile(
         .eq("id", user.id)
         .maybeSingle()
       if (retryError) throw new Error(retryError.message)
-      if (retry) return retry
+      if (retry) {
+        if (referralCode) {
+          try {
+            await attributeReferralForUser({
+              referredUserId: user.id,
+              referralCode,
+            })
+          } catch (err) {
+            console.error("[ensureUserProfile] attribute referral:", err)
+          }
+        }
+        return retry
+      }
     }
     throw new Error(insertError.message)
+  }
+
+  if (referralCode) {
+    try {
+      await attributeReferralForUser({
+        referredUserId: user.id,
+        referralCode,
+      })
+    } catch (err) {
+      console.error("[ensureUserProfile] attribute referral:", err)
+    }
   }
 
   return created

@@ -9,9 +9,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Users, Send, CalendarCheck, Receipt, TrendingUp, Clock, MessageSquareHeart } from "lucide-react"
+import { Users, Send, CalendarCheck, Receipt, TrendingUp, Clock, MessageSquareHeart, Share2, ArrowRight } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { monthStatuses, type BetaEnrollment, type BetaFeedbackSubmission } from "@/lib/beta-feedback-shared"
 import { BETA_PROMO_CODE, BLUMVOX_PROMO_CODE } from "@/lib/promo-codes"
 
@@ -20,14 +21,14 @@ async function fetchDashboardStats() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Not authenticated")
 
-  const [contacts, submissions, bookings, invoices, actionItems, touchpoints, betaEnrollmentRes, bvsEnrollmentRes] =
+  const [contacts, submissions, bookings, invoices, actionItems, touchpoints, betaEnrollmentRes, bvsEnrollmentRes, profileRes] =
     await Promise.all([
       supabase.from("contacts").select("id, status", { count: "exact" }).eq("user_id", user.id),
-      supabase.from("submissions").select("id, status", { count: "exact" }).eq("user_id", user.id),
-      supabase.from("bookings").select("id, status, rate_agreed", { count: "exact" }).eq("user_id", user.id),
+      supabase.from("submissions").select("id, status, project_title, follow_up_date", { count: "exact" }).eq("user_id", user.id),
+      supabase.from("bookings").select("id, status, rate_agreed, project_title", { count: "exact" }).eq("user_id", user.id),
       supabase.from("invoices").select("id, status, amount", { count: "exact" }).eq("user_id", user.id),
       supabase.from("action_items").select("id, status, title, due_date, priority").eq("user_id", user.id).eq("status", "todo").order("due_date", { ascending: true }).limit(5),
-      supabase.from("touchpoints").select("id, status").eq("user_id", user.id).eq("status", "planned"),
+      supabase.from("touchpoints").select("id, status, scheduled_at, subject").eq("user_id", user.id).eq("status", "planned"),
       supabase
         .from("beta_enrollments")
         .select("*")
@@ -44,6 +45,7 @@ async function fetchDashboardStats() {
         .order("started_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
+      supabase.from("profiles").select("affiliate_code").eq("id", user.id).maybeSingle(),
     ])
 
   const activeBookings = bookings.data?.filter((b) => b.status !== "completed" && b.status !== "cancelled") || []
@@ -51,6 +53,20 @@ async function fetchDashboardStats() {
   const pendingAmount = pendingInvoices.reduce((sum, inv) => sum + Number(inv.amount || 0), 0)
   const paidInvoices = invoices.data?.filter((i) => i.status === "paid") || []
   const earnedAmount = paidInvoices.reduce((sum, inv) => sum + Number(inv.amount || 0), 0)
+
+  const bookedWithoutInvoice =
+    submissions.data?.filter((s) => s.status === "booked").length || 0
+  const followUpsDue =
+    touchpoints.data?.filter((t) => {
+      if (!t.scheduled_at) return true
+      const due = new Date(t.scheduled_at).getTime()
+      return due <= Date.now() + 7 * 24 * 60 * 60 * 1000
+    }).length || 0
+  const hasAffiliateCode = Boolean(profileRes.data?.affiliate_code?.trim())
+  const isNewUser =
+    (contacts.count || 0) === 0 &&
+    (submissions.count || 0) === 0 &&
+    (bookings.count || 0) === 0
 
   async function loadProgress(enrollment: BetaEnrollment | null) {
     if (!enrollment || enrollment.participation_enabled === false) return null
@@ -82,6 +98,10 @@ async function fetchDashboardStats() {
     plannedTouchpoints: touchpoints.count || 0,
     betaFeedback,
     bvsFeedback,
+    bookedWithoutInvoice,
+    followUpsDue,
+    hasAffiliateCode,
+    isNewUser,
   }
 }
 
@@ -182,6 +202,68 @@ export default function CommandCenter() {
             </Card>
           </Link>
         ))}
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="artist-card-teal">
+          <CardHeader>
+            <CardTitle className="text-base">Workflow loop</CardTitle>
+            <CardDescription>
+              Audition → follow-up → booking → invoice
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3 text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground">Follow-ups due soon</span>
+              <Badge variant="outline">{stats.followUpsDue}</Badge>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground">Booked submissions</span>
+              <Badge variant="outline">{stats.bookedWithoutInvoice}</Badge>
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button asChild size="sm" variant="outline">
+                <Link href="/dashboard/submissions">
+                  Submissions <ArrowRight className="ml-1 size-3.5" />
+                </Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link href="/dashboard/bookings">
+                  Bookings <ArrowRight className="ml-1 size-3.5" />
+                </Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link href="/dashboard/billing">
+                  Billing <ArrowRight className="ml-1 size-3.5" />
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="artist-card-violet">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Share2 className="size-4 text-artist-violet" />
+              Affiliate
+            </CardTitle>
+            <CardDescription>
+              {stats.hasAffiliateCode
+                ? "Share your link and earn when referrals subscribe."
+                : stats.isNewUser
+                  ? "Create your free referral link in one step."
+                  : "Get your referral code and start earning."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild className="min-h-[44px]">
+              <Link href={stats.hasAffiliateCode ? "/dashboard/affiliate" : "/dashboard/affiliate?welcome=1"}>
+                {stats.hasAffiliateCode ? "Open Affiliate" : "Get your affiliate link"}
+                <ArrowRight className="ml-2 size-4" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       {(stats.betaFeedback || stats.bvsFeedback) && (

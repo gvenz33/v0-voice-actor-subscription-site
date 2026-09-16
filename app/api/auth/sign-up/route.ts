@@ -102,6 +102,7 @@ export async function POST(request: Request) {
       typeof body.referralCode === 'string' && body.referralCode.trim()
         ? body.referralCode.trim()
         : null
+    const affiliateIntent = body.affiliateIntent === true
     const resendOnly = body.resendOnly === true
 
     if (!email) {
@@ -136,7 +137,9 @@ export async function POST(request: Request) {
     }
 
     const origin = getAppUrl()
-    const nextPath = '/dashboard'
+    const nextPath = affiliateIntent
+      ? '/dashboard/affiliate?welcome=1'
+      : '/dashboard'
     const redirectTo = `${origin}/auth/confirm?next=${encodeURIComponent(nextPath)}`
     const admin = createAdminClient()
     const displayName = [firstName, lastName].filter(Boolean).join(' ') || 'there'
@@ -216,6 +219,7 @@ export async function POST(request: Request) {
           first_name: firstName,
           last_name: lastName,
           referred_by: referralCode,
+          affiliate_intent: affiliateIntent ? '1' : undefined,
         },
         redirectTo,
       },

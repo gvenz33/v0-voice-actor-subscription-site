@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { isAffiliateProgramEnabled } from "@/lib/system-settings"
@@ -36,22 +37,30 @@ export default async function AffiliatePage() {
   const affiliateCode = profile?.affiliate_code?.trim() ?? ""
 
   return (
-    <AffiliatePageClient
-      initial={{
-        subscriptionTier: ctx.subscriptionTier,
-        tierLabel: ctx.tierLabel,
-        isEligible: ctx.isEligible,
-        lockReasons: ctx.lockReasons,
-        programEnabled: ctx.programEnabled,
-        affiliateCode,
-        referralUrl: affiliateCode
-          ? buildAffiliateReferralUrl(affiliateCode, siteOrigin)
-          : "",
-        siteOrigin,
-        stripeConnectAccountId: profile?.stripe_connect_account_id ?? null,
-        commissionRate: ctx.commissionRate,
-        commissionPercentLabel: ctx.commissionPercentLabel,
-      }}
-    />
+    <Suspense
+      fallback={
+        <div className="flex min-h-[400px] items-center justify-center">
+          <div className="animate-pulse text-muted-foreground">Loading affiliate data...</div>
+        </div>
+      }
+    >
+      <AffiliatePageClient
+        initial={{
+          subscriptionTier: ctx.subscriptionTier,
+          tierLabel: ctx.tierLabel,
+          isEligible: ctx.isEligible,
+          lockReasons: ctx.lockReasons,
+          programEnabled: ctx.programEnabled,
+          affiliateCode,
+          referralUrl: affiliateCode
+            ? buildAffiliateReferralUrl(affiliateCode, siteOrigin)
+            : "",
+          siteOrigin,
+          stripeConnectAccountId: profile?.stripe_connect_account_id ?? null,
+          commissionRate: ctx.commissionRate,
+          commissionPercentLabel: ctx.commissionPercentLabel,
+        }}
+      />
+    </Suspense>
   )
 }

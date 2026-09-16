@@ -404,10 +404,16 @@ export default function BillingDesk() {
     }
   }
 
-  const handleExportSpreadsheet = async () => {
+  const handleExportSpreadsheet = async (format: "vobiz" | "qbo" | "xero" = "vobiz") => {
     setExportingAll(true)
     try {
-      await downloadFromApi("/api/invoices/export", "vobizsuite-invoices.csv")
+      const filename =
+        format === "qbo"
+          ? "vobizsuite-invoices-quickbooks.csv"
+          : format === "xero"
+            ? "vobizsuite-invoices-xero.csv"
+            : "vobizsuite-invoices.csv"
+      await downloadFromApi(`/api/invoices/export?format=${format}`, filename)
     } catch (err) {
       alert(err instanceof Error ? err.message : "Could not export spreadsheet")
     } finally {
@@ -454,21 +460,41 @@ export default function BillingDesk() {
           <h2 className="font-[family-name:var(--font-heading)] text-2xl font-bold tracking-tight text-foreground">Billing Desk</h2>
           <p className="text-sm text-muted-foreground">Track invoices, payments, and your VO revenue.</p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap">
           <Button
             type="button"
             variant="outline"
             size="lg"
             className="min-h-[44px]"
             disabled={exportingAll || !invoices?.length}
-            onClick={() => void handleExportSpreadsheet()}
+            onClick={() => void handleExportSpreadsheet("vobiz")}
           >
             {exportingAll ? (
               <Loader2 className="mr-2 size-4 animate-spin" />
             ) : (
               <Download className="mr-2 size-4" />
             )}
-            Export to Excel
+            Export CSV
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="min-h-[44px]"
+            disabled={exportingAll || !invoices?.length}
+            onClick={() => void handleExportSpreadsheet("qbo")}
+          >
+            QuickBooks CSV
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="min-h-[44px]"
+            disabled={exportingAll || !invoices?.length}
+            onClick={() => void handleExportSpreadsheet("xero")}
+          >
+            Xero CSV
           </Button>
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditing(null); setFormError(null) } }}>
           <DialogTrigger asChild>

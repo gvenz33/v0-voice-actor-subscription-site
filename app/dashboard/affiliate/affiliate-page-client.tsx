@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -101,10 +102,55 @@ export default function AffiliatePageClient({
   const [commissionPercentLabel, setCommissionPercentLabel] = useState(
     initial.commissionPercentLabel || "20%"
   )
+  const [welcomeMode, setWelcomeMode] = useState(false)
+  const searchParams = useSearchParams()
 
   const affiliateCode = stats?.affiliateCode || initial.affiliateCode
   const hasAffiliateCode = Boolean(affiliateCode?.trim())
   const commissionLabel = commissionPercentLabel
+
+  useEffect(() => {
+    if (searchParams.get("welcome") === "1") {
+      setWelcomeMode(true)
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    if (!welcomeMode || !isEligible || hasAffiliateCode || loading) return
+    // Auto-generate a code for welcome onboarding once
+    void (async () => {
+      try {
+        const response = await fetch("/api/affiliate/code", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: "auto" }),
+        })
+        const result = (await response.json()) as {
+          error?: string
+          affiliateCode?: string
+          referralUrl?: string
+        }
+        if (!response.ok) return
+        const code = result.affiliateCode ?? ""
+        setStats((prev) => ({
+          affiliateCode: code,
+          totalReferrals: prev?.totalReferrals ?? 0,
+          activeReferrals: prev?.activeReferrals ?? 0,
+          totalEarned: prev?.totalEarned ?? 0,
+          pendingEarnings: prev?.pendingEarnings ?? 0,
+        }))
+        if (result.referralUrl) setReferralUrl(result.referralUrl)
+        else if (code) setReferralUrl(resolveReferralUrl(code))
+        setCodeMessage({
+          type: "success",
+          text: "Your affiliate link is ready. Copy it below and start sharing.",
+        })
+      } catch {
+        /* user can still generate manually */
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [welcomeMode, isEligible, hasAffiliateCode, loading])
 
   const resolveReferralUrl = (code: string) =>
     buildAffiliateReferralUrl(
@@ -494,9 +540,9 @@ export default function AffiliatePageClient({
             {showUpgradeCta && (
               <div className="flex flex-col gap-3 sm:flex-row">
                 <Button asChild variant="outline" className="flex-1">
-                  <Link href="/auth/sign-up">
+                  <Link href="/dashboard/settings">
                     <Sparkles className="mr-2 h-4 w-4" />
-                    Create a free account to join
+                    Contact support or check Settings
                   </Link>
                 </Button>
               </div>
@@ -553,6 +599,18 @@ export default function AffiliatePageClient({
           {tierLabel} plan · {commissionLabel}
         </Badge>
       </div>
+
+      {welcomeMode && (
+        <Card className="border-artist-violet/30 bg-artist-violet/5">
+          <CardContent className="flex flex-col gap-2 pt-6 text-sm">
+            <p className="font-medium text-foreground">Welcome — your free affiliate path is ready.</p>
+            <p className="text-muted-foreground">
+              Free accounts earn 8%. Share the link below. When someone signs up with it and
+              subscribes, your commission is tracked automatically.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Referral code setup or share */}
       <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">

@@ -11,8 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Search, CalendarCheck, Trash2, Pencil } from "lucide-react"
+import { Plus, Search, CalendarCheck, Trash2, Pencil, Receipt } from "lucide-react"
 import { fetchContactsPicker } from "@/lib/fetch-contacts-picker"
+import { createInvoiceFromBooking } from "@/lib/workflow-converts"
+import { useRouter } from "next/navigation"
 
 interface Booking {
   id: string
@@ -66,12 +68,14 @@ function bookingStatusColor(status: string) {
 }
 
 export default function BookingsPage() {
+  const router = useRouter()
   const { data: bookings, isLoading } = useSWR("bookings", fetchBookings)
   const { data: contactOptions } = useSWR("contact-picker", fetchContactsPicker)
   const [search, setSearch] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Booking | null>(null)
+  const [invoicingId, setInvoicingId] = useState<string | null>(null)
 
   const filtered = bookings?.filter((b) => {
     const matchSearch = b.project_title.toLowerCase().includes(search.toLowerCase())
@@ -109,6 +113,20 @@ export default function BookingsPage() {
     const supabase = createClient()
     await supabase.from("bookings").delete().eq("id", id)
     mutate("bookings"); mutate("dashboard-stats")
+  }
+
+  const handleCreateInvoice = async (booking: Booking) => {
+    setInvoicingId(booking.id)
+    try {
+      await createInvoiceFromBooking(booking)
+      mutate("invoices")
+      mutate("dashboard-stats")
+      router.push("/dashboard/billing")
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not create invoice")
+    } finally {
+      setInvoicingId(null)
+    }
   }
 
   return (
@@ -203,7 +221,17 @@ export default function BookingsPage() {
                     {booking.due_date && <span>Due: {new Date(booking.due_date).toLocaleDateString()}</span>}
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 flex-wrap justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="min-h-[44px]"
+                    disabled={invoicingId === booking.id}
+                    onClick={() => void handleCreateInvoice(booking)}
+                  >
+                    <Receipt className="mr-1 size-3.5" />
+                    Invoice
+                  </Button>
                   <Button variant="ghost" size="sm" className="min-h-[44px] min-w-[44px]" onClick={() => { setEditing(booking); setDialogOpen(true) }}><Pencil className="size-3.5" /></Button>
                   <Button variant="ghost" size="sm" className="min-h-[44px] min-w-[44px] text-destructive hover:text-destructive" onClick={() => handleDelete(booking.id)}><Trash2 className="size-3.5" /></Button>
                 </div>
