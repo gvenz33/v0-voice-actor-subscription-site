@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { normalizeAffiliateCodeInput } from "@/lib/affiliate-code"
 import {
   getAffiliateCommissionRate,
-  parseFeatureOverrides,
+  type FeatureOverridesInput,
 } from "@/lib/affiliate-access"
 
 export type AffiliateReferralRow = {
@@ -24,7 +24,7 @@ export async function findAffiliateByCode(
   id: string
   affiliate_code: string
   subscription_tier: string | null
-  feature_overrides: unknown
+  feature_overrides: FeatureOverridesInput
 } | null> {
   const code = normalizeAffiliateCodeInput(rawCode)
   if (!code) return null
@@ -36,7 +36,12 @@ export async function findAffiliateByCode(
     .maybeSingle()
 
   if (error || !data?.id || !data.affiliate_code) return null
-  return data
+  return {
+    id: data.id,
+    affiliate_code: data.affiliate_code,
+    subscription_tier: data.subscription_tier ?? null,
+    feature_overrides: data.feature_overrides as FeatureOverridesInput,
+  }
 }
 
 /**
@@ -81,7 +86,7 @@ export async function attributeReferralForUser(params: {
 
   const rate = getAffiliateCommissionRate(
     affiliate.subscription_tier,
-    parseFeatureOverrides(affiliate.feature_overrides)
+    affiliate.feature_overrides
   )
 
   const { data: inserted, error } = await admin
