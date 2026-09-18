@@ -6,6 +6,11 @@ import { AdminChrome } from "@/components/admin/admin-chrome"
 export const metadata: Metadata = {
   title: "Admin Console | VO Biz Suite",
   description: "Administrator console for managing users and system settings.",
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: { index: false, follow: false },
+  },
 }
 
 export default async function AdminLayout({

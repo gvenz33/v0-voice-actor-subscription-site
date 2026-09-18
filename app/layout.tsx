@@ -1,10 +1,13 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter, Space_Grotesk } from 'next/font/google'
 import { ThemeProvider } from '@/components/theme-provider'
+import { getSiteUrl, SITE_DESCRIPTION, SITE_NAME } from '@/lib/seo/site'
 import './globals.css'
 
 const _inter = Inter({ subsets: ["latin"] })
 const _spaceGrotesk = Space_Grotesk({ subsets: ["latin"] })
+
+const siteUrl = getSiteUrl()
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -17,11 +20,12 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: {
-    default: 'VO Biz Suite | Build Your Voiceover Career Like a Business',
-    template: '%s | VO Biz Suite',
+    default: `${SITE_NAME} | Build Your Voiceover Career Like a Business`,
+    template: `%s | ${SITE_NAME}`,
   },
-  description: 'The all-in-one CRM and business management platform built for voice actors. Track auditions, manage clients, send invoices, and grow your VO career with AI-powered tools.',
+  description: SITE_DESCRIPTION,
   keywords: [
     'voice actor CRM',
     'voiceover business management',
@@ -33,10 +37,11 @@ export const metadata: Metadata = {
     'VO client management',
     'voice actor software',
     'voiceover marketing',
+    'AI voiceover tools',
   ],
-  authors: [{ name: 'VO Biz Suite' }],
-  creator: 'VO Biz Suite',
-  publisher: 'VO Biz Suite',
+  authors: [{ name: SITE_NAME }],
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
   robots: {
     index: true,
     follow: true,
@@ -50,26 +55,23 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: 'website',
-    url: 'https://vobizsuite.io',
+    url: siteUrl,
     locale: 'en_US',
-    siteName: 'VO Biz Suite',
-    title: 'VO Biz Suite | Build Your Voiceover Career Like a Business',
-    description: 'The all-in-one CRM and business management platform built for voice actors. Track auditions, manage clients, send invoices, and grow your VO career.',
+    siteName: SITE_NAME,
+    title: `${SITE_NAME} | Build Your Voiceover Career Like a Business`,
+    description:
+      'The all-in-one CRM and business management platform built for voice actors. Track auditions, manage clients, send invoices, and grow your VO career.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'VO Biz Suite | Build Your Voiceover Career Like a Business',
+    title: `${SITE_NAME} | Build Your Voiceover Career Like a Business`,
     description: 'The all-in-one CRM and business management platform built for voice actors.',
     site: '@vobizsuite',
     creator: '@vobizsuite',
   },
-  metadataBase: new URL('https://vobizsuite.io'),
-  alternates: {
-    canonical: '/',
-  },
   appleWebApp: {
     capable: true,
-    title: 'VO Biz Suite',
+    title: SITE_NAME,
     statusBarStyle: 'black-translucent',
   },
   formatDetection: {

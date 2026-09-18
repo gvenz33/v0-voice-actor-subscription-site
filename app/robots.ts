@@ -1,14 +1,29 @@
 import type { MetadataRoute } from 'next'
-
-const siteUrl = 'https://vobizsuite.io'
+import { getSiteUrl } from '@/lib/seo/site'
 
 export default function robots(): MetadataRoute.Robots {
+  const siteUrl = getSiteUrl()
+
   return {
-    rules: {
-      userAgent: '*',
-      allow: '/',
-      disallow: ['/admin', '/dashboard', '/auth'],
-    },
+    rules: [
+      {
+        userAgent: '*',
+        allow: '/',
+        disallow: [
+          '/admin',
+          '/admin/',
+          '/dashboard',
+          '/dashboard/',
+          '/auth',
+          '/auth/',
+          '/pay',
+          '/pay/',
+          '/checkout',
+          '/checkout/',
+          '/api/',
+        ],
+      },
+    ],
     sitemap: `${siteUrl}/sitemap.xml`,
     host: siteUrl,
   }

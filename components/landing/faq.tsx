@@ -8,7 +8,7 @@ import { LANDING_FAQS } from "@/lib/landing-faqs"
 
 export function FAQ() {
   return (
-    <section className="section-faq px-6 py-24 md:py-32">
+    <section id="faq" className="section-faq px-6 py-24 md:py-32">
       <div className="mx-auto max-w-3xl">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">

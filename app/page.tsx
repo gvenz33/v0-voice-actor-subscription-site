@@ -7,9 +7,8 @@ import { Pricing } from '@/components/landing/pricing'
 import { CTA } from '@/components/landing/cta'
 import { FAQ } from '@/components/landing/faq'
 import { Footer } from '@/components/landing/footer'
+import { buildHomeJsonLd } from '@/lib/seo/json-ld'
 import type { Metadata } from 'next'
-
-const siteUrl = 'https://vobizsuite.io'
 
 export const metadata: Metadata = {
   alternates: {
@@ -18,15 +17,7 @@ export const metadata: Metadata = {
 }
 
 export default function HomePage() {
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name: 'VO Biz Suite',
-    url: siteUrl,
-    description:
-      'The all-in-one CRM and business management platform built for voice actors.',
-    sameAs: ['https://x.com/vobizsuite'],
-  }
+  const jsonLd = buildHomeJsonLd()
 
   return (
     <div className="min-h-svh">
@@ -36,7 +27,6 @@ export default function HomePage() {
       />
       <Navbar />
       <main>
-        <div className="sr-only">Deploy check: 2026-04-01</div>
         <Hero />
         <Features />
         <HowItWorks />
@@ -47,7 +37,6 @@ export default function HomePage() {
         <FAQ />
       </main>
       <Footer />
-      {/* Beta tester popup intentionally disabled — promo codes remain active at checkout */}
     </div>
   )
 }

@@ -50,14 +50,17 @@ export function Navbar() {
         </Link>
 
         <div className="hidden items-center gap-8 md:flex">
-          <Link href="#features" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+          <Link href="/#features" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
             Features
           </Link>
-          <Link href="#pricing" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+          <Link href="/#pricing" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
             Pricing
           </Link>
-          <Link href="#how-it-works" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+          <Link href="/#how-it-works" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
             How It Works
+          </Link>
+          <Link href="/guides" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+            Guides
           </Link>
           <Link href="/contact" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
             Contact Us
@@ -103,14 +106,17 @@ export function Navbar() {
       {mobileOpen && (
         <div className="border-t border-border/50 bg-background px-4 py-4 sm:px-6 md:hidden pb-[max(1rem,env(safe-area-inset-bottom,0px))]">
           <div className="flex flex-col gap-4">
-            <Link href="#features" className="text-sm text-muted-foreground" onClick={() => setMobileOpen(false)}>
+            <Link href="/#features" className="text-sm text-muted-foreground" onClick={() => setMobileOpen(false)}>
               Features
             </Link>
-            <Link href="#pricing" className="text-sm text-muted-foreground" onClick={() => setMobileOpen(false)}>
+            <Link href="/#pricing" className="text-sm text-muted-foreground" onClick={() => setMobileOpen(false)}>
               Pricing
             </Link>
-            <Link href="#how-it-works" className="text-sm text-muted-foreground" onClick={() => setMobileOpen(false)}>
+            <Link href="/#how-it-works" className="text-sm text-muted-foreground" onClick={() => setMobileOpen(false)}>
               How It Works
+            </Link>
+            <Link href="/guides" className="text-sm text-muted-foreground" onClick={() => setMobileOpen(false)}>
+              Guides
             </Link>
             <Link href="/contact" className="text-sm text-muted-foreground" onClick={() => setMobileOpen(false)}>
               Contact Us

@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react"
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description: "Privacy Policy for VOBizSuite - Learn how we collect, use, and protect your personal information.",
+  alternates: { canonical: "/privacy" },
 }
 
 export default function PrivacyPage() {

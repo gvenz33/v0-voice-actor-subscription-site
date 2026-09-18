@@ -16,14 +16,17 @@ export function Footer() {
             />
           </Link>
           <nav className="flex flex-wrap items-center justify-center gap-6">
-            <Link href="#features" className="text-sm text-muted-foreground hover:text-foreground">
+            <Link href="/#features" className="text-sm text-muted-foreground hover:text-foreground">
               Features
             </Link>
-            <Link href="#pricing" className="text-sm text-muted-foreground hover:text-foreground">
+            <Link href="/#pricing" className="text-sm text-muted-foreground hover:text-foreground">
               Pricing
             </Link>
-            <Link href="#how-it-works" className="text-sm text-muted-foreground hover:text-foreground">
+            <Link href="/#how-it-works" className="text-sm text-muted-foreground hover:text-foreground">
               How It Works
+            </Link>
+            <Link href="/guides" className="text-sm text-muted-foreground hover:text-foreground">
+              Guides
             </Link>
             <Link href="/auth/login" className="text-sm text-muted-foreground hover:text-foreground">
               Sign In

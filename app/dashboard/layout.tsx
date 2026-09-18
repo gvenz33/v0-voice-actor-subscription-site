@@ -10,6 +10,11 @@ export const metadata: Metadata = {
   title: "Dashboard",
   description:
     "Manage your voice acting business - track auditions, clients, invoices, and grow your career with AI-powered tools.",
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: { index: false, follow: false },
+  },
 }
 
 export default async function DashboardLayout({

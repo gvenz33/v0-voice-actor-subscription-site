@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react"
 export const metadata: Metadata = {
   title: "Terms of Use",
   description: "Terms of Use for VOBizSuite - The terms and conditions governing your use of our platform.",
+  alternates: { canonical: "/terms" },
 }
 
 export default function TermsPage() {
