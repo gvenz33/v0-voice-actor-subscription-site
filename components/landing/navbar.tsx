@@ -78,14 +78,9 @@ export function Navbar() {
               </Button>
             </>
           ) : (
-            <>
-              <Button variant="ghost" asChild>
-                <Link href="/auth/login">Sign In</Link>
-              </Button>
-              <Button variant="success" asChild>
-                <Link href="/auth/sign-up">Start Free Trial</Link>
-              </Button>
-            </>
+            <Button variant="ghost" asChild>
+              <Link href="/auth/login">Sign In</Link>
+            </Button>
           )}
         </div>
 
@@ -138,14 +133,9 @@ export function Navbar() {
                   </Button>
                 </>
               ) : (
-                <>
-                  <Button variant="ghost" asChild>
-                    <Link href="/auth/login" onClick={() => setMobileOpen(false)}>Sign In</Link>
-                  </Button>
-                  <Button variant="success" asChild>
-                    <Link href="/auth/sign-up" onClick={() => setMobileOpen(false)}>Start Free Trial</Link>
-                  </Button>
-                </>
+                <Button variant="ghost" asChild>
+                  <Link href="/auth/login" onClick={() => setMobileOpen(false)}>Sign In</Link>
+                </Button>
               )}
             </div>
           </div>

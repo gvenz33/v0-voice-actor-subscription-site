@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { ArrowRight } from 'lucide-react'
 
 export function CTA() {
   return (
@@ -18,17 +17,6 @@ export function CTA() {
           Join hundreds of voice actors who are using VO Biz Suite to organize, grow, and thrive.
         </p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Button
-            size="lg"
-            variant="success"
-            className="shadow-lg shadow-[oklch(0.42_0.16_145)]/35"
-            asChild
-          >
-            <Link href="/auth/sign-up">
-              Start Your Free Trial
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
           <Button size="lg" variant="outline" asChild>
             <Link href="/auth/sign-up?intent=affiliate">
               Free account — get your affiliate link
