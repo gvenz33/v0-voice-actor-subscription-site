@@ -376,7 +376,7 @@ export default function CheckoutFlow({
                 onClick={() => {
                   setCheckoutError(null)
                   setCheckoutEnabled(false)
-                  queuePromise.resolve().then(openCheckout)
+                  Promise.resolve().then(openCheckout)
                 }}
               >
                 Try again
