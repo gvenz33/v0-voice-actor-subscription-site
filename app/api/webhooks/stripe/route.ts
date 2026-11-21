@@ -139,6 +139,11 @@ export async function POST(request: NextRequest) {
         if (subscriptionId && session.metadata) {
           try {
             await getStripe().subscriptions.update(subscriptionId, {
+              // Ensure renewals auto-charge the saved payment method
+              collection_method: "charge_automatically",
+              payment_settings: {
+                save_default_payment_method: "on_subscription",
+              },
               metadata: {
                 ...session.metadata,
                 user_id: userId ?? session.metadata.user_id ?? "",

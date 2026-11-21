@@ -146,6 +146,10 @@ async function scheduleMonthlyConversion(
   })
 
   await stripe.subscriptions.update(subscription.id, {
+    collection_method: "charge_automatically",
+    payment_settings: {
+      save_default_payment_method: "on_subscription",
+    },
     metadata: {
       ...subscription.metadata,
       promo_code: BLUMVOX_PROMO_CODE,

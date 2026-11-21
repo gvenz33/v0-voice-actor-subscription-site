@@ -76,6 +76,21 @@ export async function startCheckoutSession(
       ui_mode: 'embedded',
       redirect_on_completion: 'never',
       managed_payments: { enabled: false },
+      mode: 'subscription',
+      // Keep a card on file and auto-charge renewals (not send_invoice).
+      payment_method_collection: 'always',
+      subscription_data: {
+        metadata: {
+          ...(userId ? { user_id: userId } : {}),
+          product_id: product.id,
+          tier: product.tier,
+          billing_interval: billingInterval,
+          ...(promoCodeNormalized ? { promo_code: promoCodeNormalized } : {}),
+        },
+        payment_settings: {
+          save_default_payment_method: 'on_subscription',
+        },
+      },
       metadata: {
         ...(userId ? { user_id: userId } : {}),
         product_id: product.id,
@@ -103,7 +118,6 @@ export async function startCheckoutSession(
           quantity: 1,
         },
       ],
-      mode: 'subscription',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
 
