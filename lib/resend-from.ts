@@ -1,4 +1,9 @@
-/** Shared Resend "from" address. Prefer verified domain until vobizsuite.io is verified in Resend. */
+const DEFAULT_FROM_EMAIL = "noreply@vobizsuite.io"
+
+/**
+ * Shared Resend "from" address for VO Biz Suite transactional mail.
+ * Set RESEND_FROM_EMAIL in Vercel (e.g. noreply@vobizsuite.io) once the domain is verified in Resend.
+ */
 export function getTransactionalFromAddress(
   displayName = "VO Biz Suite",
 ): string {
@@ -8,6 +13,5 @@ export function getTransactionalFromAddress(
     if (configured.includes("<")) return configured
     return `${displayName} <${configured}>`
   }
-  // Fallback: verified sending domain currently on the Resend account
-  return `${displayName} <noreply@gotmyrent.com>`
+  return `${displayName} <${DEFAULT_FROM_EMAIL}>`
 }

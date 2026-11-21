@@ -172,7 +172,7 @@ export default function CheckoutFlow({
               id="promo-code"
               value={promoInput}
               onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
-              placeholder="Enter code (e.g. BETA)"
+              placeholder="Promo Code? Type Here."
               disabled={promoLoading}
             />
           </div>
@@ -216,32 +216,62 @@ export default function CheckoutFlow({
       </div>
 
       {requiresAcknowledgement && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="mt-0.5 size-5 shrink-0 text-amber-500" />
-            <div className="space-y-3">
+        <div
+          className={
+            betaAcknowledged
+              ? "rounded-xl border-2 border-green-500/50 bg-green-500/10 p-5 shadow-[0_0_0_1px_rgba(34,197,94,0.15)]"
+              : "rounded-xl border-2 border-amber-400 bg-amber-500/15 p-5 shadow-[0_0_0_4px_rgba(251,191,36,0.2)] ring-2 ring-amber-400/40"
+          }
+        >
+          <div className="flex items-start gap-3">
+            <AlertCircle
+              className={
+                betaAcknowledged
+                  ? "mt-0.5 size-6 shrink-0 text-green-500"
+                  : "mt-0.5 size-6 shrink-0 text-amber-500"
+              }
+            />
+            <div className="min-w-0 flex-1 space-y-4">
               <div>
-                <h2 className="text-sm font-semibold text-foreground">
-                  Beta Program Terms &amp; Conditions
-                </h2>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-base font-semibold text-foreground">
+                    Program Terms &amp; Conditions
+                  </h2>
+                  {!betaAcknowledged && (
+                    <span className="rounded-full bg-amber-500 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-black">
+                      Required
+                    </span>
+                  )}
+                </div>
+                <p className="mt-2 text-sm leading-relaxed text-foreground/80">
                   {appliedPromo?.disclaimer ??
                     getPromoDisclaimer(appliedPromo?.code) ??
                     BETA_ANNUAL_DISCLAIMER}
                 </p>
               </div>
-              <label className="flex items-start gap-3">
+              <label
+                className={
+                  betaAcknowledged
+                    ? "flex cursor-pointer items-start gap-4 rounded-lg border border-green-500/40 bg-background/70 p-4"
+                    : "flex cursor-pointer items-start gap-4 rounded-lg border-2 border-amber-400 bg-background/80 p-4 shadow-sm"
+                }
+              >
                 <Checkbox
                   checked={betaAcknowledged}
                   onCheckedChange={(checked) => setBetaAcknowledged(checked === true)}
-                  className="mt-0.5"
+                  className="mt-0.5 size-6 border-2 border-amber-500 data-[state=checked]:border-green-500 data-[state=checked]:bg-green-600"
                 />
-                <span className="text-sm text-foreground">
+                <span className="text-sm font-medium leading-relaxed text-foreground">
                   {appliedPromo?.code?.toUpperCase() === "BLUMVOX"
                     ? "I have read and agree to the BlumVox / BVS beta program terms & conditions: monthly billing at the promo rate, one monthly feedback form for Months 1–3, and continued discounted monthly billing only if all three feedbacks are completed."
                     : "I have read and agree to the VO Biz Suite Beta program terms & conditions, including completing one monthly feedback form for Months 1–3 and maintaining the 12-month annual beta subscription."}
                 </span>
               </label>
+              {!betaAcknowledged && (
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                  Check the box above to accept before continuing to checkout.
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -249,9 +279,15 @@ export default function CheckoutFlow({
 
       {!checkoutEnabled ? (
         <div className="rounded-xl border border-border bg-background p-5 text-center">
-          <p className="text-sm text-muted-foreground">
+          <p
+            className={
+              requiresAcknowledgement && !betaAcknowledged
+                ? "text-sm font-medium text-amber-700 dark:text-amber-300"
+                : "text-sm text-muted-foreground"
+            }
+          >
             {requiresAcknowledgement && !betaAcknowledged
-              ? 'Please accept the beta program terms & conditions to continue to checkout.'
+              ? 'Please accept the program terms & conditions above to continue to checkout.'
               : 'Ready to complete your subscription?'}
           </p>
           <Button
