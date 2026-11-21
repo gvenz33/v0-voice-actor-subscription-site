@@ -59,46 +59,52 @@ export async function startCheckoutSession(
       ? ` (${promoCodeNormalized} discount applied)`
       : ''
 
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://vobizsuite.io').replace(/\/$/, '')
-
-  const session = await getStripe().checkout.sessions.create({
-    ui_mode: 'embedded',
-    redirect_on_completion: 'never',
-    return_url: `${appUrl}/pay/success?session_id={CHECKOUT_SESSION_ID}`,
-    metadata: {
-      ...(userId ? { user_id: userId } : {}),
-      product_id: product.id,
-      tier: product.tier,
-      billing_interval: billingInterval,
-      ...(promoCodeId ? { promo_code_id: promoCodeId } : {}),
-      ...(promoCodeNormalized ? { promo_code: promoCodeNormalized } : {}),
-      ...(discountAppliedCents > 0
-        ? { discount_applied_cents: String(discountAppliedCents) }
-        : {}),
-      ...(betaAcknowledged ? { beta_acknowledged: 'true' } : {}),
-    },
-    line_items: [
-      {
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: `VO Biz Suite - ${product.name} (${intervalLabel})${discountNote}`,
-            description: product.description,
-          },
-          unit_amount: priceInCents,
-          recurring: stripeRecurring(billingInterval),
-        },
-        quantity: 1,
+  try {
+    // For embedded checkout with redirect_on_completion: "never", do not set return_url —
+    // Stripe rejects that combination and it surfaces as a Server Components render error.
+    const session = await getStripe().checkout.sessions.create({
+      ui_mode: 'embedded',
+      redirect_on_completion: 'never',
+      metadata: {
+        ...(userId ? { user_id: userId } : {}),
+        product_id: product.id,
+        tier: product.tier,
+        billing_interval: billingInterval,
+        ...(promoCodeId ? { promo_code_id: promoCodeId } : {}),
+        ...(promoCodeNormalized ? { promo_code: promoCodeNormalized } : {}),
+        ...(discountAppliedCents > 0
+          ? { discount_applied_cents: String(discountAppliedCents) }
+          : {}),
+        ...(betaAcknowledged ? { beta_acknowledged: 'true' } : {}),
       },
-    ],
-    mode: 'subscription',
-  })
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `VO Biz Suite - ${product.name} (${intervalLabel})${discountNote}`,
+              description: product.description,
+            },
+            unit_amount: priceInCents,
+            recurring: stripeRecurring(billingInterval),
+          },
+          quantity: 1,
+        },
+      ],
+      mode: 'subscription',
+    })
 
-  if (!session.client_secret) {
-    throw new Error('Stripe did not return a checkout client secret.')
+    if (!session.client_secret) {
+      throw new Error('Stripe did not return a checkout client secret.')
+    }
+
+    return session.client_secret
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : 'Could not create Stripe checkout session.'
+    console.error('[stripe] startCheckoutSession failed:', message)
+    throw new Error(message)
   }
-
-  return session.client_secret
 }
 
 export async function getCheckoutPromoDetails(
