@@ -26,7 +26,7 @@ export function Pricing() {
   const [billingInterval, setBillingInterval] = useState<BillingInterval>(() => {
     const parsed = parseInterval(intervalFromUrl)
     if (isBeta) return 'year'
-    if (isBlumvox) return 'quarter'
+    if (isBlumvox) return 'month'
     return parsed
   })
 
@@ -36,7 +36,7 @@ export function Pricing() {
       return
     }
     if (isBlumvox) {
-      setBillingInterval('quarter')
+      setBillingInterval('month')
       return
     }
     if (intervalFromUrl) setBillingInterval(parseInterval(intervalFromUrl))
@@ -66,7 +66,7 @@ export function Pricing() {
                 {isBeta
                   ? ' — 50% off Momentum & Command (12-month annual prepay). Beta program terms apply at checkout.'
                   : isBlumvox
-                    ? ' — 50% off Momentum & Command for an initial 3-month prepay. Complete Months 1–3 feedback to keep the discount month-to-month.'
+                    ? ' — 50% off Momentum & Command on monthly billing. Complete Months 1–3 feedback to keep the discount.'
                     : ' will be applied at checkout on eligible plans.'}
               </span>
             </div>
@@ -74,7 +74,7 @@ export function Pricing() {
         </div>
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-          {!isBeta && !isBlumvox && (
+          {!isBeta && (
             <button
               onClick={() => setBillingInterval('month')}
               className={cn(
@@ -85,19 +85,6 @@ export function Pricing() {
               )}
             >
               Monthly
-            </button>
-          )}
-          {isBlumvox && (
-            <button
-              onClick={() => setBillingInterval('quarter')}
-              className={cn(
-                'relative rounded-full px-4 py-2 text-sm font-medium transition-colors',
-                billingInterval === 'quarter'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              3-month prepay
             </button>
           )}
           {!isBlumvox && (
@@ -128,7 +115,7 @@ export function Pricing() {
 
         {isBlumvox && (
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            BlumVox students start with a 3-month prepay at 50% off. Submit one feedback form each month; complete all three to keep the discount month-to-month afterward.
+            BlumVox students pay monthly at 50% off. Submit one feedback form each month for the first three months; complete all three to keep the discount afterward.
           </p>
         )}
 

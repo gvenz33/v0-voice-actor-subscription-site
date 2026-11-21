@@ -45,7 +45,7 @@ function programCopy(program: BetaFeedbackProgram) {
       title: "BVS Beta Feedback",
       progressTitle: "BVS Beta Feedback Progress",
       description:
-        "Track BlumVox students on the initial 3-month prepay. Completing Months 1–3 feedback retains the discount month-to-month. Export to Excel/CSV anytime.",
+        "Track BlumVox students on monthly promo billing. Completing Months 1–3 feedback retains the discounted monthly rate. Export to Excel/CSV anytime.",
       empty: "No BlumVox beta enrollments yet.",
       participantLabel: "Student",
       detailLabel: "student",

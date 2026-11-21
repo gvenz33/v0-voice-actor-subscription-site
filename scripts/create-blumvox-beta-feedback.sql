@@ -26,7 +26,7 @@ INSERT INTO public.promo_codes (
 )
 VALUES (
   'BLUMVOX',
-  'BlumVox students — 50% off Momentum and Command (monthly or 3-month prepay). Active beta participation: one monthly feedback form for 3 months.',
+  'BlumVox students — 50% off Momentum and Command on monthly billing. Active beta participation: one monthly feedback form for 3 months.',
   'percent',
   50,
   ARRAY['momentum', 'command'],

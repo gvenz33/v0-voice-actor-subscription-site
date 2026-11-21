@@ -65,7 +65,7 @@ function programCopy(program: BetaFeedbackProgram) {
       empty:
         "This area is for BlumVox / BVS beta participants. After an admin enables you (or you subscribe with promo code BLUMVOX), your monthly feedback progress will appear here.",
       description:
-        "Your BlumVox promo starts as a 3-month prepay when enrolled via promo. Share thoughtful, usable feedback in Months 1, 2, and 3 — you can attach screenshots and submit more than once per month. Finish all three months to keep the discounted rate month-to-month afterward when on the promo plan.",
+        "Your BlumVox promo bills monthly at the student rate when enrolled via promo. Share thoughtful, usable feedback in Months 1, 2, and 3 — you can attach screenshots and submit more than once per month. Finish all three months to keep the discounted monthly rate afterward when on the promo plan.",
       programLabel: "BVS Beta",
     }
   }
@@ -245,7 +245,7 @@ export function BetaFeedbackClient({ program }: { program: BetaFeedbackProgram }
             <span className="font-medium text-foreground">
               {enrollment.status === "retained_discount"
                 ? program === BLUMVOX_PROMO_CODE
-                  ? "Discount retained — continues month-to-month after your 3-month prepay"
+                  ? "Discount retained — continues at the discounted monthly rate"
                   : "Discount retained (active participation complete)"
                 : enrollment.status === "regular_rate"
                   ? "Regular rate"

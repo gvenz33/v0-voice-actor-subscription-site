@@ -238,7 +238,7 @@ export default function CheckoutFlow({
                 />
                 <span className="text-sm text-foreground">
                   {appliedPromo?.code?.toUpperCase() === "BLUMVOX"
-                    ? "I have read and agree to the BlumVox / BVS beta program terms & conditions: initial 3-month prepay at the promo rate, one monthly feedback form for Months 1–3, and month-to-month discounted billing only if all three feedbacks are completed."
+                    ? "I have read and agree to the BlumVox / BVS beta program terms & conditions: monthly billing at the promo rate, one monthly feedback form for Months 1–3, and continued discounted monthly billing only if all three feedbacks are completed."
                     : "I have read and agree to the VO Biz Suite Beta program terms & conditions, including completing one monthly feedback form for Months 1–3 and maintaining the 12-month annual beta subscription."}
                 </span>
               </label>

@@ -105,7 +105,7 @@ async function scheduleMonthlyConversion(
     typeof item.price === "string" ? item.price : item.price.id
   const periodEnd = subscription.current_period_end
 
-  // Keep current prepaid quarter price until period end, then monthly.
+  // Keep the current price until period end, then switch to the retention monthly price.
   let scheduleId = typeof subscription.schedule === "string"
     ? subscription.schedule
     : subscription.schedule?.id
@@ -158,17 +158,16 @@ async function scheduleMonthlyConversion(
 }
 
 /**
- * After BlumVox Months 1–3 feedback is complete, convert the prepaid quarterly
- * subscription to month-to-month billing at the same 50% discount when the
- * initial 3-month period ends.
+ * After BlumVox Months 1–3 feedback is complete, keep (or switch to) month-to-month
+ * billing at the same 50% discount when the current billing period ends.
  */
 export async function convertBlumvoxToRetainedMonthly(userId: string): Promise<void> {
   await scheduleMonthlyConversion(userId, "retained_discount")
 }
 
 /**
- * If the initial 3-month BlumVox window ended without completing feedback,
- * move the subscriber to regular monthly pricing when the prepaid period ends.
+ * If the initial 3-month BlumVox feedback window ended without completing feedback,
+ * move the subscriber to regular monthly pricing when the current period ends.
  */
 export async function convertBlumvoxToRegularMonthly(userId: string): Promise<void> {
   await scheduleMonthlyConversion(userId, "regular_rate")

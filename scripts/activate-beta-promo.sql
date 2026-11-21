@@ -20,10 +20,10 @@ SET
   discount_type = 'percent',
   discount_value = 50,
   applies_to_tiers = ARRAY['momentum', 'command'],
-  billing_interval_restriction = 'quarter',
+  billing_interval_restriction = 'month',
   requires_feedback_acknowledgement = true,
   valid_until = NULL,
-  description = 'BlumVox students — 50% off Momentum and Command for an initial 3-month prepay. Complete one monthly feedback form in Months 1–3 to keep the discounted rate month-to-month afterward; otherwise continue at the regular monthly rate.',
+  description = 'BlumVox students — 50% off Momentum and Command on monthly billing. Complete one monthly feedback form in Months 1–3 to keep the discounted monthly rate afterward; otherwise continue at the regular monthly rate.',
   updated_at = now()
 WHERE upper(code) = 'BLUMVOX';
 

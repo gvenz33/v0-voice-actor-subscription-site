@@ -60,11 +60,19 @@ export default async function CheckoutPage({
     }
 
     if (
+      validation.valid &&
+      validation.promo?.billing_interval_restriction === 'month' &&
+      billingInterval !== 'month'
+    ) {
+      redirect(`/checkout/${productId}?interval=month&promo=${encodeURIComponent(initialPromoCode)}`)
+    }
+
+    if (
       validation.valid === false &&
       initialPromoCode.toUpperCase() === 'BLUMVOX' &&
-      billingInterval !== 'quarter'
+      billingInterval !== 'month'
     ) {
-      redirect(`/checkout/${productId}?interval=quarter&promo=${encodeURIComponent(initialPromoCode)}`)
+      redirect(`/checkout/${productId}?interval=month&promo=${encodeURIComponent(initialPromoCode)}`)
     }
   }
 
