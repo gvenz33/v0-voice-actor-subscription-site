@@ -9,11 +9,18 @@ import {
 } from '@/lib/promo-codes-server'
 import { getPromoDisclaimer } from '@/lib/promo-codes'
 
+/** Stripe tax code for SaaS / electronically delivered software */
+const SAAS_TAX_CODE = 'txcd_10103001'
+
 function stripeRecurring(interval: BillingInterval): { interval: 'month' | 'year'; interval_count?: number } {
   if (interval === 'year') return { interval: 'year' }
   if (interval === 'quarter') return { interval: 'month', interval_count: 3 }
   return { interval: 'month' }
 }
+
+export type CheckoutSessionResult =
+  | { ok: true; clientSecret: string }
+  | { ok: false; error: string }
 
 export async function startCheckoutSession(
   productId: string,
@@ -21,10 +28,10 @@ export async function startCheckoutSession(
   userId?: string | null,
   promoCode?: string | null,
   betaAcknowledged?: boolean,
-) {
+): Promise<CheckoutSessionResult> {
   const product = PRODUCTS.find((p) => p.id === productId)
   if (!product) {
-    throw new Error(`Product with id "${productId}" not found`)
+    return { ok: false, error: `Product with id "${productId}" not found` }
   }
 
   let priceInCents = getProductPrice(product, billingInterval)
@@ -40,11 +47,14 @@ export async function startCheckoutSession(
     )
 
     if (!validation.valid || !validation.promo) {
-      throw new Error(validation.error ?? 'Invalid promo code.')
+      return { ok: false, error: validation.error ?? 'Invalid promo code.' }
     }
 
     if (validation.promo.requires_feedback_acknowledgement && !betaAcknowledged) {
-      throw new Error('You must accept the beta participation agreement before checkout.')
+      return {
+        ok: false,
+        error: 'You must accept the beta participation agreement before checkout.',
+      }
     }
 
     priceInCents = validation.discountedPriceInCents ?? priceInCents
@@ -60,11 +70,12 @@ export async function startCheckoutSession(
       : ''
 
   try {
-    // For embedded checkout with redirect_on_completion: "never", do not set return_url —
-    // Stripe rejects that combination and it surfaces as a Server Components render error.
+    // Managed Payments is on by default for this Stripe account and requires a tax_code.
+    // Disable managed payments for standard embedded subscription checkout, and set SaaS tax_code.
     const session = await getStripe().checkout.sessions.create({
       ui_mode: 'embedded',
       redirect_on_completion: 'never',
+      managed_payments: { enabled: false },
       metadata: {
         ...(userId ? { user_id: userId } : {}),
         product_id: product.id,
@@ -84,6 +95,7 @@ export async function startCheckoutSession(
             product_data: {
               name: `VO Biz Suite - ${product.name} (${intervalLabel})${discountNote}`,
               description: product.description,
+              tax_code: SAAS_TAX_CODE,
             },
             unit_amount: priceInCents,
             recurring: stripeRecurring(billingInterval),
@@ -92,18 +104,19 @@ export async function startCheckoutSession(
         },
       ],
       mode: 'subscription',
-    })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
 
     if (!session.client_secret) {
-      throw new Error('Stripe did not return a checkout client secret.')
+      return { ok: false, error: 'Stripe did not return a checkout client secret.' }
     }
 
-    return session.client_secret
+    return { ok: true, clientSecret: session.client_secret }
   } catch (err) {
     const message =
       err instanceof Error ? err.message : 'Could not create Stripe checkout session.'
     console.error('[stripe] startCheckoutSession failed:', message)
-    throw new Error(message)
+    return { ok: false, error: message }
   }
 }
 
@@ -156,6 +169,7 @@ export async function startTokenCheckoutSession(packageId: string) {
   const session = await getStripe().checkout.sessions.create({
     ui_mode: 'embedded',
     redirect_on_completion: 'never',
+    managed_payments: { enabled: false },
     line_items: [
       {
         price_data: {
@@ -163,6 +177,7 @@ export async function startTokenCheckoutSession(packageId: string) {
           product_data: {
             name: `${tokenPackage.name} Token Package`,
             description: `${tokenPackage.tokens} tokens for VO Biz Suite`,
+            tax_code: SAAS_TAX_CODE,
           },
           unit_amount: tokenPackage.priceInCents,
         },
@@ -175,7 +190,8 @@ export async function startTokenCheckoutSession(packageId: string) {
       package_id: packageId,
       tokens: tokenPackage.tokens.toString(),
     },
-  })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any)
 
   return session.client_secret
 }

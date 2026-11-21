@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   EmbeddedCheckout,
   EmbeddedCheckoutProvider,
@@ -13,7 +13,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { AlertCircle, Loader2, Tag } from 'lucide-react'
-import { BETA_ANNUAL_DISCLAIMER, formatCents, getPromoDisclaimer } from '@/lib/promo-codes'
+import {
+  BETA_ANNUAL_DISCLAIMER,
+  BETA_PROMO_CODE,
+  BLUMVOX_PROMO_CODE,
+  formatCents,
+  getPromoDisclaimer,
+  normalizePromoCode,
+} from '@/lib/promo-codes'
 import { getStripePublishableKey } from '@/lib/stripe-public'
 
 const stripePublishableKey = getStripePublishableKey()
@@ -26,6 +33,13 @@ interface PromoState {
   discountedPriceInCents: number
   requiresFeedbackAcknowledgement: boolean
   disclaimer: string | null
+}
+
+function promoRequiresAcknowledgement(promo: PromoState | null): boolean {
+  if (!promo) return false
+  if (promo.requiresFeedbackAcknowledgement) return true
+  const code = normalizePromoCode(promo.code)
+  return code === BETA_PROMO_CODE || code === BLUMVOX_PROMO_CODE || !!getPromoDisclaimer(code)
 }
 
 export default function CheckoutFlow({
@@ -42,14 +56,15 @@ export default function CheckoutFlow({
   const [promoError, setPromoError] = useState('')
   const [promoLoading, setPromoLoading] = useState(false)
   const [betaAcknowledged, setBetaAcknowledged] = useState(false)
-  const [checkoutEnabled, setCheckoutEnabled] = useState(false)
+  const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const checkoutRef = useRef<HTMLDivElement | null>(null)
 
-  const requiresAcknowledgement = appliedPromo?.requiresFeedbackAcknowledgement ?? false
+  const requiresAcknowledgement = promoRequiresAcknowledgement(appliedPromo)
   const canProceedToCheckout =
     !requiresAcknowledgement || betaAcknowledged
+  const checkoutEnabled = !!clientSecret
 
   useEffect(() => {
     if (initialPromoCode) {
@@ -60,14 +75,14 @@ export default function CheckoutFlow({
 
   // Reset checkout only when the offer changes — not when T&Cs are accepted.
   useEffect(() => {
-    setCheckoutEnabled(false)
+    setClientSecret(null)
     setCheckoutError(null)
   }, [appliedPromo?.code, billingInterval, productId])
 
   // If they uncheck T&Cs after opening checkout, close it again.
   useEffect(() => {
     if (requiresAcknowledgement && !betaAcknowledged) {
-      setCheckoutEnabled(false)
+      setClientSecret(null)
       setCheckoutError(null)
     }
   }, [requiresAcknowledgement, betaAcknowledged])
@@ -117,17 +132,25 @@ export default function CheckoutFlow({
         return
       }
 
+      const normalized = normalizePromoCode(data.code ?? code)
+      const needsAck =
+        Boolean(data.requiresFeedbackAcknowledgement) ||
+        normalized === BETA_PROMO_CODE ||
+        normalized === BLUMVOX_PROMO_CODE
+
       setAppliedPromo({
         code: data.code ?? code.toUpperCase(),
         discountAppliedCents: data.discountAppliedCents ?? 0,
         originalPriceInCents: data.originalPriceInCents ?? 0,
         discountedPriceInCents: data.discountedPriceInCents ?? 0,
-        requiresFeedbackAcknowledgement: data.requiresFeedbackAcknowledgement ?? false,
-        disclaimer: data.disclaimer ?? null,
+        requiresFeedbackAcknowledgement: needsAck,
+        disclaimer:
+          data.disclaimer ??
+          (needsAck ? getPromoDisclaimer(normalized) : null),
       })
       setPromoInput(data.code ?? code)
       setBetaAcknowledged(false)
-      setCheckoutEnabled(false)
+      setClientSecret(null)
     } catch {
       setAppliedPromo(null)
       setPromoError('Could not validate promo code.')
@@ -136,7 +159,15 @@ export default function CheckoutFlow({
     }
   }
 
-  const fetchClientSecret = useCallback(async () => {
+  const openCheckout = async () => {
+    if (!canProceedToCheckout) return
+    if (!stripePromise) {
+      setCheckoutError(
+        'Stripe is not configured for this site. Please contact support at hello@vobizsuite.io.'
+      )
+      return
+    }
+
     setCheckoutLoading(true)
     setCheckoutError(null)
 
@@ -146,7 +177,7 @@ export default function CheckoutFlow({
         data: { user },
       } = await supabase.auth.getUser()
 
-      const secret = await startCheckoutSession(
+      const result = await startCheckoutSession(
         productId,
         billingInterval,
         user?.id ?? null,
@@ -154,26 +185,22 @@ export default function CheckoutFlow({
         requiresAcknowledgement ? betaAcknowledged : undefined,
       )
 
-      if (secret == null) {
-        throw new Error('Checkout session missing client secret')
+      if (!result.ok) {
+        setClientSecret(null)
+        setCheckoutError(result.error)
+        return
       }
 
-      return secret
+      setClientSecret(result.clientSecret)
     } catch (err) {
-      const message =
+      setClientSecret(null)
+      setCheckoutError(
         err instanceof Error ? err.message : 'Could not start checkout. Please try again.'
-      setCheckoutError(message)
-      throw err
+      )
     } finally {
       setCheckoutLoading(false)
     }
-  }, [
-    productId,
-    billingInterval,
-    appliedPromo?.code,
-    requiresAcknowledgement,
-    betaAcknowledged,
-  ])
+  }
 
   const checkoutKey = useMemo(
     () =>
@@ -182,21 +209,10 @@ export default function CheckoutFlow({
         billingInterval,
         appliedPromo?.code ?? 'none',
         betaAcknowledged ? 'ack' : 'no-ack',
+        clientSecret ? clientSecret.slice(-12) : 'no-secret',
       ].join(':'),
-    [productId, billingInterval, appliedPromo?.code, betaAcknowledged]
+    [productId, billingInterval, appliedPromo?.code, betaAcknowledged, clientSecret]
   )
-
-  const openCheckout = () => {
-    if (!canProceedToCheckout) return
-    if (!stripePromise) {
-      setCheckoutError(
-        'Stripe is not configured for this site. Please contact support at hello@vobizsuite.io.'
-      )
-      return
-    }
-    setCheckoutError(null)
-    setCheckoutEnabled(true)
-  }
 
   return (
     <div className="space-y-6">
@@ -250,7 +266,7 @@ export default function CheckoutFlow({
               </span>{' '}
               ({formatCents(appliedPromo.discountAppliedCents)} saved)
             </p>
-            {appliedPromo.requiresFeedbackAcknowledgement && (
+            {requiresAcknowledgement && (
               <p className="mt-2 text-amber-700 dark:text-amber-400">
                 This promo enrolls you in a beta program. Review and accept the terms &amp; conditions below
                 before checkout.
@@ -344,10 +360,17 @@ export default function CheckoutFlow({
           <Button
             type="button"
             className="mt-4"
-            disabled={!canProceedToCheckout}
-            onClick={openCheckout}
+            disabled={!canProceedToCheckout || checkoutLoading}
+            onClick={() => void openCheckout()}
           >
-            Continue to Checkout
+            {checkoutLoading ? (
+              <>
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                Starting checkout…
+              </>
+            ) : (
+              'Continue to Checkout'
+            )}
           </Button>
         </div>
       ) : (
@@ -357,36 +380,10 @@ export default function CheckoutFlow({
           key={checkoutKey}
           className="min-h-[480px] rounded-xl border border-border bg-background p-2 sm:p-4"
         >
-          {checkoutLoading && (
-            <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" />
-              Loading secure checkout…
-            </div>
-          )}
-          {checkoutError && (
-            <div className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              <p className="flex items-start gap-2">
-                <AlertCircle className="mt-0.5 size-4 shrink-0" />
-                {checkoutError}
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                className="mt-3"
-                onClick={() => {
-                  setCheckoutError(null)
-                  setCheckoutEnabled(false)
-                  Promise.resolve().then(openCheckout)
-                }}
-              >
-                Try again
-              </Button>
-            </div>
-          )}
-          {stripePromise ? (
+          {stripePromise && clientSecret ? (
             <EmbeddedCheckoutProvider
               stripe={stripePromise}
-              options={{ fetchClientSecret }}
+              options={{ clientSecret }}
             >
               <EmbeddedCheckout />
             </EmbeddedCheckoutProvider>

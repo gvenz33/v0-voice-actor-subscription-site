@@ -19,15 +19,15 @@ export default function Checkout({ productId, billingInterval = 'month' }: { pro
       data: { user },
     } = await supabase.auth.getUser()
 
-    const secret = await startCheckoutSession(
+    const result = await startCheckoutSession(
       productId,
       billingInterval,
       user?.id ?? null,
     )
-    if (secret == null) {
-      throw new Error("Checkout session missing client secret")
+    if (!result.ok) {
+      throw new Error(result.error || "Checkout session missing client secret")
     }
-    return secret
+    return result.clientSecret
   }, [productId, billingInterval])
 
   return (
