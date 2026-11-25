@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client"
+import { buildInvoiceNotes } from "@/lib/invoice-billing"
 
 /** Convert an audition submission into a booking. */
 export async function convertSubmissionToBooking(submission: {
@@ -121,6 +122,64 @@ export async function createInvoiceFromBooking(booking: {
       description: booking.project_title,
       notes,
       contact_id: booking.contact_id || null,
+    })
+    .select("id")
+    .single()
+
+  if (error) throw new Error(error.message)
+  return data.id as string
+}
+
+/**
+ * Create a draft invoice from the script counter and return its id.
+ * Same draft shape as a booking invoice: generated invoice number, status
+ * draft, no client, no due date, and amount 0 when no rate is selected.
+ * Word count, minute read, and WPM come from the counter.
+ */
+export async function createInvoiceFromScriptCount(input: {
+  wordCount: number
+  readingMinutes: number
+  wpm: number
+}) {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error("Not authenticated")
+
+  const wordCount = Math.floor(input.wordCount)
+  const readingMinutes = Math.floor(input.readingMinutes)
+  const wpm = Math.floor(input.wpm)
+  if (!Number.isFinite(wordCount) || wordCount <= 0) {
+    throw new Error("Please enter a valid word count.")
+  }
+  if (!Number.isFinite(readingMinutes) || readingMinutes < 0) {
+    throw new Error("Please enter a valid minute read.")
+  }
+  if (!Number.isFinite(wpm) || wpm <= 0) {
+    throw new Error("Please enter a valid WPM value.")
+  }
+
+  const invoiceNumber = `INV-${Date.now().toString().slice(-8)}`
+  const notes = buildInvoiceNotes({
+    userNotes: readingMinutes > 0 ? `Minute read: ${readingMinutes}` : "",
+    clientEmail: "",
+    wordCount,
+    rateTemplate: null,
+    wpm,
+  })
+
+  const { data, error } = await supabase
+    .from("invoices")
+    .insert({
+      user_id: user.id,
+      invoice_number: invoiceNumber,
+      amount: 0,
+      status: "draft",
+      due_date: null,
+      description: null,
+      notes,
+      contact_id: null,
     })
     .select("id")
     .single()

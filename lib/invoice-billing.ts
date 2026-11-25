@@ -31,7 +31,7 @@ export function parseInvoiceMeta(notes: string | null | undefined): {
   wpm: number | null
 } {
   const { userNotes, metaBlock } = splitNotesAndMeta(notes)
-  const clientEmail = metaBlock.match(/Client email:\s*([^\n\r]+)/i)?.[1]?.trim() || ""
+  const clientEmail = metaBlock.match(/Client email:[ \t]*([^\n\r]*)/i)?.[1]?.trim() || ""
 
   const wordCount = (() => {
     const m = metaBlock.match(/Word count:\s*(\d+)/i)

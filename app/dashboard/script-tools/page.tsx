@@ -8,11 +8,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import {
-  BILLING_WORD_COUNT_SESSION_KEY,
+  BILLING_DRAFT_INVOICE_QUERY_PARAM,
   countWords,
   DEFAULT_WPM,
   readingMinutes,
 } from "@/lib/script-word-count"
+import { createInvoiceFromScriptCount } from "@/lib/workflow-converts"
 import {
   SCRIPT_FILE_ACCEPT,
   ScriptFileReadError,
@@ -26,6 +27,8 @@ export default function ScriptToolsPage() {
   const [text, setText] = useState("")
   const [fileLoading, setFileLoading] = useState(false)
   const [fileError, setFileError] = useState<string | null>(null)
+  const [creatingDraft, setCreatingDraft] = useState(false)
+  const [billingError, setBillingError] = useState<string | null>(null)
 
   const words = useMemo(() => countWords(text), [text])
   const minutes = useMemo(() => readingMinutes(words, DEFAULT_WPM), [words])
@@ -51,14 +54,23 @@ export default function ScriptToolsPage() {
     setFileLoading(false)
   }, [])
 
-  const sendToBilling = () => {
-    if (words <= 0) return
+  const sendToBilling = async () => {
+    if (words <= 0 || creatingDraft) return
+    setBillingError(null)
+    setCreatingDraft(true)
     try {
-      sessionStorage.setItem(BILLING_WORD_COUNT_SESSION_KEY, String(words))
-    } catch {
-      /* ignore */
+      const id = await createInvoiceFromScriptCount({
+        wordCount: words,
+        readingMinutes: minutes,
+        wpm: DEFAULT_WPM,
+      })
+      const url = new URL("/dashboard/billing", window.location.origin)
+      url.searchParams.set(BILLING_DRAFT_INVOICE_QUERY_PARAM, id)
+      window.location.assign(url.toString())
+    } catch (err) {
+      setBillingError(err instanceof Error ? err.message : "Could not open Billing Desk")
+      setCreatingDraft(false)
     }
-    window.location.href = "/dashboard/billing"
   }
 
   return (
@@ -127,13 +139,19 @@ export default function ScriptToolsPage() {
             </span>
           </div>
 
+          {billingError && (
+            <p className="text-sm text-destructive">{billingError}</p>
+          )}
+
           <div className="flex flex-wrap gap-2">
             <Button
+              type="button"
               size="lg"
-              disabled={words <= 0}
-              onClick={sendToBilling}
+              disabled={words <= 0 || creatingDraft}
+              onClick={() => void sendToBilling()}
               className="min-h-[44px]"
             >
+              {creatingDraft && <Loader2 className="mr-2 size-4 animate-spin" />}
               Use in Billing Desk
             </Button>
             <Button
