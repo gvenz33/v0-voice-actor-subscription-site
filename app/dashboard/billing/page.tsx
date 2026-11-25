@@ -23,6 +23,7 @@ import {
   totalAttachmentBytes,
 } from "@/lib/read-file-base64"
 import {
+  BILLING_DRAFT_INVOICE_QUERY_PARAM,
   BILLING_WORD_COUNT_SESSION_KEY,
   DEFAULT_WPM,
 } from "@/lib/script-word-count"
@@ -81,6 +82,27 @@ function invStatusColor(status: string) {
 function toDateInputValue(dueDate: string | null | undefined) {
   if (!dueDate) return ""
   return dueDate.includes("T") ? dueDate.split("T")[0] : dueDate
+}
+
+/**
+ * Draft id from the script counter. A module variable survives the dev
+ * strict-mode remount that would otherwise drop the open-dialog state
+ * after the query param is removed.
+ * null = not read yet, "" = nothing to open.
+ */
+let scriptCountHandoffId: string | null = null
+
+function readScriptCountHandoffId() {
+  if (scriptCountHandoffId !== null) return scriptCountHandoffId
+  const params = new URLSearchParams(window.location.search)
+  const id = params.get(BILLING_DRAFT_INVOICE_QUERY_PARAM)
+  if (id) {
+    params.delete(BILLING_DRAFT_INVOICE_QUERY_PARAM)
+    const qs = params.toString()
+    window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`)
+  }
+  scriptCountHandoffId = id || ""
+  return scriptCountHandoffId
 }
 
 export default function BillingDesk() {
@@ -219,6 +241,22 @@ export default function BillingDesk() {
     setInvoiceAttachments([])
     setSelectedDemoReelIds([])
     setSelectedUserMediaIds([])
+  }, [dialogOpen, editing])
+
+  useEffect(() => {
+    const id = readScriptCountHandoffId()
+    if (!id || !invoices) return
+    const inv = invoices.find((invoice) => invoice.id === id)
+    if (!inv) return
+    setEditing((current) => (current?.id === inv.id ? current : inv))
+    setDialogOpen(true)
+  }, [invoices])
+
+  useEffect(() => {
+    if (!dialogOpen || !editing) return
+    if (scriptCountHandoffId && editing.id === scriptCountHandoffId) {
+      scriptCountHandoffId = ""
+    }
   }, [dialogOpen, editing])
 
   const filtered = invoices?.filter((inv) => {

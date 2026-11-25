@@ -6,6 +6,6 @@ export function parseInvoiceClientEmailFromNotes(notes: string | null | undefine
   const idx = notesStr.indexOf(META_MARKER)
   if (idx === -1) return null
   const metaBlock = notesStr.slice(idx)
-  const m = metaBlock.match(/Client email:\s*([^\n\r]+)/i)
+  const m = metaBlock.match(/Client email:[ \t]*([^\n\r]*)/i)
   return m?.[1]?.trim() || null
 }
