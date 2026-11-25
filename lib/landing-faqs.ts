@@ -76,7 +76,7 @@ export const LANDING_FAQS: LandingFaqItem[] = [
   {
     question: "What are Script Tools?",
     answer:
-      "Script Tools count words in narration or e-learning scripts: paste text or upload a .txt or .docx file. You get word counts and estimated reading time, and you can carry those numbers into Billing Desk when you build an invoice.",
+      "Script Tools count words in narration or e-learning scripts: paste text or upload a .txt, .doc, .docx, or .pdf file. You get word counts and estimated reading time, and you can carry those numbers into Billing Desk when you build an invoice.",
   },
   {
     question: "How does Prospect Finder work?",
