@@ -3,7 +3,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  serverExternalPackages: ["mailparser"],
+  serverExternalPackages: ["mailparser", "word-extractor"],
 }
 
 export default nextConfig

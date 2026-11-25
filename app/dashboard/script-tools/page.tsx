@@ -2,7 +2,6 @@
 
 import { useCallback, useMemo, useState } from "react"
 import Link from "next/link"
-import mammoth from "mammoth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -14,6 +13,13 @@ import {
   DEFAULT_WPM,
   readingMinutes,
 } from "@/lib/script-word-count"
+import {
+  SCRIPT_FILE_ACCEPT,
+  ScriptFileReadError,
+  UNREADABLE_SCRIPT_FILE_MESSAGE,
+  readUploadedScript,
+} from "@/lib/script-file-text"
+import { readLegacyDocFile } from "@/app/dashboard/script-tools/actions"
 import { FileText, Loader2 } from "lucide-react"
 
 export default function ScriptToolsPage() {
@@ -31,19 +37,16 @@ export default function ScriptToolsPage() {
     setFileError(null)
     setFileLoading(true)
     try {
-      const name = file.name.toLowerCase()
-      if (name.endsWith(".txt")) {
-        const t = await file.text()
-        setText(t)
-      } else if (name.endsWith(".docx")) {
-        const buf = await file.arrayBuffer()
-        const result = await mammoth.extractRawText({ arrayBuffer: buf })
-        setText(result.value || "")
-      } else {
-        setFileError("Use a .txt or .docx file.")
-      }
-    } catch {
-      setFileError("Could not read file.")
+      const next = await readUploadedScript(file, async (docFile) => {
+        const result = await readLegacyDocFile(docFile)
+        if ("error" in result) throw new ScriptFileReadError(result.error)
+        return result.text
+      })
+      setText(next)
+    } catch (err) {
+      setFileError(
+        err instanceof ScriptFileReadError ? err.message : UNREADABLE_SCRIPT_FILE_MESSAGE,
+      )
     }
     setFileLoading(false)
   }, [])
@@ -66,7 +69,7 @@ export default function ScriptToolsPage() {
           Script word counter
         </h2>
         <p className="text-sm text-muted-foreground">
-          Paste a script or upload .txt / .docx. Word count uses the same logic as{" "}
+          Paste a script or upload .txt, .doc, .docx, or .pdf. Word count uses the same logic as{" "}
           <Link href="/dashboard/billing" className="text-violet-600 underline underline-offset-2">
             Billing Desk
           </Link>
@@ -87,7 +90,7 @@ export default function ScriptToolsPage() {
             <Input
               id="script-upload"
               type="file"
-              accept=".txt,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              accept={SCRIPT_FILE_ACCEPT}
               onChange={onFile}
               disabled={fileLoading}
             />

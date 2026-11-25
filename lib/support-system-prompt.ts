@@ -10,7 +10,7 @@ export function getSupportSystemPrompt(): string {
 - Platform for voice actors: CRM (Client Hub), audition Submissions, Bookings, Billing Desk / invoices, Touchpoints, Action items, Command Center dashboard.
 - **Plans:** Launch (~$29/mo), Momentum (~$49/mo, popular), Command (~$99/mo). Annual billing saves ~2 months. Details on the website Pricing section.
 - **AI:** Outreach / follow-up / pitch tools, Prospect Finder (URL scan), VO business chat (tier-dependent). Uses **tokens**; monthly allowance per plan + optional token packs from Dashboard → Tokens.
-- **Email:** Connect Gmail, Microsoft 365, or SMTP/IMAP in Dashboard → Settings → Email. **Inbox** and **Calendar** unify multiple accounts. Script Tools: word counts from paste or .txt/.docx.
+- **Email:** Connect Gmail, Microsoft 365, or SMTP/IMAP in Dashboard → Settings → Email. **Inbox** and **Calendar** unify multiple accounts. Script Tools: word counts from paste or .txt, .doc, .docx, or .pdf.
 - **Contact:** hello@vobizsuite.io — this chat, or the Contact page.
 
 If a question is answered in the FAQ below, prefer that wording.
