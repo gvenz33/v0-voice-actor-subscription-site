@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client"
-import { buildInvoiceNotes } from "@/lib/invoice-billing"
+import { buildInvoiceNotes, scriptCounterDraftAmount } from "@/lib/invoice-billing"
 
 /** Convert an audition submission into a booking. */
 export async function convertSubmissionToBooking(submission: {
@@ -133,8 +133,10 @@ export async function createInvoiceFromBooking(booking: {
 /**
  * Create a draft invoice from the script counter and return its id.
  * Same draft shape as a booking invoice: generated invoice number, status
- * draft, no client, no due date, and amount 0 when no rate is selected.
- * Word count, minute read, and WPM come from the counter.
+ * draft, no client, and no due date. Word count, minute read, and WPM come
+ * from the counter. The amount comes from the Voice Over Rate Guide (Cat 1
+ * first-hour rate, one-hour minimum, then $148 per extra half-hour). The
+ * guide does not select a category, so the rate template stays unset.
  */
 export async function createInvoiceFromScriptCount(input: {
   wordCount: number
@@ -160,6 +162,9 @@ export async function createInvoiceFromScriptCount(input: {
     throw new Error("Please enter a valid WPM value.")
   }
 
+  const priced = scriptCounterDraftAmount(wordCount, wpm)
+  if (!priced) throw new Error("Could not price this script from the rate guide.")
+
   const invoiceNumber = `INV-${Date.now().toString().slice(-8)}`
   const notes = buildInvoiceNotes({
     userNotes: readingMinutes > 0 ? `Minute read: ${readingMinutes}` : "",
@@ -174,7 +179,7 @@ export async function createInvoiceFromScriptCount(input: {
     .insert({
       user_id: user.id,
       invoice_number: invoiceNumber,
-      amount: 0,
+      amount: priced.amount,
       status: "draft",
       due_date: null,
       description: null,

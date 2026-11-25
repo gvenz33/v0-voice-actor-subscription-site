@@ -73,6 +73,16 @@ export function buildInvoiceNotes(params: {
   return `${userNotes.trim()}\n\n${metaBlock}`
 }
 
+/**
+ * Price a script-counter draft the way Billing Desk prices from the Voice Over Rate Guide.
+ * The guide lists Cat 1 ($505) before Cat 2 ($563) and does not choose a category,
+ * so this uses the Cat 1 first-hour rate. Callers should leave the rate template unset.
+ * One hour is the minimum. Each extra half-hour adds $148.
+ */
+export function scriptCounterDraftAmount(wordCount: number, wpm: number) {
+  return computeInvoiceAmount(wordCount, wpm, "cat1")
+}
+
 export function computeInvoiceAmount(wordCount: number, wpm: number, rateTemplate: RateTemplate) {
   if (!Number.isFinite(wordCount) || wordCount <= 0) return null
   if (!Number.isFinite(wpm) || wpm <= 0) return null
